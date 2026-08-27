@@ -1,23 +1,23 @@
 package com.moive.MoiveBE.domain.auth.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
 
-@Getter
-@NoArgsConstructor
-public class KakaoUserInfoResponse {
+public record KakaoUserInfoResponse(
+        Long id,
+        Properties properties,
+        @JsonProperty("kakao_account")
+        KakaoAccount kakaoAccount
+) {
 
-    private Long id;
-    private Properties properties;
+    public record Properties(
+            String nickname,
+            @JsonProperty("profile_image")
+            String profileImage
+    ) {
+    }
 
-    @Getter
-    @NoArgsConstructor
-    public static class Properties {
-
-        private String nickname;
-
-        @JsonProperty("profile_image")
-        private String profileImage;
+    public record KakaoAccount(
+            String email
+    ) {
     }
 }
