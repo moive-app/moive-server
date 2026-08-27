@@ -26,7 +26,12 @@ public record KakaoLoginResponse(
                 description = "카카오 이메일",
                 example = "example@kakao.com"
         )
-        String email
+        String email,
+
+        @Schema(
+                description = "MOIVE 서비스 토큰. 신규 회원인 경우 null"
+        )
+        TokenResponse token
 
 ) {
 }

@@ -5,6 +5,7 @@ import com.moive.MoiveBE.domain.auth.dto.KakaoLoginResponse;
 import com.moive.MoiveBE.domain.auth.dto.SignupRequest;
 import com.moive.MoiveBE.domain.auth.service.AuthService;
 import com.moive.MoiveBE.global.common.BaseResponse;
+import com.moive.MoiveBE.domain.auth.dto.TokenResponse;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -39,11 +40,11 @@ public class AuthController {
             description = "카카오 Access Token을 검증하고 약관 동의 후 신규 회원을 생성합니다."
     )
     @PostMapping("/signup")
-    public BaseResponse<Void> signup(
+    public BaseResponse<TokenResponse> signup(
             @Valid @RequestBody SignupRequest request
     ) {
-        authService.signup(request);
-
-        return BaseResponse.success(null);
+        return BaseResponse.success(
+                authService.signup(request)
+        );
     }
 }
