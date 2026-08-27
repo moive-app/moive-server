@@ -17,17 +17,30 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private SocialType socialType;
+
     @Column(nullable = false, unique = true)
     private Long kakaoMemberId;
 
     @Column(nullable = false)
+    private String email;
+
+    @Column(nullable = false)
     private String nickname;
 
+    @Column(nullable = false)
     private String profileImageUrl;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private UserStatus status;
+
+    @Column(length = 500)
+    private String refreshToken;
+
+    private LocalDateTime refreshTokenExpiresAt;
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
