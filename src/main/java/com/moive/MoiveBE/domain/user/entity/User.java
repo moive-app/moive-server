@@ -59,4 +59,21 @@ public class User {
     protected void onUpdate() {
         this.updatedAt = LocalDateTime.now();
     }
+
+    public static User createKakaoUser(
+            Long kakaoMemberId,
+            String email,
+            String nickname,
+            String profileImageUrl
+    ) {
+        User user = new User();
+        user.socialType = SocialType.KAKAO;
+        user.kakaoMemberId = kakaoMemberId;
+        user.email = email;
+        user.nickname = nickname;
+        user.profileImageUrl = profileImageUrl;
+        user.status = UserStatus.ACTIVE;
+
+        return user;
+    }
 }

@@ -2,6 +2,7 @@ package com.moive.MoiveBE.domain.auth.controller;
 
 import com.moive.MoiveBE.domain.auth.dto.KakaoLoginRequest;
 import com.moive.MoiveBE.domain.auth.dto.KakaoLoginResponse;
+import com.moive.MoiveBE.domain.auth.dto.SignupRequest;
 import com.moive.MoiveBE.domain.auth.service.AuthService;
 import com.moive.MoiveBE.global.common.BaseResponse;
 
@@ -31,5 +32,18 @@ public class AuthController {
         return BaseResponse.success(
                 authService.loginWithKakao(request.getAccessToken())
         );
+    }
+
+    @Operation(
+            summary = "회원가입",
+            description = "카카오 Access Token을 검증하고 약관 동의 후 신규 회원을 생성합니다."
+    )
+    @PostMapping("/signup")
+    public BaseResponse<Void> signup(
+            @Valid @RequestBody SignupRequest request
+    ) {
+        authService.signup(request);
+
+        return BaseResponse.success(null);
     }
 }

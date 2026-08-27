@@ -4,6 +4,7 @@ import com.moive.MoiveBE.domain.auth.dto.KakaoLoginResponse;
 import com.moive.MoiveBE.domain.auth.dto.KakaoUserInfoResponse;
 import com.moive.MoiveBE.domain.user.entity.User;
 import com.moive.MoiveBE.domain.user.entity.UserStatus;
+import com.moive.MoiveBE.domain.user.repository.UserAgreementRepository;
 import com.moive.MoiveBE.domain.user.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -28,13 +29,17 @@ class AuthServiceTest {
     @Mock
     private UserRepository userRepository;
 
+    @Mock
+    private UserAgreementRepository userAgreementRepository;
+
     private AuthService authService;
 
     @BeforeEach
     void setUp() {
         authService = new AuthService(
                 kakaoAuthService,
-                userRepository
+                userRepository,
+                userAgreementRepository
         );
     }
 
