@@ -12,6 +12,8 @@ import com.moive.MoiveBE.domain.user.entity.User;
 import com.moive.MoiveBE.domain.user.entity.UserAgreement;
 import com.moive.MoiveBE.domain.user.repository.UserAgreementRepository;
 import com.moive.MoiveBE.domain.auth.dto.TokenResponse;
+import com.moive.MoiveBE.domain.auth.dto.ReissueRequest;
+import com.moive.MoiveBE.domain.auth.dto.LogoutRequest;
 import com.moive.MoiveBE.global.jwt.JwtTokenProvider;
 
 import lombok.RequiredArgsConstructor;
@@ -200,5 +202,94 @@ public class AuthService {
                 accessToken,
                 refreshToken
         );
+
+
+    }
+    @Transactional
+    public TokenResponse reissue(ReissueRequest request) {
+
+        String refreshToken = request.refreshToken();
+
+        // 1. Refresh Token 자체 유효성 검증
+        if (!jwtTokenProvider.validateToken(refreshToken)) {
+            throw new CustomException(
+                    CustomErrorCode.INVALID_REFRESH_TOKEN
+            );
+        }
+
+        // 2. Refresh Token에서 userId 추출
+        Long userId = jwtTokenProvider.getUserId(refreshToken);
+
+        // 3. User 조회
+        User user = userRepository.findById(userId)
+                .orElseThrow(() ->
+                        new CustomException(
+                                CustomErrorCode.USER_NOT_FOUND
+                        )
+                );
+
+        // 4. DB에 저장된 Refresh Token과 일치하는지 검증
+        if (user.getRefreshToken() == null
+                || !user.getRefreshToken().equals(refreshToken)) {
+
+            throw new CustomException(
+                    CustomErrorCode.INVALID_REFRESH_TOKEN
+            );
+        }
+
+        // 5. 새로운 Access / Refresh Token 발급
+        String newAccessToken =
+                jwtTokenProvider.createAccessToken(userId);
+
+        String newRefreshToken =
+                jwtTokenProvider.createRefreshToken(userId);
+
+        // 6. Refresh Token Rotation
+        user.updateRefreshToken(
+                newRefreshToken,
+                LocalDateTime.now().plusDays(14)
+        );
+
+        // 7. 새 토큰 반환
+        return new TokenResponse(
+                newAccessToken,
+                newRefreshToken
+        );
+    }
+
+    @Transactional
+    public void logout(LogoutRequest request) {
+
+        String refreshToken = request.refreshToken();
+
+        // 1. Refresh Token 유효성 검증
+        if (!jwtTokenProvider.validateToken(refreshToken)) {
+            throw new CustomException(
+                    CustomErrorCode.INVALID_REFRESH_TOKEN
+            );
+        }
+
+        // 2. Refresh Token에서 userId 추출
+        Long userId = jwtTokenProvider.getUserId(refreshToken);
+
+        // 3. 회원 조회
+        User user = userRepository.findById(userId)
+                .orElseThrow(() ->
+                        new CustomException(
+                                CustomErrorCode.USER_NOT_FOUND
+                        )
+                );
+
+        // 4. DB에 저장된 Refresh Token과 일치하는지 확인
+        if (user.getRefreshToken() == null
+                || !user.getRefreshToken().equals(refreshToken)) {
+
+            throw new CustomException(
+                    CustomErrorCode.INVALID_REFRESH_TOKEN
+            );
+        }
+
+        // 5. DB에서 Refresh Token 제거
+        user.clearRefreshToken();
     }
 }

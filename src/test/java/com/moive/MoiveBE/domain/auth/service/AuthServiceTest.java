@@ -1,15 +1,13 @@
 package com.moive.MoiveBE.domain.auth.service;
 
-import com.moive.MoiveBE.domain.auth.dto.KakaoLoginResponse;
-import com.moive.MoiveBE.domain.auth.dto.KakaoUserInfoResponse;
-import com.moive.MoiveBE.domain.auth.dto.SignupRequest;
-import com.moive.MoiveBE.domain.auth.dto.TokenResponse;
+import com.moive.MoiveBE.domain.auth.dto.*;
 import com.moive.MoiveBE.domain.user.entity.AgreementType;
 import com.moive.MoiveBE.domain.user.entity.User;
 import com.moive.MoiveBE.domain.user.entity.UserAgreement;
 import com.moive.MoiveBE.domain.user.entity.UserStatus;
 import com.moive.MoiveBE.domain.user.repository.UserAgreementRepository;
 import com.moive.MoiveBE.domain.user.repository.UserRepository;
+import com.moive.MoiveBE.domain.auth.dto.LogoutRequest;
 import com.moive.MoiveBE.global.exception.CustomErrorCode;
 import com.moive.MoiveBE.global.exception.CustomException;
 import com.moive.MoiveBE.global.jwt.JwtTokenProvider;
@@ -444,5 +442,225 @@ class AuthServiceTest {
                 );
 
         return request;
+    }
+
+    @Test
+    void 유효한_Refresh_Token이면_새로운_토큰을_발급한다() {
+        // given
+        String refreshToken = "old-refresh-token";
+        Long userId = 1L;
+
+        ReissueRequest request =
+                new ReissueRequest(refreshToken);
+
+        User user = mock(User.class);
+
+        when(jwtTokenProvider.validateToken(refreshToken))
+                .thenReturn(true);
+
+        when(jwtTokenProvider.getUserId(refreshToken))
+                .thenReturn(userId);
+
+        when(userRepository.findById(userId))
+                .thenReturn(Optional.of(user));
+
+        when(user.getRefreshToken())
+                .thenReturn(refreshToken);
+
+        when(jwtTokenProvider.createAccessToken(userId))
+                .thenReturn("new-access-token");
+
+        when(jwtTokenProvider.createRefreshToken(userId))
+                .thenReturn("new-refresh-token");
+
+        // when
+        TokenResponse result =
+                authService.reissue(request);
+
+        // then
+        assertThat(result.accessToken())
+                .isEqualTo("new-access-token");
+
+        assertThat(result.refreshToken())
+                .isEqualTo("new-refresh-token");
+
+        verify(user).updateRefreshToken(
+                eq("new-refresh-token"),
+                any()
+        );
+    }
+
+    @Test
+    void 유효하지_않은_Refresh_Token이면_예외가_발생한다() {
+        // given
+        String refreshToken = "invalid-refresh-token";
+
+        ReissueRequest request =
+                new ReissueRequest(refreshToken);
+
+        when(jwtTokenProvider.validateToken(refreshToken))
+                .thenReturn(false);
+
+        // when & then
+        assertThatThrownBy(() ->
+                authService.reissue(request)
+        )
+                .isInstanceOf(CustomException.class)
+                .satisfies(exception -> {
+                    CustomException customException =
+                            (CustomException) exception;
+
+                    assertThat(customException.getCustomErrorCode())
+                            .isEqualTo(
+                                    CustomErrorCode.INVALID_REFRESH_TOKEN
+                            );
+                });
+
+        verifyNoInteractions(userRepository);
+    }
+
+    @Test
+    void DB의_Refresh_Token과_일치하지_않으면_예외가_발생한다() {
+        // given
+        String refreshToken = "request-refresh-token";
+        Long userId = 1L;
+
+        ReissueRequest request =
+                new ReissueRequest(refreshToken);
+
+        User user = mock(User.class);
+
+        when(jwtTokenProvider.validateToken(refreshToken))
+                .thenReturn(true);
+
+        when(jwtTokenProvider.getUserId(refreshToken))
+                .thenReturn(userId);
+
+        when(userRepository.findById(userId))
+                .thenReturn(Optional.of(user));
+
+        when(user.getRefreshToken())
+                .thenReturn("different-refresh-token");
+
+        // when & then
+        assertThatThrownBy(() ->
+                authService.reissue(request)
+        )
+                .isInstanceOf(CustomException.class)
+                .satisfies(exception -> {
+                    CustomException customException =
+                            (CustomException) exception;
+
+                    assertThat(customException.getCustomErrorCode())
+                            .isEqualTo(
+                                    CustomErrorCode.INVALID_REFRESH_TOKEN
+                            );
+                });
+
+        verify(jwtTokenProvider, never())
+                .createAccessToken(anyLong());
+
+        verify(jwtTokenProvider, never())
+                .createRefreshToken(anyLong());
+    }
+
+    @Test
+    void 로그아웃에_성공하면_Refresh_Token을_삭제한다() {
+        // given
+        String refreshToken = "refresh-token";
+        Long userId = 1L;
+
+        LogoutRequest request =
+                new LogoutRequest(refreshToken);
+
+        User user = mock(User.class);
+
+        when(jwtTokenProvider.validateToken(refreshToken))
+                .thenReturn(true);
+
+        when(jwtTokenProvider.getUserId(refreshToken))
+                .thenReturn(userId);
+
+        when(userRepository.findById(userId))
+                .thenReturn(Optional.of(user));
+
+        when(user.getRefreshToken())
+                .thenReturn(refreshToken);
+
+        // when
+        authService.logout(request);
+
+        // then
+        verify(user).clearRefreshToken();
+    }
+
+    @Test
+    void 유효하지_않은_Refresh_Token으로_로그아웃하면_예외가_발생한다() {
+        // given
+        String refreshToken = "invalid-refresh-token";
+
+        LogoutRequest request =
+                new LogoutRequest(refreshToken);
+
+        when(jwtTokenProvider.validateToken(refreshToken))
+                .thenReturn(false);
+
+        // when & then
+        assertThatThrownBy(() ->
+                authService.logout(request)
+        )
+                .isInstanceOf(CustomException.class)
+                .satisfies(exception -> {
+                    CustomException customException =
+                            (CustomException) exception;
+
+                    assertThat(customException.getCustomErrorCode())
+                            .isEqualTo(
+                                    CustomErrorCode.INVALID_REFRESH_TOKEN
+                            );
+                });
+
+        verifyNoInteractions(userRepository);
+    }
+
+    @Test
+    void DB의_Refresh_Token과_다르면_로그아웃_예외가_발생한다() {
+        // given
+        String refreshToken = "request-refresh-token";
+        Long userId = 1L;
+
+        LogoutRequest request =
+                new LogoutRequest(refreshToken);
+
+        User user = mock(User.class);
+
+        when(jwtTokenProvider.validateToken(refreshToken))
+                .thenReturn(true);
+
+        when(jwtTokenProvider.getUserId(refreshToken))
+                .thenReturn(userId);
+
+        when(userRepository.findById(userId))
+                .thenReturn(Optional.of(user));
+
+        when(user.getRefreshToken())
+                .thenReturn("different-refresh-token");
+
+        // when & then
+        assertThatThrownBy(() ->
+                authService.logout(request)
+        )
+                .isInstanceOf(CustomException.class)
+                .satisfies(exception -> {
+                    CustomException customException =
+                            (CustomException) exception;
+
+                    assertThat(customException.getCustomErrorCode())
+                            .isEqualTo(
+                                    CustomErrorCode.INVALID_REFRESH_TOKEN
+                            );
+                });
+
+        verify(user, never()).clearRefreshToken();
     }
 }
