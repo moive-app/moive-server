@@ -17,17 +17,30 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private SocialType socialType;
+
     @Column(nullable = false, unique = true)
     private Long kakaoMemberId;
 
     @Column(nullable = false)
+    private String email;
+
+    @Column(nullable = false)
     private String nickname;
 
+    @Column(nullable = false)
     private String profileImageUrl;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private UserStatus status;
+
+    @Column(length = 500)
+    private String refreshToken;
+
+    private LocalDateTime refreshTokenExpiresAt;
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -45,5 +58,22 @@ public class User {
     @PreUpdate
     protected void onUpdate() {
         this.updatedAt = LocalDateTime.now();
+    }
+
+    public static User createKakaoUser(
+            Long kakaoMemberId,
+            String email,
+            String nickname,
+            String profileImageUrl
+    ) {
+        User user = new User();
+        user.socialType = SocialType.KAKAO;
+        user.kakaoMemberId = kakaoMemberId;
+        user.email = email;
+        user.nickname = nickname;
+        user.profileImageUrl = profileImageUrl;
+        user.status = UserStatus.ACTIVE;
+
+        return user;
     }
 }
