@@ -1,0 +1,184 @@
+package com.moive.MoiveBE.domain.auth.service;
+
+import com.moive.MoiveBE.domain.auth.dto.KakaoLoginResponse;
+import com.moive.MoiveBE.domain.auth.dto.KakaoUserInfoResponse;
+import com.moive.MoiveBE.domain.user.entity.User;
+import com.moive.MoiveBE.domain.user.entity.UserStatus;
+import com.moive.MoiveBE.domain.user.repository.UserAgreementRepository;
+import com.moive.MoiveBE.domain.user.repository.UserRepository;
+import com.moive.MoiveBE.global.exception.CustomErrorCode;
+import com.moive.MoiveBE.global.exception.CustomException;
+import com.moive.MoiveBE.global.jwt.JwtTokenProvider;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.util.Optional;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
+class AuthServiceLoginTest {
+
+    @Mock
+    private KakaoAuthService kakaoAuthService;
+
+    @Mock
+    private UserRepository userRepository;
+
+    @Mock
+    private UserAgreementRepository userAgreementRepository;
+
+    @Mock
+    private JwtTokenProvider jwtTokenProvider;
+
+    private AuthService authService;
+
+    @BeforeEach
+    void setUp() {
+        authService = new AuthService(
+                kakaoAuthService,
+                userRepository,
+                userAgreementRepository,
+                jwtTokenProvider
+        );
+    }
+
+    @Test
+    void 신규_회원이면_registered_false를_반환한다() {
+        // given
+        String accessToken = "test-access-token";
+        KakaoUserInfoResponse kakaoUser = mockKakaoUser();
+
+        when(kakaoAuthService.getUserInfo(accessToken))
+                .thenReturn(kakaoUser);
+
+        when(userRepository.findByKakaoMemberIdAndStatus(
+                12345L,
+                UserStatus.ACTIVE
+        )).thenReturn(Optional.empty());
+
+        // when
+        KakaoLoginResponse result =
+                authService.loginWithKakao(accessToken);
+
+        // then
+        assertThat(result.registered()).isFalse();
+        assertThat(result.nickname()).isEqualTo("테스트유저");
+        assertThat(result.profileImageUrl())
+                .isEqualTo("https://example.com/profile.jpg");
+        assertThat(result.email()).isEqualTo("test@kakao.com");
+        assertThat(result.token()).isNull();
+
+        verifyNoInteractions(jwtTokenProvider);
+        verify(userRepository, never()).save(any(User.class));
+    }
+
+    @Test
+    void 기존_활성_회원이면_JWT를_발급한다() {
+        // given
+        String accessToken = "test-access-token";
+        KakaoUserInfoResponse kakaoUser = mockKakaoUser();
+
+        when(kakaoAuthService.getUserInfo(accessToken))
+                .thenReturn(kakaoUser);
+
+        User existingUser = mock(User.class);
+
+        when(existingUser.getId()).thenReturn(1L);
+
+        when(userRepository.findByKakaoMemberIdAndStatus(
+                12345L,
+                UserStatus.ACTIVE
+        )).thenReturn(Optional.of(existingUser));
+
+        when(jwtTokenProvider.createAccessToken(1L))
+                .thenReturn("access-token");
+
+        when(jwtTokenProvider.createRefreshToken(1L))
+                .thenReturn("refresh-token");
+
+        // when
+        KakaoLoginResponse result =
+                authService.loginWithKakao(accessToken);
+
+        // then
+        assertThat(result.registered()).isTrue();
+        assertThat(result.email()).isEqualTo("test@kakao.com");
+
+        assertThat(result.token()).isNotNull();
+        assertThat(result.token().accessToken())
+                .isEqualTo("access-token");
+        assertThat(result.token().refreshToken())
+                .isEqualTo("refresh-token");
+
+        verify(jwtTokenProvider).createAccessToken(1L);
+        verify(jwtTokenProvider).createRefreshToken(1L);
+
+        verify(existingUser).updateRefreshToken(
+                eq("refresh-token"),
+                any()
+        );
+
+        verify(userRepository, never()).save(any(User.class));
+    }
+
+    @Test
+    void 카카오_필수_정보가_없으면_예외가_발생한다() {
+        // given
+        String accessToken = "test-access-token";
+
+        KakaoUserInfoResponse kakaoUser =
+                mock(KakaoUserInfoResponse.class);
+
+        when(kakaoAuthService.getUserInfo(accessToken))
+                .thenReturn(kakaoUser);
+
+        when(kakaoUser.id()).thenReturn(null);
+
+        // when & then
+        assertThatThrownBy(() ->
+                authService.loginWithKakao(accessToken)
+        )
+                .isInstanceOf(CustomException.class)
+                .satisfies(exception -> {
+                    CustomException customException =
+                            (CustomException) exception;
+
+                    assertThat(customException.getCustomErrorCode())
+                            .isEqualTo(
+                                    CustomErrorCode.KAKAO_REQUIRED_INFO_MISSING
+                            );
+                });
+
+        verifyNoInteractions(userRepository);
+        verifyNoInteractions(jwtTokenProvider);
+    }
+
+    private KakaoUserInfoResponse mockKakaoUser() {
+
+        KakaoUserInfoResponse kakaoUser =
+                mock(KakaoUserInfoResponse.class);
+
+        KakaoUserInfoResponse.Properties properties =
+                mock(KakaoUserInfoResponse.Properties.class);
+
+        KakaoUserInfoResponse.KakaoAccount kakaoAccount =
+                mock(KakaoUserInfoResponse.KakaoAccount.class);
+
+        when(kakaoUser.id()).thenReturn(12345L);
+        when(kakaoUser.properties()).thenReturn(properties);
+        when(properties.nickname()).thenReturn("테스트유저");
+        when(properties.profileImage())
+                .thenReturn("https://example.com/profile.jpg");
+        when(kakaoUser.kakaoAccount()).thenReturn(kakaoAccount);
+        when(kakaoAccount.email()).thenReturn("test@kakao.com");
+
+        return kakaoUser;
+    }
+}
