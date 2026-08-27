@@ -9,7 +9,11 @@ import lombok.NoArgsConstructor;
 public class KakaoUserInfoResponse {
 
     private Long id;
+
     private Properties properties;
+
+    @JsonProperty("kakao_account")
+    private KakaoAccount kakaoAccount;
 
     @Getter
     @NoArgsConstructor
@@ -19,5 +23,12 @@ public class KakaoUserInfoResponse {
 
         @JsonProperty("profile_image")
         private String profileImage;
+    }
+
+    @Getter
+    @NoArgsConstructor
+    public static class KakaoAccount {
+
+        private String email;
     }
 }

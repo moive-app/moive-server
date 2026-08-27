@@ -25,4 +25,10 @@ public class KakaoLoginResponse {
             example = "https://example.com/profile.jpg"
     )
     private String profileImageUrl;
+
+    @Schema(
+            description = "카카오 계정 이메일",
+            example = "example@kakao.com"
+    )
+    private String email;
 }

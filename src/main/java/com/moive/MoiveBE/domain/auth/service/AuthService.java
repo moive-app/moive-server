@@ -37,7 +37,8 @@ public class AuthService {
         return new KakaoLoginResponse(
                 registered,
                 kakaoUser.getProperties().getNickname(),
-                kakaoUser.getProperties().getProfileImage()
+                kakaoUser.getProperties().getProfileImage(),
+                kakaoUser.getKakaoAccount().getEmail()
         );
     }
 
@@ -47,7 +48,9 @@ public class AuthService {
                 || kakaoUser.getId() == null
                 || kakaoUser.getProperties() == null
                 || kakaoUser.getProperties().getNickname() == null
-                || kakaoUser.getProperties().getProfileImage() == null) {
+                || kakaoUser.getProperties().getProfileImage() == null
+                || kakaoUser.getKakaoAccount() == null
+                || kakaoUser.getKakaoAccount().getEmail() == null) {
 
             throw new CustomException(
                     CustomErrorCode.KAKAO_REQUIRED_INFO_MISSING
