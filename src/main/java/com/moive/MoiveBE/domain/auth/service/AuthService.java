@@ -38,7 +38,7 @@ public class AuthService {
         // 3. Kakao Member ID로 기존 활성 회원 조회
         boolean registered = userRepository
                 .findByKakaoMemberIdAndStatus(
-                        kakaoUser.getId(),
+                        kakaoUser.id(),
                         UserStatus.ACTIVE
                 )
                 .isPresent();
@@ -46,21 +46,21 @@ public class AuthService {
         // 4. 기존/신규 여부와 카카오 프로필 정보 반환
         return new KakaoLoginResponse(
                 registered,
-                kakaoUser.getProperties().getNickname(),
-                kakaoUser.getProperties().getProfileImage(),
-                kakaoUser.getKakaoAccount().getEmail()
+                kakaoUser.properties().nickname(),
+                kakaoUser.properties().profileImage(),
+                kakaoUser.kakaoAccount().email()
         );
     }
 
     private void validateKakaoUserInfo(KakaoUserInfoResponse kakaoUser) {
 
         if (kakaoUser == null
-                || kakaoUser.getId() == null
-                || kakaoUser.getProperties() == null
-                || kakaoUser.getProperties().getNickname() == null
-                || kakaoUser.getProperties().getProfileImage() == null
-                || kakaoUser.getKakaoAccount() == null
-                || kakaoUser.getKakaoAccount().getEmail() == null) {
+                || kakaoUser.id() == null
+                || kakaoUser.properties() == null
+                || kakaoUser.properties().nickname() == null
+                || kakaoUser.properties().profileImage() == null
+                || kakaoUser.kakaoAccount() == null
+                || kakaoUser.kakaoAccount().email() == null) {
 
             throw new CustomException(
                     CustomErrorCode.KAKAO_REQUIRED_INFO_MISSING
@@ -70,24 +70,24 @@ public class AuthService {
 
     private void validateRequiredAgreements(SignupRequest request) {
 
-        if (request.getAgreements() == null) {
+        if (request.agreements() == null) {
             throw new CustomException(
                     CustomErrorCode.REQUIRED_AGREEMENT_NOT_ACCEPTED
             );
         }
 
-        boolean serviceAgreed = request.getAgreements()
+        boolean serviceAgreed = request.agreements()
                 .stream()
                 .anyMatch(agreement ->
-                        agreement.getType() == AgreementType.SERVICE
-                                && agreement.isAgreed()
+                        agreement.type() == AgreementType.SERVICE
+                                && agreement.agreed()
                 );
 
-        boolean privacyAgreed = request.getAgreements()
+        boolean privacyAgreed = request.agreements()
                 .stream()
                 .anyMatch(agreement ->
-                        agreement.getType() == AgreementType.PRIVACY
-                                && agreement.isAgreed()
+                        agreement.type() == AgreementType.PRIVACY
+                                && agreement.agreed()
                 );
 
         if (!serviceAgreed || !privacyAgreed) {
@@ -102,7 +102,7 @@ public class AuthService {
 
         // 1. Kakao Access Token으로 사용자 정보 다시 조회
         KakaoUserInfoResponse kakaoUser =
-                kakaoAuthService.getUserInfo(request.getAccessToken());
+                kakaoAuthService.getUserInfo(request.accessToken());
 
         // 2. 카카오 필수 사용자 정보 검증
         validateKakaoUserInfo(kakaoUser);
@@ -110,7 +110,7 @@ public class AuthService {
         // 3. 이미 가입된 활성 회원인지 확인
         boolean alreadyRegistered = userRepository
                 .findByKakaoMemberIdAndStatus(
-                        kakaoUser.getId(),
+                        kakaoUser.id(),
                         UserStatus.ACTIVE
                 )
                 .isPresent();
@@ -126,22 +126,22 @@ public class AuthService {
 
         // 5. 신규 회원 생성
         User user = User.createKakaoUser(
-                kakaoUser.getId(),
-                kakaoUser.getKakaoAccount().getEmail(),
-                kakaoUser.getProperties().getNickname(),
-                kakaoUser.getProperties().getProfileImage()
+                kakaoUser.id(),
+                kakaoUser.kakaoAccount().email(),
+                kakaoUser.properties().nickname(),
+                kakaoUser.properties().profileImage()
         );
 
         userRepository.save(user);
 
         // 6. 약관 동의 내역 저장
-        List<UserAgreement> agreements = request.getAgreements()
+        List<UserAgreement> agreements = request.agreements()
                 .stream()
                 .map(agreement -> UserAgreement.create(
                         user,
-                        agreement.getType(),
-                        agreement.getVersion(),
-                        agreement.isAgreed()
+                        agreement.type(),
+                        agreement.version(),
+                        agreement.agreed()
                 ))
                 .toList();
 

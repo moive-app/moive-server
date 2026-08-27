@@ -67,12 +67,12 @@ class AuthServiceTest {
                 authService.loginWithKakao(accessToken);
 
         // then
-        assertThat(result.isRegistered()).isFalse();
-        assertThat(result.getNickname())
+        assertThat(result.registered()).isFalse();
+        assertThat(result.nickname())
                 .isEqualTo("테스트유저");
-        assertThat(result.getProfileImageUrl())
+        assertThat(result.profileImageUrl())
                 .isEqualTo("https://example.com/profile.jpg");
-        assertThat(result.getEmail())
+        assertThat(result.email())
                 .isEqualTo("test@kakao.com");
 
         verify(userRepository, never()).save(any(User.class));
@@ -99,8 +99,8 @@ class AuthServiceTest {
                 authService.loginWithKakao(accessToken);
 
         // then
-        assertThat(result.isRegistered()).isTrue();
-        assertThat(result.getEmail())
+        assertThat(result.registered()).isTrue();
+        assertThat(result.email())
                 .isEqualTo("test@kakao.com");
 
         verify(userRepository, never()).save(any(User.class));
@@ -117,7 +117,7 @@ class AuthServiceTest {
         when(kakaoAuthService.getUserInfo(accessToken))
                 .thenReturn(kakaoUser);
 
-        when(kakaoUser.getId())
+        when(kakaoUser.id())
                 .thenReturn(null);
 
         // when & then
@@ -283,22 +283,22 @@ class AuthServiceTest {
         KakaoUserInfoResponse.KakaoAccount kakaoAccount =
                 mock(KakaoUserInfoResponse.KakaoAccount.class);
 
-        when(kakaoUser.getId())
+        when(kakaoUser.id())
                 .thenReturn(12345L);
 
-        when(kakaoUser.getProperties())
+        when(kakaoUser.properties())
                 .thenReturn(properties);
 
-        when(properties.getNickname())
+        when(properties.nickname())
                 .thenReturn("테스트유저");
 
-        when(properties.getProfileImage())
+        when(properties.profileImage())
                 .thenReturn("https://example.com/profile.jpg");
 
-        when(kakaoUser.getKakaoAccount())
+        when(kakaoUser.kakaoAccount())
                 .thenReturn(kakaoAccount);
 
-        when(kakaoAccount.getEmail())
+        when(kakaoAccount.email())
                 .thenReturn("test@kakao.com");
 
         return kakaoUser;
@@ -323,37 +323,37 @@ class AuthServiceTest {
         SignupRequest.AgreementRequest marketing =
                 mock(SignupRequest.AgreementRequest.class);
 
-        lenient().when(request.getAccessToken())
+        lenient().when(request.accessToken())
                 .thenReturn(accessToken);
 
-        lenient().when(service.getType())
+        lenient().when(service.type())
                 .thenReturn(AgreementType.SERVICE);
 
-        lenient().when(service.getVersion())
+        lenient().when(service.version())
                 .thenReturn("1.0");
 
-        lenient().when(service.isAgreed())
+        lenient().when(service.agreed())
                 .thenReturn(serviceAgreed);
 
-        lenient().when(privacy.getType())
+        lenient().when(privacy.type())
                 .thenReturn(AgreementType.PRIVACY);
 
-        lenient().when(privacy.getVersion())
+        lenient().when(privacy.version())
                 .thenReturn("1.0");
 
-        lenient().when(privacy.isAgreed())
+        lenient().when(privacy.agreed())
                 .thenReturn(privacyAgreed);
 
-        lenient().when(marketing.getType())
+        lenient().when(marketing.type())
                 .thenReturn(AgreementType.MARKETING);
 
-        lenient().when(marketing.getVersion())
+        lenient().when(marketing.version())
                 .thenReturn("1.0");
 
-        lenient().when(marketing.isAgreed())
+        lenient().when(marketing.agreed())
                 .thenReturn(marketingAgreed);
 
-        lenient().when(request.getAgreements())
+        lenient().when(request.agreements())
                 .thenReturn(
                         List.of(
                                 service,

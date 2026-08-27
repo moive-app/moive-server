@@ -71,10 +71,10 @@ class KakaoAuthServiceTest {
                 kakaoAuthService.getUserInfo(accessToken);
 
         // then
-        assertThat(result.getId()).isEqualTo(12345L);
-        assertThat(result.getProperties().getNickname())
+        assertThat(result.id()).isEqualTo(12345L);
+        assertThat(result.properties().nickname())
                 .isEqualTo("테스트유저");
-        assertThat(result.getProperties().getProfileImage())
+        assertThat(result.properties().profileImage())
                 .isEqualTo("https://example.com/profile.jpg");
 
         mockServer.verify();

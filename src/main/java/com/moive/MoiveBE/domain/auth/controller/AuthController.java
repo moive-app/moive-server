@@ -30,7 +30,7 @@ public class AuthController {
             @Valid @RequestBody KakaoLoginRequest request
     ) {
         return BaseResponse.success(
-                authService.loginWithKakao(request.getAccessToken())
+                authService.loginWithKakao(request.accessToken())
         );
     }
 
