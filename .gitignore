@@ -42,3 +42,6 @@ scripts/image.env
 
 ### Environment ###
 .env
+
+### Local Config ###
+application-local.yaml
