@@ -2,8 +2,8 @@
 set -e
 
 CONTAINER_NAME="app7-be"
-ENV_FILE="/home/ec2-user/app/.env"
-IMAGE_ENV="/home/ec2-user/app/scripts/image.env"
+ENV_FILE="/home/ubuntu/app/.env"
+IMAGE_ENV="/home/ubuntu/app/scripts/image.env"
 
 source $IMAGE_ENV
 
