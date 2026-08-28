@@ -1,13 +1,13 @@
-package com.swyp.app7_BE;
+package com.moive.MoiveBE;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-public class App7BeApplication {
+public class MoiveBEApplication {
 
 	public static void main(String[] args) {
-		SpringApplication.run(App7BeApplication.class, args);
+		SpringApplication.run(MoiveBEApplication.class, args);
 	}
 
 }

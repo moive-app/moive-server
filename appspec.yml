@@ -1,0 +1,18 @@
+version: 0.0
+os: linux
+files:
+  - source: scripts
+    destination: /home/ubuntu/app/scripts
+    overwrite: yes
+permissions:
+  - object: /home/ubuntu/app/scripts
+    mode: "755"
+hooks:
+  ApplicationStop:
+    - location: scripts/stop.sh
+      timeout: 60
+      runas: root
+  ApplicationStart:
+    - location: scripts/start.sh
+      timeout: 180
+      runas: root

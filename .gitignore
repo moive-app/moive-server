@@ -35,3 +35,10 @@ out/
 
 ### VS Code ###
 .vscode/
+
+### CI/CD ###
+scripts/image.env
+*.zip
+
+### Environment ###
+.env
