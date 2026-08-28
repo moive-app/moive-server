@@ -64,27 +64,82 @@ class JwtTokenProviderTest {
     }
 
     @Test
-    void 정상_JWT이면_true를_반환한다() {
+    void Access_Token은_Access_Token으로_검증된다() {
         // given
         String accessToken =
                 jwtTokenProvider.createAccessToken(1L);
 
         // when
         boolean result =
-                jwtTokenProvider.validateToken(accessToken);
+                jwtTokenProvider.validateAccessToken(accessToken);
 
         // then
         assertThat(result).isTrue();
     }
 
     @Test
-    void 잘못된_JWT이면_false를_반환한다() {
+    void Refresh_Token은_Refresh_Token으로_검증된다() {
+        // given
+        String refreshToken =
+                jwtTokenProvider.createRefreshToken(1L);
+
+        // when
+        boolean result =
+                jwtTokenProvider.validateRefreshToken(refreshToken);
+
+        // then
+        assertThat(result).isTrue();
+    }
+
+    @Test
+    void Refresh_Token은_Access_Token으로_검증되지_않는다() {
+        // given
+        String refreshToken =
+                jwtTokenProvider.createRefreshToken(1L);
+
+        // when
+        boolean result =
+                jwtTokenProvider.validateAccessToken(refreshToken);
+
+        // then
+        assertThat(result).isFalse();
+    }
+
+    @Test
+    void Access_Token은_Refresh_Token으로_검증되지_않는다() {
+        // given
+        String accessToken =
+                jwtTokenProvider.createAccessToken(1L);
+
+        // when
+        boolean result =
+                jwtTokenProvider.validateRefreshToken(accessToken);
+
+        // then
+        assertThat(result).isFalse();
+    }
+
+    @Test
+    void 잘못된_JWT는_Access_Token으로_검증되지_않는다() {
         // given
         String invalidToken = "invalid-token";
 
         // when
         boolean result =
-                jwtTokenProvider.validateToken(invalidToken);
+                jwtTokenProvider.validateAccessToken(invalidToken);
+
+        // then
+        assertThat(result).isFalse();
+    }
+
+    @Test
+    void 잘못된_JWT는_Refresh_Token으로_검증되지_않는다() {
+        // given
+        String invalidToken = "invalid-token";
+
+        // when
+        boolean result =
+                jwtTokenProvider.validateRefreshToken(invalidToken);
 
         // then
         assertThat(result).isFalse();

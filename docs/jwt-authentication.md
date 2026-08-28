@@ -87,14 +87,24 @@ jwt:
 
 ## 4. JWT Payload
 
-현재 JWT의 subject에는 MOIVE User ID를 저장한다.
+현재 JWT의 subject에는 MOIVE User ID를 저장하며,  
+Access Token과 Refresh Token을 구분하기 위해 `tokenType` claim을 사용한다.
 
 ```text
-subject = userId
+Access Token
+- subject = userId
+- tokenType = access
+
+Refresh Token
+- subject = userId
+- tokenType = refresh
 ```
 
-JWT 인증 성공 후 해당 userId를 Spring Security 인증 정보의 principal로 사용한다.
+Access Token은 일반 API 인증에 사용하며, `JwtAuthenticationFilter`에서 `tokenType`이 `access`인 토큰만 인증 처리한다.
 
+Refresh Token은 Access/Refresh Token 재발급 및 로그아웃에 사용하며, `tokenType`이 `refresh`인 토큰만 허용한다.
+
+JWT 인증 성공 후 Access Token의 `userId`를 Spring Security 인증 정보의 principal로 사용한다.
 ---
 
 ## 5. Access Token 인증

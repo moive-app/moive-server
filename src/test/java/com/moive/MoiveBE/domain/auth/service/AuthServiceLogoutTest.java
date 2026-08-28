@@ -58,7 +58,7 @@ class AuthServiceLogoutTest {
 
         User user = mock(User.class);
 
-        when(jwtTokenProvider.validateToken(refreshToken))
+        when(jwtTokenProvider.validateRefreshToken(refreshToken))
                 .thenReturn(true);
 
         when(jwtTokenProvider.getUserId(refreshToken))
@@ -85,7 +85,7 @@ class AuthServiceLogoutTest {
         LogoutRequest request =
                 new LogoutRequest(refreshToken);
 
-        when(jwtTokenProvider.validateToken(refreshToken))
+        when(jwtTokenProvider.validateRefreshToken(refreshToken))
                 .thenReturn(false);
 
         // when & then
@@ -117,7 +117,7 @@ class AuthServiceLogoutTest {
 
         User user = mock(User.class);
 
-        when(jwtTokenProvider.validateToken(refreshToken))
+        when(jwtTokenProvider.validateRefreshToken(refreshToken))
                 .thenReturn(true);
 
         when(jwtTokenProvider.getUserId(refreshToken))
@@ -145,5 +145,37 @@ class AuthServiceLogoutTest {
                 });
 
         verify(user, never()).clearRefreshToken();
+    }
+
+    @Test
+    void Access_Token으로_로그아웃하면_예외가_발생한다() {
+        // given
+        String accessToken = "access-token";
+
+        LogoutRequest request =
+                new LogoutRequest(accessToken);
+
+        when(jwtTokenProvider.validateRefreshToken(accessToken))
+                .thenReturn(false);
+
+        // when & then
+        assertThatThrownBy(() ->
+                authService.logout(request)
+        )
+                .isInstanceOf(CustomException.class)
+                .satisfies(exception -> {
+                    CustomException customException =
+                            (CustomException) exception;
+
+                    assertThat(customException.getCustomErrorCode())
+                            .isEqualTo(
+                                    CustomErrorCode.INVALID_REFRESH_TOKEN
+                            );
+                });
+
+        verifyNoInteractions(userRepository);
+
+        verify(jwtTokenProvider, never())
+                .getUserId(anyString());
     }
 }

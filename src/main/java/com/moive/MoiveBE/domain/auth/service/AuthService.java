@@ -211,7 +211,7 @@ public class AuthService {
         String refreshToken = request.refreshToken();
 
         // 1. Refresh Token 자체 유효성 검증
-        if (!jwtTokenProvider.validateToken(refreshToken)) {
+        if (!jwtTokenProvider.validateRefreshToken(refreshToken)) {
             throw new CustomException(
                     CustomErrorCode.INVALID_REFRESH_TOKEN
             );
@@ -263,7 +263,7 @@ public class AuthService {
         String refreshToken = request.refreshToken();
 
         // 1. Refresh Token 유효성 검증
-        if (!jwtTokenProvider.validateToken(refreshToken)) {
+        if (!jwtTokenProvider.validateRefreshToken(refreshToken)) {
             throw new CustomException(
                     CustomErrorCode.INVALID_REFRESH_TOKEN
             );

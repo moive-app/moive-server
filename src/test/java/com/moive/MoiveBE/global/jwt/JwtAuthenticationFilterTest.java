@@ -79,7 +79,7 @@ class JwtAuthenticationFilterTest {
         when(request.getHeader("Authorization"))
                 .thenReturn("Bearer " + token);
 
-        when(jwtTokenProvider.validateToken(token))
+        when(jwtTokenProvider.validateAccessToken(token))
                 .thenReturn(true);
 
         when(jwtTokenProvider.getUserId(token))
@@ -117,7 +117,7 @@ class JwtAuthenticationFilterTest {
         when(request.getHeader("Authorization"))
                 .thenReturn("Bearer " + token);
 
-        when(jwtTokenProvider.validateToken(token))
+        when(jwtTokenProvider.validateAccessToken(token))
                 .thenReturn(false);
 
         // when
@@ -138,5 +138,39 @@ class JwtAuthenticationFilterTest {
                 .getUserId(anyString());
 
         verify(filterChain).doFilter(request, response);
+    }
+
+    @Test
+    void Refresh_Token은_인증정보를_생성하지_않는다()
+            throws Exception {
+
+        // given
+        String refreshToken = "refresh-token";
+
+        when(request.getHeader("Authorization"))
+                .thenReturn("Bearer " + refreshToken);
+
+        when(jwtTokenProvider.validateAccessToken(refreshToken))
+                .thenReturn(false);
+
+        // when
+        jwtAuthenticationFilter.doFilterInternal(
+                request,
+                response,
+                filterChain
+        );
+
+        // then
+        Authentication authentication =
+                SecurityContextHolder.getContext()
+                        .getAuthentication();
+
+        assertThat(authentication).isNull();
+
+        verify(jwtTokenProvider, never())
+                .getUserId(anyString());
+
+        verify(filterChain)
+                .doFilter(request, response);
     }
 }

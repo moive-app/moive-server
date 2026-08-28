@@ -59,7 +59,7 @@ class AuthServiceReissueTest {
 
         User user = mock(User.class);
 
-        when(jwtTokenProvider.validateToken(refreshToken))
+        when(jwtTokenProvider.validateRefreshToken(refreshToken))
                 .thenReturn(true);
 
         when(jwtTokenProvider.getUserId(refreshToken))
@@ -102,7 +102,7 @@ class AuthServiceReissueTest {
         ReissueRequest request =
                 new ReissueRequest(refreshToken);
 
-        when(jwtTokenProvider.validateToken(refreshToken))
+        when(jwtTokenProvider.validateRefreshToken(refreshToken))
                 .thenReturn(false);
 
         // when & then
@@ -134,7 +134,7 @@ class AuthServiceReissueTest {
 
         User user = mock(User.class);
 
-        when(jwtTokenProvider.validateToken(refreshToken))
+        when(jwtTokenProvider.validateRefreshToken(refreshToken))
                 .thenReturn(true);
 
         when(jwtTokenProvider.getUserId(refreshToken))
@@ -166,5 +166,37 @@ class AuthServiceReissueTest {
 
         verify(jwtTokenProvider, never())
                 .createRefreshToken(anyLong());
+    }
+
+    @Test
+    void Access_Token으로_재발급하면_예외가_발생한다() {
+        // given
+        String accessToken = "access-token";
+
+        ReissueRequest request =
+                new ReissueRequest(accessToken);
+
+        when(jwtTokenProvider.validateRefreshToken(accessToken))
+                .thenReturn(false);
+
+        // when & then
+        assertThatThrownBy(() ->
+                authService.reissue(request)
+        )
+                .isInstanceOf(CustomException.class)
+                .satisfies(exception -> {
+                    CustomException customException =
+                            (CustomException) exception;
+
+                    assertThat(customException.getCustomErrorCode())
+                            .isEqualTo(
+                                    CustomErrorCode.INVALID_REFRESH_TOKEN
+                            );
+                });
+
+        verifyNoInteractions(userRepository);
+
+        verify(jwtTokenProvider, never())
+                .getUserId(anyString());
     }
 }
