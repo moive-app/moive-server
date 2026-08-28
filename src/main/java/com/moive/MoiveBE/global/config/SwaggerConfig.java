@@ -18,11 +18,9 @@ public class SwaggerConfig {
     @Bean
     public OpenAPI openAPI() {
         SecurityScheme bearerScheme = new SecurityScheme()
-                .name("Authorization")
                 .type(SecurityScheme.Type.HTTP)
                 .scheme("bearer")
-                .bearerFormat("JWT")
-                .in(SecurityScheme.In.HEADER);
+                .bearerFormat("JWT");
 
         return new OpenAPI()
                 .info(new Info()
