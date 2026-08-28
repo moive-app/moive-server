@@ -1,5 +1,6 @@
 package com.moive.MoiveBE.global.config;
 
+import io.swagger.v3.oas.models.servers.Server;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -15,6 +16,8 @@ public class SwaggerConfig {
                 .info(new Info()
                         .title("MoiveBE API")
                         .description("MoiveBE API 명세서")
-                        .version("v1"));
+                        .version("v1"))
+                .addServersItem(new Server().url("/"));
     }
+
 }
