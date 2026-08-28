@@ -23,7 +23,9 @@ public enum CustomErrorCode {
     ALREADY_REGISTERED_USER(HttpStatus.CONFLICT, 2004, "이미 가입된 회원입니다."),
     REQUIRED_AGREEMENT_NOT_ACCEPTED(HttpStatus.BAD_REQUEST, 2005, "필수 약관에 동의해야 합니다."),
     INVALID_REFRESH_TOKEN(HttpStatus.UNAUTHORIZED, 2006, "유효하지 않은 Refresh Token입니다."),
-    USER_NOT_FOUND(HttpStatus.NOT_FOUND, 2007, "회원을 찾을 수 없습니다.");
+    USER_NOT_FOUND(HttpStatus.NOT_FOUND, 2007, "회원을 찾을 수 없습니다."),
+    DUPLICATE_AGREEMENT_TYPE(HttpStatus.BAD_REQUEST, 2008, "동일한 약관 유형이 중복되었습니다."),
+    INVALID_AGREEMENT_VERSION(HttpStatus.BAD_REQUEST, 2009, "유효하지 않은 약관 버전입니다.");
 
     private final HttpStatus httpStatus;
     private final int code;

@@ -24,6 +24,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 
 import java.util.List;
 import java.util.Optional;
@@ -91,7 +92,7 @@ class AuthServiceSignupTest {
         when(savedUser.getId())
                 .thenReturn(1L);
 
-        when(userRepository.save(any(User.class)))
+        when(userRepository.saveAndFlush(any(User.class)))
                 .thenReturn(savedUser);
 
         when(jwtTokenProvider.createAccessToken(1L))
@@ -109,7 +110,7 @@ class AuthServiceSignupTest {
                 ArgumentCaptor.forClass(User.class);
 
         verify(userRepository)
-                .save(userCaptor.capture());
+                .saveAndFlush(userCaptor.capture());
 
         User createdUser = userCaptor.getValue();
 
@@ -196,7 +197,7 @@ class AuthServiceSignupTest {
                 });
 
         verify(userRepository, never())
-                .save(any(User.class));
+                .saveAndFlush(any(User.class));
 
         verifyNoInteractions(userAgreementRepository);
         verifyNoInteractions(jwtTokenProvider);
@@ -239,7 +240,169 @@ class AuthServiceSignupTest {
                 });
 
         verify(userRepository, never())
-                .save(any(User.class));
+                .saveAndFlush(any(User.class));
+
+        verifyNoInteractions(userAgreementRepository);
+        verifyNoInteractions(jwtTokenProvider);
+    }
+
+    @Test
+    void 동일한_약관_유형이_중복되면_회원가입_예외가_발생한다() {
+        // given
+        String accessToken = "test-access-token";
+        KakaoUserInfoResponse kakaoUser = mockKakaoUser();
+
+        when(kakaoAuthService.getUserInfo(accessToken))
+                .thenReturn(kakaoUser);
+
+        when(userRepository.findByKakaoMemberIdAndStatus(
+                12345L,
+                UserStatus.ACTIVE
+        )).thenReturn(Optional.empty());
+
+        SignupRequest request = new SignupRequest(
+                accessToken,
+                List.of(
+                        new SignupRequest.AgreementRequest(
+                                AgreementType.SERVICE,
+                                "1.0",
+                                true
+                        ),
+                        new SignupRequest.AgreementRequest(
+                                AgreementType.SERVICE,
+                                "1.0",
+                                false
+                        ),
+                        new SignupRequest.AgreementRequest(
+                                AgreementType.PRIVACY,
+                                "1.0",
+                                true
+                        )
+                )
+        );
+
+        // when & then
+        assertThatThrownBy(() ->
+                authService.signup(request)
+        )
+                .isInstanceOf(CustomException.class)
+                .satisfies(exception -> {
+                    CustomException customException =
+                            (CustomException) exception;
+
+                    assertThat(customException.getCustomErrorCode())
+                            .isEqualTo(
+                                    CustomErrorCode.DUPLICATE_AGREEMENT_TYPE
+                            );
+                });
+
+        verify(userRepository, never())
+                .saveAndFlush(any(User.class));
+
+        verifyNoInteractions(userAgreementRepository);
+        verifyNoInteractions(jwtTokenProvider);
+    }
+    @Test
+    void 약관_버전이_유효하지_않으면_회원가입_예외가_발생한다() {
+        // given
+        String accessToken = "test-access-token";
+        KakaoUserInfoResponse kakaoUser = mockKakaoUser();
+
+        when(kakaoAuthService.getUserInfo(accessToken))
+                .thenReturn(kakaoUser);
+
+        when(userRepository.findByKakaoMemberIdAndStatus(
+                12345L,
+                UserStatus.ACTIVE
+        )).thenReturn(Optional.empty());
+
+        SignupRequest request = new SignupRequest(
+                accessToken,
+                List.of(
+                        new SignupRequest.AgreementRequest(
+                                AgreementType.SERVICE,
+                                "2.0",
+                                true
+                        ),
+                        new SignupRequest.AgreementRequest(
+                                AgreementType.PRIVACY,
+                                "1.0",
+                                true
+                        ),
+                        new SignupRequest.AgreementRequest(
+                                AgreementType.MARKETING,
+                                "1.0",
+                                false
+                        )
+                )
+        );
+
+        // when & then
+        assertThatThrownBy(() ->
+                authService.signup(request)
+        )
+                .isInstanceOf(CustomException.class)
+                .satisfies(exception -> {
+                    CustomException customException =
+                            (CustomException) exception;
+
+                    assertThat(customException.getCustomErrorCode())
+                            .isEqualTo(
+                                    CustomErrorCode.INVALID_AGREEMENT_VERSION
+                            );
+                });
+
+        verify(userRepository, never())
+                .saveAndFlush(any(User.class));
+
+        verifyNoInteractions(userAgreementRepository);
+        verifyNoInteractions(jwtTokenProvider);
+    }
+    @Test
+    void 동시_회원가입으로_카카오_ID_중복이_발생하면_이미_가입된_회원_예외가_발생한다() {
+        // given
+        String accessToken = "test-access-token";
+        KakaoUserInfoResponse kakaoUser = mockKakaoUser();
+
+        when(kakaoAuthService.getUserInfo(accessToken))
+                .thenReturn(kakaoUser);
+
+        // 사전 조회 시점에는 아직 가입된 회원이 없는 상황
+        when(userRepository.findByKakaoMemberIdAndStatus(
+                12345L,
+                UserStatus.ACTIVE
+        )).thenReturn(Optional.empty());
+
+        SignupRequest request = mockSignupRequest(
+                accessToken,
+                true,
+                true,
+                false
+        );
+
+        // 실제 INSERT 시점에 다른 요청이 먼저 가입을 완료해 UNIQUE 충돌 발생
+        when(userRepository.saveAndFlush(any(User.class)))
+                .thenThrow(new DataIntegrityViolationException(
+                        "Duplicate kakaoMemberId"
+                ));
+
+        // when & then
+        assertThatThrownBy(() ->
+                authService.signup(request)
+        )
+                .isInstanceOf(CustomException.class)
+                .satisfies(exception -> {
+                    CustomException customException =
+                            (CustomException) exception;
+
+                    assertThat(customException.getCustomErrorCode())
+                            .isEqualTo(
+                                    CustomErrorCode.ALREADY_REGISTERED_USER
+                            );
+                });
+
+        verify(userRepository)
+                .saveAndFlush(any(User.class));
 
         verifyNoInteractions(userAgreementRepository);
         verifyNoInteractions(jwtTokenProvider);
