@@ -1,6 +1,8 @@
 spring:
   application:
     name: MoiveBE
+  profiles:
+    include: local
 
 jwt:
   secret: ${JWT_SECRET}
