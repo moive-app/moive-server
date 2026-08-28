@@ -9,6 +9,11 @@ import com.moive.MoiveBE.global.exception.CustomErrorCode;
 import com.moive.MoiveBE.global.exception.CustomException;
 import com.moive.MoiveBE.global.jwt.JwtTokenProvider;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -65,11 +70,14 @@ class AuthServiceReissueTest {
         when(jwtTokenProvider.getUserId(refreshToken))
                 .thenReturn(userId);
 
-        when(userRepository.findById(userId))
+        when(userRepository.findByIdForUpdate(userId))
                 .thenReturn(Optional.of(user));
 
+        String hashedRefreshToken =
+                hashRefreshToken(refreshToken);
+
         when(user.getRefreshToken())
-                .thenReturn(refreshToken);
+                .thenReturn(hashedRefreshToken);
 
         when(jwtTokenProvider.createAccessToken(userId))
                 .thenReturn("new-access-token");
@@ -88,8 +96,11 @@ class AuthServiceReissueTest {
         assertThat(result.refreshToken())
                 .isEqualTo("new-refresh-token");
 
+        String hashedNewRefreshToken =
+                hashRefreshToken("new-refresh-token");
+
         verify(user).updateRefreshToken(
-                eq("new-refresh-token"),
+                eq(hashedNewRefreshToken),
                 any()
         );
     }
@@ -140,7 +151,7 @@ class AuthServiceReissueTest {
         when(jwtTokenProvider.getUserId(refreshToken))
                 .thenReturn(userId);
 
-        when(userRepository.findById(userId))
+        when(userRepository.findByIdForUpdate(userId))
                 .thenReturn(Optional.of(user));
 
         when(user.getRefreshToken())
@@ -198,5 +209,22 @@ class AuthServiceReissueTest {
 
         verify(jwtTokenProvider, never())
                 .getUserId(anyString());
+    }
+
+    private String hashRefreshToken(String refreshToken) {
+        try {
+            MessageDigest messageDigest =
+                    MessageDigest.getInstance("SHA-256");
+
+            byte[] hashedBytes = messageDigest.digest(
+                    refreshToken.getBytes(StandardCharsets.UTF_8)
+            );
+
+            return HexFormat.of()
+                    .formatHex(hashedBytes);
+
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException(e);
+        }
     }
 }

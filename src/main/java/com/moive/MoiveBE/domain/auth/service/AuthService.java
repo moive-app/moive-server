@@ -16,6 +16,11 @@ import com.moive.MoiveBE.domain.auth.dto.ReissueRequest;
 import com.moive.MoiveBE.domain.auth.dto.LogoutRequest;
 import com.moive.MoiveBE.global.jwt.JwtTokenProvider;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -72,7 +77,7 @@ public class AuthService {
 
         // 6. Refresh Token 저장
         user.updateRefreshToken(
-                refreshToken,
+                hashRefreshToken(refreshToken),
                 LocalDateTime.now().plusDays(14)
         );
 
@@ -193,7 +198,7 @@ public class AuthService {
 
         // 8. Refresh Token 저장
         savedUser.updateRefreshToken(
-                refreshToken,
+                hashRefreshToken(refreshToken),
                 LocalDateTime.now().plusDays(14)
         );
 
@@ -221,7 +226,7 @@ public class AuthService {
         Long userId = jwtTokenProvider.getUserId(refreshToken);
 
         // 3. User 조회
-        User user = userRepository.findById(userId)
+        User user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() ->
                         new CustomException(
                                 CustomErrorCode.USER_NOT_FOUND
@@ -229,8 +234,11 @@ public class AuthService {
                 );
 
         // 4. DB에 저장된 Refresh Token과 일치하는지 검증
+        String hashedRefreshToken =
+                hashRefreshToken(refreshToken);
+
         if (user.getRefreshToken() == null
-                || !user.getRefreshToken().equals(refreshToken)) {
+                || !user.getRefreshToken().equals(hashedRefreshToken)) {
 
             throw new CustomException(
                     CustomErrorCode.INVALID_REFRESH_TOKEN
@@ -246,7 +254,7 @@ public class AuthService {
 
         // 6. Refresh Token Rotation
         user.updateRefreshToken(
-                newRefreshToken,
+                hashRefreshToken(newRefreshToken),
                 LocalDateTime.now().plusDays(14)
         );
 
@@ -273,7 +281,7 @@ public class AuthService {
         Long userId = jwtTokenProvider.getUserId(refreshToken);
 
         // 3. 회원 조회
-        User user = userRepository.findById(userId)
+        User user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() ->
                         new CustomException(
                                 CustomErrorCode.USER_NOT_FOUND
@@ -281,8 +289,11 @@ public class AuthService {
                 );
 
         // 4. DB에 저장된 Refresh Token과 일치하는지 확인
+        String hashedRefreshToken =
+                hashRefreshToken(refreshToken);
+
         if (user.getRefreshToken() == null
-                || !user.getRefreshToken().equals(refreshToken)) {
+                || !user.getRefreshToken().equals(hashedRefreshToken)) {
 
             throw new CustomException(
                     CustomErrorCode.INVALID_REFRESH_TOKEN
@@ -291,5 +302,25 @@ public class AuthService {
 
         // 5. DB에서 Refresh Token 제거
         user.clearRefreshToken();
+    }
+
+    private String hashRefreshToken(String refreshToken) {
+        try {
+            MessageDigest messageDigest =
+                    MessageDigest.getInstance("SHA-256");
+
+            byte[] hashedBytes = messageDigest.digest(
+                    refreshToken.getBytes(StandardCharsets.UTF_8)
+            );
+
+            return HexFormat.of()
+                    .formatHex(hashedBytes);
+
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException(
+                    "SHA-256 algorithm is not available",
+                    e
+            );
+        }
     }
 }

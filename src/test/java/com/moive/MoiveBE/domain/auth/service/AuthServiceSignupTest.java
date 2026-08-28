@@ -13,6 +13,11 @@ import com.moive.MoiveBE.global.exception.CustomErrorCode;
 import com.moive.MoiveBE.global.exception.CustomException;
 import com.moive.MoiveBE.global.jwt.JwtTokenProvider;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -144,9 +149,12 @@ class AuthServiceSignupTest {
         verify(jwtTokenProvider)
                 .createRefreshToken(1L);
 
+        String hashedRefreshToken =
+                hashRefreshToken("refresh-token");
+
         verify(savedUser)
                 .updateRefreshToken(
-                        eq("refresh-token"),
+                        eq(hashedRefreshToken),
                         any()
                 );
     }
@@ -328,5 +336,22 @@ class AuthServiceSignupTest {
                 );
 
         return request;
+    }
+
+    private String hashRefreshToken(String refreshToken) {
+        try {
+            MessageDigest messageDigest =
+                    MessageDigest.getInstance("SHA-256");
+
+            byte[] hashedBytes = messageDigest.digest(
+                    refreshToken.getBytes(StandardCharsets.UTF_8)
+            );
+
+            return HexFormat.of()
+                    .formatHex(hashedBytes);
+
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException(e);
+        }
     }
 }

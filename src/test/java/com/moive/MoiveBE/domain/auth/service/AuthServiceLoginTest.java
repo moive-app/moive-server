@@ -15,6 +15,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
+
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -120,8 +125,11 @@ class AuthServiceLoginTest {
         verify(jwtTokenProvider).createAccessToken(1L);
         verify(jwtTokenProvider).createRefreshToken(1L);
 
+        String hashedRefreshToken =
+                hashRefreshToken("refresh-token");
+
         verify(existingUser).updateRefreshToken(
-                eq("refresh-token"),
+                eq(hashedRefreshToken),
                 any()
         );
 
@@ -180,5 +188,22 @@ class AuthServiceLoginTest {
         when(kakaoAccount.email()).thenReturn("test@kakao.com");
 
         return kakaoUser;
+    }
+
+    private String hashRefreshToken(String refreshToken) {
+        try {
+            MessageDigest messageDigest =
+                    MessageDigest.getInstance("SHA-256");
+
+            byte[] hashedBytes = messageDigest.digest(
+                    refreshToken.getBytes(StandardCharsets.UTF_8)
+            );
+
+            return HexFormat.of()
+                    .formatHex(hashedBytes);
+
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException(e);
+        }
     }
 }
