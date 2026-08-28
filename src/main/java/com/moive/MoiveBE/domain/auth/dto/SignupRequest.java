@@ -15,7 +15,7 @@ public record SignupRequest(
 
         @NotEmpty
         @Valid
-        List<AgreementRequest> agreements
+        List<@NotNull AgreementRequest> agreements
 ) {
 
     public record AgreementRequest(
