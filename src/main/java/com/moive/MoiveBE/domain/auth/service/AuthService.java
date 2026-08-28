@@ -11,11 +11,22 @@ import com.moive.MoiveBE.domain.user.entity.AgreementType;
 import com.moive.MoiveBE.domain.user.entity.User;
 import com.moive.MoiveBE.domain.user.entity.UserAgreement;
 import com.moive.MoiveBE.domain.user.repository.UserAgreementRepository;
+import com.moive.MoiveBE.domain.auth.dto.TokenResponse;
+import com.moive.MoiveBE.domain.auth.dto.ReissueRequest;
+import com.moive.MoiveBE.domain.auth.dto.LogoutRequest;
+import com.moive.MoiveBE.global.jwt.JwtTokenProvider;
+
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+import java.util.Optional;
 import java.util.List;
 
 @Service
@@ -25,7 +36,9 @@ public class AuthService {
     private final KakaoAuthService kakaoAuthService;
     private final UserRepository userRepository;
     private final UserAgreementRepository userAgreementRepository;
+    private final JwtTokenProvider jwtTokenProvider;
 
+    @Transactional
     public KakaoLoginResponse loginWithKakao(String accessToken) {
 
         // 1. Kakao Access Token으로 카카오 사용자 정보 조회
@@ -36,19 +49,48 @@ public class AuthService {
         validateKakaoUserInfo(kakaoUser);
 
         // 3. Kakao Member ID로 기존 활성 회원 조회
-        boolean registered = userRepository
+        Optional<User> existingUser = userRepository
                 .findByKakaoMemberIdAndStatus(
                         kakaoUser.id(),
                         UserStatus.ACTIVE
-                )
-                .isPresent();
+                );
 
-        // 4. 기존/신규 여부와 카카오 프로필 정보 반환
+        // 4. 신규 회원이면 서비스 토큰 없이 반환
+        if (existingUser.isEmpty()) {
+            return new KakaoLoginResponse(
+                    false,
+                    kakaoUser.properties().nickname(),
+                    kakaoUser.properties().profileImage(),
+                    kakaoUser.kakaoAccount().email(),
+                    null
+            );
+        }
+
+        // 5. 기존 회원이면 MOIVE Access/Refresh Token 발급
+        User user = existingUser.get();
+
+        String accessTokenJwt =
+                jwtTokenProvider.createAccessToken(user.getId());
+
+        String refreshToken =
+                jwtTokenProvider.createRefreshToken(user.getId());
+
+        // 6. Refresh Token 저장
+        user.updateRefreshToken(
+                hashRefreshToken(refreshToken),
+                LocalDateTime.now().plusDays(14)
+        );
+
+        // 7. 기존 회원 정보와 서비스 토큰 반환
         return new KakaoLoginResponse(
-                registered,
+                true,
                 kakaoUser.properties().nickname(),
                 kakaoUser.properties().profileImage(),
-                kakaoUser.kakaoAccount().email()
+                kakaoUser.kakaoAccount().email(),
+                new TokenResponse(
+                        accessTokenJwt,
+                        refreshToken
+                )
         );
     }
 
@@ -98,7 +140,7 @@ public class AuthService {
     }
 
     @Transactional
-    public void signup(SignupRequest request) {
+    public TokenResponse signup(SignupRequest request) {
 
         // 1. Kakao Access Token으로 사용자 정보 다시 조회
         KakaoUserInfoResponse kakaoUser =
@@ -132,7 +174,7 @@ public class AuthService {
                 kakaoUser.properties().profileImage()
         );
 
-        userRepository.save(user);
+        User savedUser = userRepository.save(user);
 
         // 6. 약관 동의 내역 저장
         List<UserAgreement> agreements = request.agreements()
@@ -146,5 +188,139 @@ public class AuthService {
                 .toList();
 
         userAgreementRepository.saveAll(agreements);
+
+        // 7. MOIVE Access/Refresh Token 발급
+        String accessToken =
+                jwtTokenProvider.createAccessToken(savedUser.getId());
+
+        String refreshToken =
+                jwtTokenProvider.createRefreshToken(savedUser.getId());
+
+        // 8. Refresh Token 저장
+        savedUser.updateRefreshToken(
+                hashRefreshToken(refreshToken),
+                LocalDateTime.now().plusDays(14)
+        );
+
+        // 9. 서비스 토큰 반환
+        return new TokenResponse(
+                accessToken,
+                refreshToken
+        );
+
+
+    }
+    @Transactional
+    public TokenResponse reissue(ReissueRequest request) {
+
+        String refreshToken = request.refreshToken();
+
+        // 1. Refresh Token 자체 유효성 검증
+        if (!jwtTokenProvider.validateRefreshToken(refreshToken)) {
+            throw new CustomException(
+                    CustomErrorCode.INVALID_REFRESH_TOKEN
+            );
+        }
+
+        // 2. Refresh Token에서 userId 추출
+        Long userId = jwtTokenProvider.getUserId(refreshToken);
+
+        // 3. User 조회
+        User user = userRepository.findByIdForUpdate(userId)
+                .orElseThrow(() ->
+                        new CustomException(
+                                CustomErrorCode.USER_NOT_FOUND
+                        )
+                );
+
+        // 4. DB에 저장된 Refresh Token과 일치하는지 검증
+        String hashedRefreshToken =
+                hashRefreshToken(refreshToken);
+
+        if (user.getRefreshToken() == null
+                || !user.getRefreshToken().equals(hashedRefreshToken)) {
+
+            throw new CustomException(
+                    CustomErrorCode.INVALID_REFRESH_TOKEN
+            );
+        }
+
+        // 5. 새로운 Access / Refresh Token 발급
+        String newAccessToken =
+                jwtTokenProvider.createAccessToken(userId);
+
+        String newRefreshToken =
+                jwtTokenProvider.createRefreshToken(userId);
+
+        // 6. Refresh Token Rotation
+        user.updateRefreshToken(
+                hashRefreshToken(newRefreshToken),
+                LocalDateTime.now().plusDays(14)
+        );
+
+        // 7. 새 토큰 반환
+        return new TokenResponse(
+                newAccessToken,
+                newRefreshToken
+        );
+    }
+
+    @Transactional
+    public void logout(LogoutRequest request) {
+
+        String refreshToken = request.refreshToken();
+
+        // 1. Refresh Token 유효성 검증
+        if (!jwtTokenProvider.validateRefreshToken(refreshToken)) {
+            throw new CustomException(
+                    CustomErrorCode.INVALID_REFRESH_TOKEN
+            );
+        }
+
+        // 2. Refresh Token에서 userId 추출
+        Long userId = jwtTokenProvider.getUserId(refreshToken);
+
+        // 3. 회원 조회
+        User user = userRepository.findByIdForUpdate(userId)
+                .orElseThrow(() ->
+                        new CustomException(
+                                CustomErrorCode.USER_NOT_FOUND
+                        )
+                );
+
+        // 4. DB에 저장된 Refresh Token과 일치하는지 확인
+        String hashedRefreshToken =
+                hashRefreshToken(refreshToken);
+
+        if (user.getRefreshToken() == null
+                || !user.getRefreshToken().equals(hashedRefreshToken)) {
+
+            throw new CustomException(
+                    CustomErrorCode.INVALID_REFRESH_TOKEN
+            );
+        }
+
+        // 5. DB에서 Refresh Token 제거
+        user.clearRefreshToken();
+    }
+
+    private String hashRefreshToken(String refreshToken) {
+        try {
+            MessageDigest messageDigest =
+                    MessageDigest.getInstance("SHA-256");
+
+            byte[] hashedBytes = messageDigest.digest(
+                    refreshToken.getBytes(StandardCharsets.UTF_8)
+            );
+
+            return HexFormat.of()
+                    .formatHex(hashedBytes);
+
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException(
+                    "SHA-256 algorithm is not available",
+                    e
+            );
+        }
     }
 }

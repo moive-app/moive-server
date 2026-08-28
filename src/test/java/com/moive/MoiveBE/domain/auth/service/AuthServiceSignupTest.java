@@ -1,8 +1,8 @@
 package com.moive.MoiveBE.domain.auth.service;
 
-import com.moive.MoiveBE.domain.auth.dto.KakaoLoginResponse;
 import com.moive.MoiveBE.domain.auth.dto.KakaoUserInfoResponse;
 import com.moive.MoiveBE.domain.auth.dto.SignupRequest;
+import com.moive.MoiveBE.domain.auth.dto.TokenResponse;
 import com.moive.MoiveBE.domain.user.entity.AgreementType;
 import com.moive.MoiveBE.domain.user.entity.User;
 import com.moive.MoiveBE.domain.user.entity.UserAgreement;
@@ -11,6 +11,13 @@ import com.moive.MoiveBE.domain.user.repository.UserAgreementRepository;
 import com.moive.MoiveBE.domain.user.repository.UserRepository;
 import com.moive.MoiveBE.global.exception.CustomErrorCode;
 import com.moive.MoiveBE.global.exception.CustomException;
+import com.moive.MoiveBE.global.jwt.JwtTokenProvider;
+
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -26,7 +33,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-class AuthServiceTest {
+class AuthServiceSignupTest {
 
     @Mock
     private KakaoAuthService kakaoAuthService;
@@ -37,6 +44,9 @@ class AuthServiceTest {
     @Mock
     private UserAgreementRepository userAgreementRepository;
 
+    @Mock
+    private JwtTokenProvider jwtTokenProvider;
+
     private AuthService authService;
 
     @BeforeEach
@@ -44,102 +54,13 @@ class AuthServiceTest {
         authService = new AuthService(
                 kakaoAuthService,
                 userRepository,
-                userAgreementRepository
+                userAgreementRepository,
+                jwtTokenProvider
         );
     }
 
     @Test
-    void 신규_회원이면_registered_false를_반환한다() {
-        // given
-        String accessToken = "test-access-token";
-        KakaoUserInfoResponse kakaoUser = mockKakaoUser();
-
-        when(kakaoAuthService.getUserInfo(accessToken))
-                .thenReturn(kakaoUser);
-
-        when(userRepository.findByKakaoMemberIdAndStatus(
-                12345L,
-                UserStatus.ACTIVE
-        )).thenReturn(Optional.empty());
-
-        // when
-        KakaoLoginResponse result =
-                authService.loginWithKakao(accessToken);
-
-        // then
-        assertThat(result.registered()).isFalse();
-        assertThat(result.nickname())
-                .isEqualTo("테스트유저");
-        assertThat(result.profileImageUrl())
-                .isEqualTo("https://example.com/profile.jpg");
-        assertThat(result.email())
-                .isEqualTo("test@kakao.com");
-
-        verify(userRepository, never()).save(any(User.class));
-    }
-
-    @Test
-    void 기존_활성_회원이면_registered_true를_반환한다() {
-        // given
-        String accessToken = "test-access-token";
-        KakaoUserInfoResponse kakaoUser = mockKakaoUser();
-
-        when(kakaoAuthService.getUserInfo(accessToken))
-                .thenReturn(kakaoUser);
-
-        User existingUser = mock(User.class);
-
-        when(userRepository.findByKakaoMemberIdAndStatus(
-                12345L,
-                UserStatus.ACTIVE
-        )).thenReturn(Optional.of(existingUser));
-
-        // when
-        KakaoLoginResponse result =
-                authService.loginWithKakao(accessToken);
-
-        // then
-        assertThat(result.registered()).isTrue();
-        assertThat(result.email())
-                .isEqualTo("test@kakao.com");
-
-        verify(userRepository, never()).save(any(User.class));
-    }
-
-    @Test
-    void 카카오_필수_정보가_없으면_예외가_발생한다() {
-        // given
-        String accessToken = "test-access-token";
-
-        KakaoUserInfoResponse kakaoUser =
-                mock(KakaoUserInfoResponse.class);
-
-        when(kakaoAuthService.getUserInfo(accessToken))
-                .thenReturn(kakaoUser);
-
-        when(kakaoUser.id())
-                .thenReturn(null);
-
-        // when & then
-        assertThatThrownBy(() ->
-                authService.loginWithKakao(accessToken)
-        )
-                .isInstanceOf(CustomException.class)
-                .satisfies(exception -> {
-                    CustomException customException =
-                            (CustomException) exception;
-
-                    assertThat(customException.getCustomErrorCode())
-                            .isEqualTo(
-                                    CustomErrorCode.KAKAO_REQUIRED_INFO_MISSING
-                            );
-                });
-
-        verifyNoInteractions(userRepository);
-    }
-
-    @Test
-    void 회원가입에_성공하면_회원과_약관동의가_저장된다() {
+    void 회원가입에_성공하면_회원과_약관동의를_저장하고_JWT를_발급한다() {
         // given
         String accessToken = "test-access-token";
         KakaoUserInfoResponse kakaoUser = mockKakaoUser();
@@ -159,24 +80,49 @@ class AuthServiceTest {
                 false
         );
 
+        /*
+         * Repository를 Mock으로 사용하기 때문에 실제 JPA처럼
+         * 저장 후 ID가 자동 생성되지 않는다.
+         *
+         * 따라서 save()가 호출되면 테스트용 User를 반환하도록 설정한다.
+         */
+        User savedUser = mock(User.class);
+
+        when(savedUser.getId())
+                .thenReturn(1L);
+
+        when(userRepository.save(any(User.class)))
+                .thenReturn(savedUser);
+
+        when(jwtTokenProvider.createAccessToken(1L))
+                .thenReturn("access-token");
+
+        when(jwtTokenProvider.createRefreshToken(1L))
+                .thenReturn("refresh-token");
+
         // when
-        authService.signup(request);
+        TokenResponse result =
+                authService.signup(request);
 
         // then
         ArgumentCaptor<User> userCaptor =
                 ArgumentCaptor.forClass(User.class);
 
-        verify(userRepository).save(userCaptor.capture());
+        verify(userRepository)
+                .save(userCaptor.capture());
 
-        User savedUser = userCaptor.getValue();
+        User createdUser = userCaptor.getValue();
 
-        assertThat(savedUser.getKakaoMemberId())
+        assertThat(createdUser.getKakaoMemberId())
                 .isEqualTo(12345L);
-        assertThat(savedUser.getEmail())
+
+        assertThat(createdUser.getEmail())
                 .isEqualTo("test@kakao.com");
-        assertThat(savedUser.getNickname())
+
+        assertThat(createdUser.getNickname())
                 .isEqualTo("테스트유저");
-        assertThat(savedUser.getStatus())
+
+        assertThat(createdUser.getStatus())
                 .isEqualTo(UserStatus.ACTIVE);
 
         @SuppressWarnings("unchecked")
@@ -190,6 +136,27 @@ class AuthServiceTest {
                 agreementCaptor.getValue();
 
         assertThat(agreements).hasSize(3);
+
+        assertThat(result.accessToken())
+                .isEqualTo("access-token");
+
+        assertThat(result.refreshToken())
+                .isEqualTo("refresh-token");
+
+        verify(jwtTokenProvider)
+                .createAccessToken(1L);
+
+        verify(jwtTokenProvider)
+                .createRefreshToken(1L);
+
+        String hashedRefreshToken =
+                hashRefreshToken("refresh-token");
+
+        verify(savedUser)
+                .updateRefreshToken(
+                        eq(hashedRefreshToken),
+                        any()
+                );
     }
 
     @Test
@@ -228,8 +195,11 @@ class AuthServiceTest {
                             );
                 });
 
-        verify(userRepository, never()).save(any(User.class));
+        verify(userRepository, never())
+                .save(any(User.class));
+
         verifyNoInteractions(userAgreementRepository);
+        verifyNoInteractions(jwtTokenProvider);
     }
 
     @Test
@@ -268,8 +238,11 @@ class AuthServiceTest {
                             );
                 });
 
-        verify(userRepository, never()).save(any(User.class));
+        verify(userRepository, never())
+                .save(any(User.class));
+
         verifyNoInteractions(userAgreementRepository);
+        verifyNoInteractions(jwtTokenProvider);
     }
 
     private KakaoUserInfoResponse mockKakaoUser() {
@@ -363,5 +336,22 @@ class AuthServiceTest {
                 );
 
         return request;
+    }
+
+    private String hashRefreshToken(String refreshToken) {
+        try {
+            MessageDigest messageDigest =
+                    MessageDigest.getInstance("SHA-256");
+
+            byte[] hashedBytes = messageDigest.digest(
+                    refreshToken.getBytes(StandardCharsets.UTF_8)
+            );
+
+            return HexFormat.of()
+                    .formatHex(hashedBytes);
+
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException(e);
+        }
     }
 }

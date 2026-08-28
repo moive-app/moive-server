@@ -76,4 +76,17 @@ public class User {
 
         return user;
     }
+
+    public void updateRefreshToken(
+            String refreshToken,
+            LocalDateTime refreshTokenExpiresAt
+    ) {
+        this.refreshToken = refreshToken;
+        this.refreshTokenExpiresAt = refreshTokenExpiresAt;
+    }
+
+    public void clearRefreshToken() {
+        this.refreshToken = null;
+        this.refreshTokenExpiresAt = null;
+    }
 }

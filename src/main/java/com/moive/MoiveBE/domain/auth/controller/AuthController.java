@@ -1,9 +1,8 @@
 package com.moive.MoiveBE.domain.auth.controller;
 
-import com.moive.MoiveBE.domain.auth.dto.KakaoLoginRequest;
-import com.moive.MoiveBE.domain.auth.dto.KakaoLoginResponse;
-import com.moive.MoiveBE.domain.auth.dto.SignupRequest;
+import com.moive.MoiveBE.domain.auth.dto.*;
 import com.moive.MoiveBE.domain.auth.service.AuthService;
+import com.moive.MoiveBE.domain.auth.dto.LogoutRequest;
 import com.moive.MoiveBE.global.common.BaseResponse;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -39,10 +38,36 @@ public class AuthController {
             description = "카카오 Access Token을 검증하고 약관 동의 후 신규 회원을 생성합니다."
     )
     @PostMapping("/signup")
-    public BaseResponse<Void> signup(
+    public BaseResponse<TokenResponse> signup(
             @Valid @RequestBody SignupRequest request
     ) {
-        authService.signup(request);
+        return BaseResponse.success(
+                authService.signup(request)
+        );
+    }
+
+    @Operation(
+            summary = "토큰 재발급",
+            description = "Refresh Token을 검증하고 새로운 Access Token과 Refresh Token을 발급합니다."
+    )
+    @PostMapping("/reissue")
+    public BaseResponse<TokenResponse> reissue(
+            @Valid @RequestBody ReissueRequest request
+    ) {
+        return BaseResponse.success(
+                authService.reissue(request)
+        );
+    }
+
+    @Operation(
+            summary = "로그아웃",
+            description = "Refresh Token을 검증한 후 서버에 저장된 Refresh Token을 삭제합니다."
+    )
+    @PostMapping("/logout")
+    public BaseResponse<Void> logout(
+            @Valid @RequestBody LogoutRequest request
+    ) {
+        authService.logout(request);
 
         return BaseResponse.success(null);
     }
