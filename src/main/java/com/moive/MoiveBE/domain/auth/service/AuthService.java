@@ -23,6 +23,7 @@ import java.util.HexFormat;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
@@ -37,6 +38,10 @@ public class AuthService {
     private final UserRepository userRepository;
     private final UserAgreementRepository userAgreementRepository;
     private final JwtTokenProvider jwtTokenProvider;
+
+    private static final String SERVICE_AGREEMENT_VERSION = "1.0";
+    private static final String PRIVACY_AGREEMENT_VERSION = "1.0";
+    private static final String MARKETING_AGREEMENT_VERSION = "1.0";
 
     @Transactional
     public KakaoLoginResponse loginWithKakao(String accessToken) {
@@ -118,6 +123,18 @@ public class AuthService {
             );
         }
 
+        long distinctTypeCount = request.agreements()
+                .stream()
+                .map(SignupRequest.AgreementRequest::type)
+                .distinct()
+                .count();
+
+        if (distinctTypeCount != request.agreements().size()) {
+            throw new CustomException(
+                    CustomErrorCode.DUPLICATE_AGREEMENT_TYPE
+            );
+        }
+
         boolean serviceAgreed = request.agreements()
                 .stream()
                 .anyMatch(agreement ->
@@ -136,6 +153,24 @@ public class AuthService {
             throw new CustomException(
                     CustomErrorCode.REQUIRED_AGREEMENT_NOT_ACCEPTED
             );
+        }
+    }
+
+    private void validateAgreementVersions(SignupRequest request) {
+
+        for (SignupRequest.AgreementRequest agreement : request.agreements()) {
+
+            String expectedVersion = switch (agreement.type()) {
+                case SERVICE -> SERVICE_AGREEMENT_VERSION;
+                case PRIVACY -> PRIVACY_AGREEMENT_VERSION;
+                case MARKETING -> MARKETING_AGREEMENT_VERSION;
+            };
+
+            if (!expectedVersion.equals(agreement.version())) {
+                throw new CustomException(
+                        CustomErrorCode.INVALID_AGREEMENT_VERSION
+                );
+            }
         }
     }
 
@@ -166,7 +201,10 @@ public class AuthService {
         // 4. 필수 약관 동의 검증
         validateRequiredAgreements(request);
 
-        // 5. 신규 회원 생성
+        // 5. 약관 버전 검증
+        validateAgreementVersions(request);
+
+        // 6. 신규 회원 생성
         User user = User.createKakaoUser(
                 kakaoUser.id(),
                 kakaoUser.kakaoAccount().email(),
@@ -174,9 +212,17 @@ public class AuthService {
                 kakaoUser.properties().profileImage()
         );
 
-        User savedUser = userRepository.save(user);
+        User savedUser;
 
-        // 6. 약관 동의 내역 저장
+        try {
+            savedUser = userRepository.saveAndFlush(user);
+        } catch (DataIntegrityViolationException e) {
+            throw new CustomException(
+                    CustomErrorCode.ALREADY_REGISTERED_USER
+            );
+        }
+
+        // 7. 약관 동의 내역 저장
         List<UserAgreement> agreements = request.agreements()
                 .stream()
                 .map(agreement -> UserAgreement.create(
@@ -189,27 +235,26 @@ public class AuthService {
 
         userAgreementRepository.saveAll(agreements);
 
-        // 7. MOIVE Access/Refresh Token 발급
+        // 8. MOIVE Access/Refresh Token 발급
         String accessToken =
                 jwtTokenProvider.createAccessToken(savedUser.getId());
 
         String refreshToken =
                 jwtTokenProvider.createRefreshToken(savedUser.getId());
 
-        // 8. Refresh Token 저장
+        // 9. Refresh Token 저장
         savedUser.updateRefreshToken(
                 hashRefreshToken(refreshToken),
                 LocalDateTime.now().plusDays(14)
         );
 
-        // 9. 서비스 토큰 반환
+        // 10. 서비스 토큰 반환
         return new TokenResponse(
                 accessToken,
                 refreshToken
         );
-
-
     }
+
     @Transactional
     public TokenResponse reissue(ReissueRequest request) {
 
