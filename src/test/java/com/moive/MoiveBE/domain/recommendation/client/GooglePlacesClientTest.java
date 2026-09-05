@@ -1,6 +1,7 @@
 package com.moive.MoiveBE.domain.recommendation.client;
 
 import com.moive.MoiveBE.domain.recommendation.dto.GooglePlaceSearchResponse;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -8,6 +9,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
+@Disabled("실제 Google Places API 연동 확인용 테스트")
 class GooglePlacesClientTest {
 
     @Autowired

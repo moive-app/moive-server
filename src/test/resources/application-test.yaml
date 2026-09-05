@@ -1,0 +1,6 @@
+jwt:
+  secret: test-secret-key-for-jwt-testing-123456789
+
+google:
+  maps:
+    api-key: test-google-api-key
