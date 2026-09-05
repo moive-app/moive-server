@@ -2,10 +2,10 @@ package com.moive.MoiveBE;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
 
-@SpringBootTest(properties = {
-        "jwt.secret=test-secret-key-for-jwt-testing-123456789"
-})
+@SpringBootTest
+@ActiveProfiles("test")
 class MoiveBEApplicationTests {
 
 	@Test
