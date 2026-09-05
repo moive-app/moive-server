@@ -85,4 +85,52 @@ class PlaceCandidateGenerationServiceTest {
                 )
         );
     }
+
+    @Test
+    void 후보_할당량이_0이면_구글_장소_검색을_호출하지_않는다() {
+
+        Map<String, Integer> allocations = new LinkedHashMap<>();
+        allocations.put("한식", 2);
+        allocations.put("카페", 0);
+
+        when(googlePlacesClient.searchPlaces("강남역 한식", 2))
+                .thenReturn(response(
+                        place("A", 37.1, 127.1),
+                        place("B", 37.2, 127.2)
+                ));
+
+        List<PlaceCandidate> result =
+                service.generateCandidates("강남역", allocations);
+
+        assertThat(result).hasSize(2);
+
+        verify(googlePlacesClient)
+                .searchPlaces("강남역 한식", 2);
+
+        verify(googlePlacesClient, never())
+                .searchPlaces("강남역 카페", 0);
+    }
+
+    @Test
+    void 구글_검색_결과가_할당량보다_적어도_추가_검색하지_않는다() {
+
+        Map<String, Integer> allocations = new LinkedHashMap<>();
+        allocations.put("한식", 3);
+
+        when(googlePlacesClient.searchPlaces("강남역 한식", 3))
+                .thenReturn(response(
+                        place("A", 37.1, 127.1),
+                        place("B", 37.2, 127.2)
+                ));
+
+        List<PlaceCandidate> result =
+                service.generateCandidates("강남역", allocations);
+
+        assertThat(result).hasSize(2);
+
+        verify(googlePlacesClient, times(1))
+                .searchPlaces("강남역 한식", 3);
+
+        verifyNoMoreInteractions(googlePlacesClient);
+    }
 }
