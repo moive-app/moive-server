@@ -24,18 +24,24 @@ class PlaceCandidateServiceTest {
         );
 
         List<PlaceCandidate> result =
-                placeCandidateService.createCandidates(places);
+                placeCandidateService.createCandidates(places,"보드게임");
 
         assertThat(result).hasSize(3);
 
         assertThat(result.get(0).googlePlaceId()).isEqualTo("A");
         assertThat(result.get(0).candidateOrder()).isEqualTo(0);
+        assertThat(result.get(0).preferenceTypes())
+                .containsExactly("보드게임");
 
         assertThat(result.get(1).googlePlaceId()).isEqualTo("B");
         assertThat(result.get(1).candidateOrder()).isEqualTo(1);
+        assertThat(result.get(1).preferenceTypes())
+                .containsExactly("보드게임");
 
         assertThat(result.get(2).googlePlaceId()).isEqualTo("C");
         assertThat(result.get(2).candidateOrder()).isEqualTo(2);
+        assertThat(result.get(2).preferenceTypes())
+                .containsExactly("보드게임");
     }
 
     private GooglePlaceSearchResponse.Place createPlace(

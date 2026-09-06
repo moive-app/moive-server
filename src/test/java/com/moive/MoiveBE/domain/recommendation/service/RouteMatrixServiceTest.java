@@ -1,11 +1,10 @@
 package com.moive.MoiveBE.domain.recommendation.service;
 
-import com.moive.MoiveBE.domain.recommendation.dto.GoogleRouteMatrixResponse;
-import com.moive.MoiveBE.domain.recommendation.dto.PlaceCandidate;
-import com.moive.MoiveBE.domain.recommendation.dto.RouteTravelTime;
+import com.moive.MoiveBE.domain.recommendation.dto.*;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -185,9 +184,9 @@ class RouteMatrixServiceTest {
     @Test
     void 경로가_없는_장소_후보를_제외한다() {
         List<PlaceCandidate> candidates = List.of(
-                new PlaceCandidate("A", 37.1, 127.1, 0),
-                new PlaceCandidate("B", 37.2, 127.2, 1),
-                new PlaceCandidate("C", 37.3, 127.3, 2)
+                new PlaceCandidate("A", 37.1, 127.1, 0,Set.of("한식")),
+                new PlaceCandidate("B", 37.2, 127.2, 1,Set.of("카페")),
+                new PlaceCandidate("C", 37.3, 127.3, 2,Set.of("보드게임"))
         );
 
         List<GoogleRouteMatrixResponse> responses = List.of(
@@ -225,5 +224,64 @@ class RouteMatrixServiceTest {
                 condition,
                 duration
         );
+    }
+
+    @Test
+    void 장소_후보의_평균과_최대_이동시간을_계산한다() {
+        List<GoogleRouteMatrixResponse> responses = List.of(
+                route(0, 0, "ROUTE_EXISTS", "1000s"),
+                route(1, 0, "ROUTE_EXISTS", "1200s"),
+                route(2, 0, "ROUTE_EXISTS", "1400s")
+        );
+
+        PlaceRouteResult result =
+                routeMatrixService.calculateRouteResult(
+                        responses,
+                        0,
+                        3
+                );
+
+        assertThat(result.destinationIndex()).isEqualTo(0);
+        assertThat(result.averageTravelSeconds()).isEqualTo(1200.0);
+        assertThat(result.maxTravelSeconds()).isEqualTo(1400.0);
+    }
+
+    @Test
+    void 도달_가능한_장소들의_평균과_최대_이동시간을_계산한다() {
+        List<PlaceCandidate> candidates = List.of(
+                new PlaceCandidate("A", 37.1, 127.1, 0,Set.of("한식")),
+                new PlaceCandidate("B", 37.2, 127.2, 1,Set.of("카페")),
+                new PlaceCandidate("C", 37.3, 127.3, 2,Set.of("보드게임"))
+        );
+
+        List<GoogleRouteMatrixResponse> responses = List.of(
+                route(0, 0, "ROUTE_EXISTS", "1000s"),
+                route(1, 0, "ROUTE_EXISTS", "1200s"),
+
+                route(0, 1, "ROUTE_EXISTS", "900s"),
+                route(1, 1, "ROUTE_NOT_FOUND", null),
+
+                route(0, 2, "ROUTE_EXISTS", "1500s"),
+                route(1, 2, "ROUTE_EXISTS", "1700s")
+        );
+
+        List<PlaceRouteResult> result =
+                routeMatrixService.calculateRouteResults(
+                        candidates,
+                        responses,
+                        2
+                );
+
+        assertThat(result).hasSize(2);
+
+        assertThat(result)
+                .extracting(PlaceRouteResult::destinationIndex)
+                .containsExactly(0, 2);
+
+        assertThat(result.get(0).averageTravelSeconds()).isEqualTo(1100.0);
+        assertThat(result.get(0).maxTravelSeconds()).isEqualTo(1200.0);
+
+        assertThat(result.get(1).averageTravelSeconds()).isEqualTo(1600.0);
+        assertThat(result.get(1).maxTravelSeconds()).isEqualTo(1700.0);
     }
 }

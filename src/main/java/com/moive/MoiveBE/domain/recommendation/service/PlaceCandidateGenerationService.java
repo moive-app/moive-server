@@ -6,9 +6,7 @@ import com.moive.MoiveBE.domain.recommendation.dto.PlaceCandidate;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -21,7 +19,7 @@ public class PlaceCandidateGenerationService {
             String regionName,
             Map<String, Integer> allocations
     ) {
-        List<GooglePlaceSearchResponse.Place> allPlaces = new ArrayList<>();
+        List<PlaceCandidate> candidates = new ArrayList<>();
 
         for (Map.Entry<String, Integer> entry : allocations.entrySet()) {
 
@@ -44,9 +42,79 @@ public class PlaceCandidateGenerationService {
                 continue;
             }
 
-            allPlaces.addAll(response.places());
+            List<PlaceCandidate> searchedCandidates =
+                    placeCandidateService.createCandidates(
+                            response.places(),
+                            preferenceKeyword
+                    );
+            mergeCandidates(candidates, searchedCandidates);
+
         }
 
-        return placeCandidateService.createCandidates(allPlaces);
+        return candidates;
+    }
+
+    private void mergeCandidates(
+            List<PlaceCandidate> candidates,
+            List<PlaceCandidate> searchedCandidates
+    ) {
+        for (PlaceCandidate searchedCandidate : searchedCandidates) {
+
+            int existingIndex =
+                    findCandidateIndex(
+                            candidates,
+                            searchedCandidate.googlePlaceId()
+                    );
+
+            if (existingIndex >= 0) {
+                PlaceCandidate existing =
+                        candidates.get(existingIndex);
+
+                Set<String> mergedPreferenceTypes =
+                        new HashSet<>(existing.preferenceTypes());
+
+                mergedPreferenceTypes.addAll(
+                        searchedCandidate.preferenceTypes()
+                );
+
+                candidates.set(
+                        existingIndex,
+                        new PlaceCandidate(
+                                existing.googlePlaceId(),
+                                existing.latitude(),
+                                existing.longitude(),
+                                existing.candidateOrder(),
+                                mergedPreferenceTypes
+                        )
+                );
+
+                continue;
+            }
+
+            candidates.add(
+                    new PlaceCandidate(
+                            searchedCandidate.googlePlaceId(),
+                            searchedCandidate.latitude(),
+                            searchedCandidate.longitude(),
+                            candidates.size(),
+                            searchedCandidate.preferenceTypes()
+                    )
+            );
+        }
+    }
+
+    private int findCandidateIndex(
+            List<PlaceCandidate> candidates,
+            String googlePlaceId
+    ) {
+        for (int i = 0; i < candidates.size(); i++) {
+            if (candidates.get(i)
+                    .googlePlaceId()
+                    .equals(googlePlaceId)) {
+                return i;
+            }
+        }
+
+        return -1;
     }
 }
