@@ -25,8 +25,15 @@ public enum CustomErrorCode {
     INVALID_REFRESH_TOKEN(HttpStatus.UNAUTHORIZED, 2006, "유효하지 않은 Refresh Token입니다."),
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, 2007, "회원을 찾을 수 없습니다."),
     DUPLICATE_AGREEMENT_TYPE(HttpStatus.BAD_REQUEST, 2008, "동일한 약관 유형이 중복되었습니다."),
-    INVALID_AGREEMENT_VERSION(HttpStatus.BAD_REQUEST, 2009, "유효하지 않은 약관 버전입니다.");
+    INVALID_AGREEMENT_VERSION(HttpStatus.BAD_REQUEST, 2009, "유효하지 않은 약관 버전입니다."),
 
+    // Route (Kakao MAP API 연동) (3xxx)
+    KAKAO_MAP_API_CONFIG_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, 3001, "카카오맵 API 연동 오류가 발생했습니다. (서버 내부 설정 확인 필요)"),
+    KAKAO_MAP_API_QUOTA_EXCEEDED(HttpStatus.INTERNAL_SERVER_ERROR, 3002, "카카오맵 API 연동 오류가 발생했습니다. (호출 한도 초과)"),
+    KAKAO_MAP_API_SERVER_ERROR(HttpStatus.SERVICE_UNAVAILABLE, 3003, "카카오맵 API 연동 오류가 발생했습니다. (카카오 서버 장애 및 점검)"),
+    KAKAO_MAP_API_CONNECTION_ERROR(HttpStatus.BAD_GATEWAY, 3004, "카카오맵 API 연동 오류가 발생했습니다. (외부 통신 및 네트워크 오류)"),
+
+    ;
     private final HttpStatus httpStatus;
     private final int code;
     private final String message;
