@@ -12,3 +12,7 @@ jwt:
 google:
   maps:
     api-key: ${GOOGLE_MAPS_API_KEY}
+
+kakao:
+  transit:
+    api-key: ${KAKAO_TRANSIT_API_KEY}

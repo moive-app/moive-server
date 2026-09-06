@@ -4,3 +4,7 @@ jwt:
 google:
   maps:
     api-key: test-google-api-key
+
+kakao:
+  transit:
+    api-key: test-kakao-transit-api-key
