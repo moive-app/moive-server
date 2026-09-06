@@ -53,12 +53,31 @@ public class RouteMatrixService {
             int destinationIndex,
             int originCount
     ) {
-        long reachableCount = responses.stream()
-                .filter(response -> response.destinationIndex() == destinationIndex)
-                .filter(this::hasRoute)
+        List<GoogleRouteMatrixResponse> candidateResponses =
+                responses.stream()
+                        .filter(response ->
+                                response.destinationIndex() == destinationIndex)
+                        .toList();
+
+        if (candidateResponses.size() != originCount) {
+            throw new IllegalStateException(
+                    "Google Routes API 응답 요소가 누락되었습니다."
+            );
+        }
+
+        long distinctOriginCount = candidateResponses.stream()
+                .map(GoogleRouteMatrixResponse::originIndex)
+                .distinct()
                 .count();
 
-        return reachableCount == originCount;
+        if (distinctOriginCount != originCount) {
+            throw new IllegalStateException(
+                    "Google Routes API 응답 originIndex가 올바르지 않습니다."
+            );
+        }
+
+        return candidateResponses.stream()
+                .allMatch(this::hasRoute);
     }
 
     public List<PlaceCandidate> filterReachableCandidates(

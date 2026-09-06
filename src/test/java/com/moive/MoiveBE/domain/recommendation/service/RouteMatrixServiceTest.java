@@ -284,4 +284,69 @@ class RouteMatrixServiceTest {
         assertThat(result.get(1).averageTravelSeconds()).isEqualTo(1600.0);
         assertThat(result.get(1).maxTravelSeconds()).isEqualTo(1700.0);
     }
+
+    @Test
+    void 예상된_경로_응답_요소가_누락되면_예외가_발생한다() {
+
+        List<GoogleRouteMatrixResponse> responses = List.of(
+                new GoogleRouteMatrixResponse(
+                        0,
+                        0,
+                        new GoogleRouteMatrixResponse.Status(null, null),
+                        "ROUTE_EXISTS",
+                        "1200s"
+                ),
+                new GoogleRouteMatrixResponse(
+                        1,
+                        0,
+                        new GoogleRouteMatrixResponse.Status(null, null),
+                        "ROUTE_EXISTS",
+                        "1500s"
+                )
+        );
+
+        assertThatThrownBy(() ->
+                routeMatrixService.isCandidateReachable(
+                        responses,
+                        0,
+                        3
+                )
+        )
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Google Routes API 응답 요소가 누락되었습니다.");
+    }
+
+    @Test
+    void 중복된_originIndex가_있으면_예외가_발생한다() {
+
+        List<GoogleRouteMatrixResponse> responses = List.of(
+                new GoogleRouteMatrixResponse(
+                        0, 0,
+                        new GoogleRouteMatrixResponse.Status(null, null),
+                        "ROUTE_EXISTS", "1200s"
+                ),
+                new GoogleRouteMatrixResponse(
+                        0, 0,
+                        new GoogleRouteMatrixResponse.Status(null, null),
+                        "ROUTE_EXISTS", "1300s"
+                ),
+                new GoogleRouteMatrixResponse(
+                        1, 0,
+                        new GoogleRouteMatrixResponse.Status(null, null),
+                        "ROUTE_EXISTS", "1500s"
+                )
+        );
+
+        assertThatThrownBy(() ->
+                routeMatrixService.isCandidateReachable(
+                        responses,
+                        0,
+                        3
+                )
+        )
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage(
+                        "Google Routes API 응답 originIndex가 올바르지 않습니다."
+                );
+    }
 }
