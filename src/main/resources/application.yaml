@@ -16,3 +16,7 @@ google:
 kakao:
   transit:
     api-key: ${KAKAO_TRANSIT_API_KEY}
+
+app:
+  invite:
+    base-url: https://moiveserver.store/invite
