@@ -58,24 +58,31 @@ class RouteDetailServiceTest {
 
             assertThat(routeStep.type())
                     .isEqualTo(TransitType.fromKakaoType(kakaoStep.properties().type()));
-            assertThat(routeStep.path())
-                    .as("카카오 원본 좌표 개수를 간소화 없이 그대로 유지해야 함")
-                    .hasSize(kakaoStep.path().points().length);
 
-            // 좌표 검증: 카카오 원본 [경도, 위도] -> Location(latitude, longitude)
+            int originalSize = kakaoStep.path().points().length;
+            assertThat(routeStep.path().size())
+                    .as("Douglas-Peucker 단순화 후 좌표 개수는 원본 이하여야 함")
+                    .isLessThanOrEqualTo(originalSize);
+
+            // 시작/끝 좌표는 단순화 후에도 보존되어야 함 (구간 접점이 끊기지 않아야 함)
             Double[] firstRawPoint = kakaoStep.path().points()[0];
+            Double[] lastRawPoint = kakaoStep.path().points()[originalSize - 1];
             Location firstConvertedPoint = routeStep.path().get(0);
+            Location lastConvertedPoint = routeStep.path().get(routeStep.path().size() - 1);
+
             assertThat(firstConvertedPoint.latitude()).isEqualTo(firstRawPoint[1]);
             assertThat(firstConvertedPoint.longitude()).isEqualTo(firstRawPoint[0]);
+            assertThat(lastConvertedPoint.latitude()).isEqualTo(lastRawPoint[1]);
+            assertThat(lastConvertedPoint.longitude()).isEqualTo(lastRawPoint[0]);
         }
 
-        System.out.println("routeSteps.size()=" + routeSteps.size());
-        routeSteps.forEach(step ->
-                System.out.println("type=" + step.type() + ", pathSize=" + step.path().size()));
+        //System.out.println("- routeSteps.size()=" + routeSteps.size());
+        //routeSteps.forEach(step ->
+        //        System.out.println("- type=" + step.type() + ", pathSize=" + step.path().size()));
     }
 
     @Test
-    void 최종_응답_조회_시_초단위가_분단위로_정상_환산된다() {
+    void 최종_응답_결과_확인() {
         // when
         RouteDetailResponse response = routeDetailService.getMyRouteDetail(userLocation, placeLocation);
 
@@ -90,8 +97,14 @@ class RouteDetailServiceTest {
                 .as("이동 수단별 소요 시간(분)의 합산은 총 소요 시간보다 적거나 일치해야함")
                 .isLessThanOrEqualTo(totalTime);
 
+        // (출력) 응답 전체 JSON으로 출력
+        ObjectMapper objectMapper = new ObjectMapper();
+        String responseJson = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(response);
+        System.out.println("===== 추천 장소 상세 조회 (이동 경로) API 응답 =====");
+        System.out.println(responseJson);
+
         // (출력) 이동 시간 정보
-        System.out.println("===== 최종 이동 시간 응답 결과 (분 단위) =====");
+        System.out.println("\n===== 최종 이동 시간 응답 결과 (분 단위) =====");
         System.out.println("- 총 소요시간: " + response.totalTime() + "분");
         System.out.println("- 도보: " + response.walkTime() + "분");
         System.out.println("- 버스: " + response.busTime() + "분");
@@ -100,19 +113,30 @@ class RouteDetailServiceTest {
         System.out.println("- Landing URL: " + response.landingUrl());
 
         // (출력) 이동 단계별 정보
+        // userLocation->첫 탑승, 마지막 하차->placeLocation 구간(맨 앞/뒤)은 카카오 응답에 없는
+        // 합성(WALKING, 직선) 구간이라 원본이 없다. 그 사이 구간만 bestRoute.steps()와 대응된다.
         System.out.println("\n===== RouteStep 목록 상세 (총 " + response.routeSteps().size() + "단계) =====");
-        for (int i = 0; i < response.routeSteps().size(); i++) {
-            RouteDetailResponse.RouteStep step = response.routeSteps().get(i);
-            Location startPoint = step.path().get(0);
-            Location endPoint = step.path().get(step.path().size() - 1);
+        List<RouteDetailResponse.RouteStep> allSteps = response.routeSteps();
+        List<KakaoTransitRouteResponse.Step> kakaoSteps = bestRoute.steps();
 
-            System.out.printf("[%d단계] 이동수단: %-7s | 좌표 개수: %3d개 | 시작: (%.5f, %.5f) -> 종료: (%.5f, %.5f)%n",
-                    i + 1,
-                    step.type(),
-                    step.path().size(),
-                    startPoint.latitude(), startPoint.longitude(),
-                    endPoint.latitude(), endPoint.longitude()
-            );
+        for (int i = 0; i < allSteps.size(); i++) {
+            RouteDetailResponse.RouteStep step = allSteps.get(i);
+            boolean isBoundaryWalk = (i == 0 || i == allSteps.size() - 1);
+
+            if (isBoundaryWalk) {
+                System.out.printf("[%d단계] 이동수단: %s | 합성 도보 구간(원본 없음) | 좌표 %d개%n",
+                        i + 1, step.type(), step.path().size());
+            } else {
+                KakaoTransitRouteResponse.Step kakaoStep = kakaoSteps.get(i - 1);
+                int originalSize = kakaoStep.path().points().length;
+                System.out.printf("[%d단계] 이동수단: %s | 원본 %d개 -> 단순화 후 %d개%n",
+                        i + 1, step.type(), originalSize, step.path().size());
+            }
+
+            // response DTO에 있는 값 그대로(반올림 없이) 출력
+            for (Location point : step.path()) {
+                System.out.println(" (" + point.latitude() + ", " + point.longitude() + ")");
+            }
         }
     }
 
