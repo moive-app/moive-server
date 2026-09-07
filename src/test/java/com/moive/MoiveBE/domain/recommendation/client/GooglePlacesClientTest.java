@@ -1,5 +1,6 @@
 package com.moive.MoiveBE.domain.recommendation.client;
 
+import com.moive.MoiveBE.domain.recommendation.dto.GooglePlaceDetailsResponse;
 import com.moive.MoiveBE.domain.recommendation.dto.GooglePlaceSearchResponse;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -31,5 +32,22 @@ class GooglePlacesClientTest {
             System.out.println("longitude = " + place.location().longitude());
             System.out.println("--------------------");
         });
+    }
+
+    @Test
+    void Google_Place_Details를_조회한다() {
+
+        String googlePlaceId = "ChIJ32V8iv6hfDUR-UMjO61PeWE";
+
+        GooglePlaceDetailsResponse response =
+                googlePlacesClient.getPlaceDetails(googlePlaceId);
+
+        System.out.println(response);
+
+        assertThat(response).isNotNull();
+        assertThat(response.displayName()).isNotNull();
+        assertThat(response.displayName().text()).isNotBlank();
+        assertThat(response.primaryTypeDisplayName()).isNotNull();
+        assertThat(response.primaryTypeDisplayName().text()).isNotBlank();
     }
 }

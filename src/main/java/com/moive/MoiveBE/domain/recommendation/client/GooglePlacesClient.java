@@ -1,5 +1,6 @@
 package com.moive.MoiveBE.domain.recommendation.client;
 
+import com.moive.MoiveBE.domain.recommendation.dto.GooglePlaceDetailsResponse;
 import com.moive.MoiveBE.domain.recommendation.dto.GooglePlaceSearchResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -12,6 +13,8 @@ public class GooglePlacesClient {
 
     private static final String TEXT_SEARCH_URL =
             "https://places.googleapis.com/v1/places:searchText";
+    private static final String PLACE_DETAILS_URL =
+            "https://places.googleapis.com/v1/places/{placeId}?languageCode=ko";
 
     private final RestClient restClient;
 
@@ -37,5 +40,19 @@ public class GooglePlacesClient {
             int pageSize,
             String languageCode
     ) {
+    }
+
+    public GooglePlaceDetailsResponse getPlaceDetails(
+            String googlePlaceId
+    ) {
+        return restClient.get()
+                .uri(PLACE_DETAILS_URL, googlePlaceId)
+                .header("X-Goog-Api-Key", apiKey)
+                .header(
+                        "X-Goog-FieldMask",
+                        "displayName,primaryTypeDisplayName"
+                )
+                .retrieve()
+                .body(GooglePlaceDetailsResponse.class);
     }
 }
