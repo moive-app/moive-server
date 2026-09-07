@@ -6,6 +6,7 @@ import com.moive.MoiveBE.domain.route.dto.Location;
 import com.moive.MoiveBE.domain.route.dto.RouteDetailResponse;
 import com.moive.MoiveBE.domain.route.type.TransitType;
 import com.moive.MoiveBE.domain.route.type.KakaoTransitStatusType;
+import com.moive.MoiveBE.domain.route.util.PathPointsSimplifier;
 import com.moive.MoiveBE.global.exception.CustomException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -61,7 +62,8 @@ public class RouteDetailService {
                 int subwaySeconds = timeSummary.subwaySeconds();
                 int walkSeconds = Math.max(0, totalSeconds - (busSeconds + subwaySeconds));
 
-                List<RouteDetailResponse.RouteStep> routeSteps = getRouteSteps(bestRoute);
+                List<RouteDetailResponse.RouteStep> routeSteps =
+                        addBoundaryWalkingSteps(getRouteSteps(bestRoute), userLocation, placeLocation);
 
                 Integer fare = totalSummary.fare() != null ? totalSummary.fare().value() : null;
 
@@ -124,10 +126,29 @@ public class RouteDetailService {
 
         for (KakaoTransitRouteResponse.Step step : steps) {
             TransitType type = TransitType.fromKakaoType(step.properties().type());
-            routeSteps.add(new RouteDetailResponse.RouteStep(type, getPathPoints(step.path())));
+            List<Location> simplifiedPath = PathPointsSimplifier.simplify(getPathPoints(step.path()));
+            routeSteps.add(new RouteDetailResponse.RouteStep(type, simplifiedPath));
         }
 
         return routeSteps;
+    }
+
+    // userLocation -> 첫 탑승 지점, 마지막 하차 지점 -> placeLocation 구간 도보 직선 경로로 추가
+    List<RouteDetailResponse.RouteStep> addBoundaryWalkingSteps(
+            List<RouteDetailResponse.RouteStep> routeSteps,
+            Location userLocation,
+            Location placeLocation
+    ) {
+        Location firstTransitPoint = routeSteps.get(0).path().get(0);
+        RouteDetailResponse.RouteStep lastStep = routeSteps.get(routeSteps.size() - 1);
+        Location lastTransitPoint = lastStep.path().get(lastStep.path().size() - 1);
+
+        List<RouteDetailResponse.RouteStep> result = new ArrayList<>();
+        result.add(new RouteDetailResponse.RouteStep(TransitType.WALKING, List.of(userLocation, firstTransitPoint)));
+        result.addAll(routeSteps);
+        result.add(new RouteDetailResponse.RouteStep(TransitType.WALKING, List.of(lastTransitPoint, placeLocation)));
+
+        return result;
     }
 
     // 카카오 원본 좌표 전부 반환
