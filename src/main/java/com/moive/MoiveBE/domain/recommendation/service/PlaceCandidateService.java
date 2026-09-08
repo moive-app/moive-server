@@ -13,10 +13,11 @@ import java.util.Set;
 public class PlaceCandidateService {
 
     public List<PlaceCandidate> createCandidates(
-            List<GooglePlaceSearchResponse.Place> places
+            List<GooglePlaceSearchResponse.Place> places,
+            String preferenceType
     ) {
         List<PlaceCandidate> candidates = new ArrayList<>();
-        Set<String> seenPlaceIds = new HashSet<>();
+        HashSet<String> seenPlaceIds = new HashSet<>();
 
         for (GooglePlaceSearchResponse.Place place : places) {
 
@@ -30,7 +31,8 @@ public class PlaceCandidateService {
                     place.id(),
                     place.location().latitude(),
                     place.location().longitude(),
-                    candidateOrder
+                    candidateOrder,
+                    new HashSet<>(List.of(preferenceType))
             ));
         }
 
