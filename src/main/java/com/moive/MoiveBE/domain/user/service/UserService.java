@@ -2,6 +2,7 @@ package com.moive.MoiveBE.domain.user.service;
 
 import com.moive.MoiveBE.domain.user.dto.MyInfoResponse;
 import com.moive.MoiveBE.domain.user.entity.User;
+import com.moive.MoiveBE.domain.user.repository.UserAgreementRepository;
 import com.moive.MoiveBE.domain.user.repository.UserRepository;
 import com.moive.MoiveBE.global.exception.CustomErrorCode;
 import com.moive.MoiveBE.global.exception.CustomException;
@@ -18,6 +19,7 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final S3ImageService s3ImageService;
+    private final UserAgreementRepository userAgreementRepository;
 
     public MyInfoResponse getMyInfo(Long userId) {
         User user = userRepository.findById(userId)
@@ -70,5 +72,18 @@ public class UserService {
                 user.getProfileImageUrl(),
                 user.getEmail()
         );
+    }
+
+    @Transactional
+    public void withdraw(Long userId) {
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() ->
+                        new CustomException(CustomErrorCode.USER_NOT_FOUND)
+                );
+
+        userAgreementRepository.deleteAllByUser(user);
+
+        userRepository.delete(user);
     }
 }

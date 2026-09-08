@@ -53,4 +53,17 @@ public class UserController {
                 )
         );
     }
+
+    @Operation(
+            summary = "회원 탈퇴",
+            description = "현재 로그인한 사용자의 회원 정보를 삭제합니다."
+    )
+    @DeleteMapping("/me")
+    public BaseResponse<Void> withdraw(
+            @AuthenticationPrincipal Long userId
+    ) {
+        userService.withdraw(userId);
+
+        return BaseResponse.success(null);
+    }
 }
