@@ -1,5 +1,6 @@
 package com.moive.MoiveBE.domain.recommendation.controller;
 
+import com.moive.MoiveBE.domain.recommendation.dto.RecommendedPlaceDetailResponse;
 import com.moive.MoiveBE.domain.recommendation.dto.RecommendedPlaceListResponse;
 import com.moive.MoiveBE.domain.recommendation.service.RecommendationService;
 import com.moive.MoiveBE.global.common.BaseResponse;
@@ -29,6 +30,24 @@ public class RecommendationController {
     ) {
         return BaseResponse.success(
                 recommendationService.getRecommendedPlaces(recommendedAreaId)
+        );
+    }
+
+    @Operation(
+            summary = "추천 장소 상세 조회",
+            description = "특정 추천 장소의 상세 정보를 조회합니다."
+    )
+    @GetMapping("/areas/{recommendedAreaId}/places/{recommendedPlaceId}")
+    public BaseResponse<RecommendedPlaceDetailResponse> getRecommendedPlaceDetail(
+            @PathVariable Long meetingId,
+            @PathVariable Long recommendedAreaId,
+            @PathVariable Long recommendedPlaceId
+    ) {
+        return BaseResponse.success(
+                recommendationService.getRecommendedPlaceDetail(
+                        recommendedAreaId,
+                        recommendedPlaceId
+                )
         );
     }
 }

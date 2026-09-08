@@ -1,6 +1,7 @@
 package com.moive.MoiveBE.domain.recommendation.client;
 
 import com.moive.MoiveBE.domain.recommendation.dto.GooglePlaceDetailsResponse;
+import com.moive.MoiveBE.domain.recommendation.dto.GooglePlacePhotoResponse;
 import com.moive.MoiveBE.domain.recommendation.dto.GooglePlaceSearchResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -42,7 +43,7 @@ public class GooglePlacesClient {
     ) {
     }
 
-    public GooglePlaceDetailsResponse getPlaceDetails(
+    public GooglePlaceDetailsResponse getPlaceSummaryDetails(
             String googlePlaceId
     ) {
         return restClient.get()
@@ -54,5 +55,40 @@ public class GooglePlacesClient {
                 )
                 .retrieve()
                 .body(GooglePlaceDetailsResponse.class);
+    }
+
+    public GooglePlaceDetailsResponse getPlaceDetails(
+            String googlePlaceId
+    ) {
+        return restClient.get()
+                .uri(PLACE_DETAILS_URL, googlePlaceId)
+                .header("X-Goog-Api-Key", apiKey)
+                .header(
+                        "X-Goog-FieldMask",
+                        "displayName,primaryTypeDisplayName,formattedAddress,photos"
+                )
+                .retrieve()
+                .body(GooglePlaceDetailsResponse.class);
+    }
+
+    public String getPlacePhotoUrl(String photoName) {
+
+        String photoUrl =
+                "https://places.googleapis.com/v1/"
+                        + photoName
+                        + "/media?maxWidthPx=800&skipHttpRedirect=true";
+
+        GooglePlacePhotoResponse response =
+                restClient.get()
+                        .uri(photoUrl)
+                        .header("X-Goog-Api-Key", apiKey)
+                        .retrieve()
+                        .body(GooglePlacePhotoResponse.class);
+
+        if (response == null) {
+            return null;
+        }
+
+        return response.photoUri();
     }
 }
