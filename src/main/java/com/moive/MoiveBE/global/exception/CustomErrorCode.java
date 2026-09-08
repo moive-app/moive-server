@@ -43,6 +43,13 @@ public enum CustomErrorCode {
     MEETING_FULL(HttpStatus.BAD_REQUEST, 4043, "모임 참여 인원이 가득 찼어요."),
     MEETING_COMPLETED(HttpStatus.BAD_REQUEST, 4044, "종료된 모임이에요. 참여할 수 없어요."),
 
+
+    // Recommendation(6xxx)
+    RECOMMENDED_PLACE_NOT_FOUND(HttpStatus.NOT_FOUND,6001,"추천 장소를 찾을 수 없습니다."),
+    RECOMMENDED_AREA_NOT_FOUND(HttpStatus.NOT_FOUND, 6002, "추천 지역을 찾을 수 없습니다."),
+    RECOMMENDATION_RESULT_NOT_FOUND(HttpStatus.NOT_FOUND, 6003, "추천 결과를 찾을 수 없습니다."),
+    PLACE_INFO_LOOKUP_FAILED(HttpStatus.BAD_GATEWAY, 6004, "장소 정보 조회에 실패했습니다."),
+
     // Route (Kakao MAP API 연동) (3xxx)
     // - 카카오맵 공통 에러코드
     KAKAO_MAP_API_CONFIG_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, 3001, "카카오맵 API 연동 오류가 발생했습니다. (서버 내부 설정 확인 필요)"),

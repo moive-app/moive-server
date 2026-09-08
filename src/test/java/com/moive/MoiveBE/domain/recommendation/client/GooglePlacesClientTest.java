@@ -9,8 +9,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@SpringBootTest
 @Disabled("실제 Google Places API 연동 확인용 테스트")
+@SpringBootTest
 class GooglePlacesClientTest {
 
     @Autowired
@@ -49,5 +49,31 @@ class GooglePlacesClientTest {
         assertThat(response.displayName().text()).isNotBlank();
         assertThat(response.primaryTypeDisplayName()).isNotNull();
         assertThat(response.primaryTypeDisplayName().text()).isNotBlank();
+        assertThat(response.formattedAddress()).isNotBlank();
+
+        assertThat(response.photos()).isNotNull();
+        assertThat(response.photos()).isNotEmpty();
+    }
+
+    @Test
+    void Google_Place_Photo_URL을_조회한다() {
+
+        String googlePlaceId = "ChIJ32V8iv6hfDUR-UMjO61PeWE";
+
+        GooglePlaceDetailsResponse details =
+                googlePlacesClient.getPlaceDetails(googlePlaceId);
+
+        assertThat(details).isNotNull();
+        assertThat(details.photos()).isNotNull();
+        assertThat(details.photos()).isNotEmpty();
+
+        String photoName = details.photos().get(0).name();
+
+        String photoUrl =
+                googlePlacesClient.getPlacePhotoUrl(photoName);
+
+        System.out.println("photoUrl = " + photoUrl);
+
+        assertThat(photoUrl).isNotBlank();
     }
 }
