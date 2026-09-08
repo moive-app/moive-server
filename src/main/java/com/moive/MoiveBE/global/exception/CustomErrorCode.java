@@ -27,6 +27,13 @@ public enum CustomErrorCode {
     DUPLICATE_AGREEMENT_TYPE(HttpStatus.BAD_REQUEST, 2008, "동일한 약관 유형이 중복되었습니다."),
     INVALID_AGREEMENT_VERSION(HttpStatus.BAD_REQUEST, 2009, "유효하지 않은 약관 버전입니다."),
 
+
+    // Recommendation(6xxx)
+    RECOMMENDED_PLACE_NOT_FOUND(HttpStatus.NOT_FOUND,6001,"추천 장소를 찾을 수 없습니다."),
+    RECOMMENDED_AREA_NOT_FOUND(HttpStatus.NOT_FOUND, 6002, "추천 지역을 찾을 수 없습니다."),
+    RECOMMENDATION_RESULT_NOT_FOUND(HttpStatus.NOT_FOUND, 6003, "추천 결과를 찾을 수 없습니다."),
+    PLACE_INFO_LOOKUP_FAILED(HttpStatus.BAD_GATEWAY, 6004, "장소 정보 조회에 실패했습니다."),
+
     // Route (Kakao MAP API 연동) (3xxx)
     // - 카카오맵 공통 에러코드
     KAKAO_MAP_API_CONFIG_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, 3001, "카카오맵 API 연동 오류가 발생했습니다. (서버 내부 설정 확인 필요)"),
