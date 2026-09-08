@@ -3,6 +3,8 @@ package com.moive.MoiveBE.domain.meeting.controller;
 import com.moive.MoiveBE.domain.meeting.dto.CreateMeetingRequest;
 import com.moive.MoiveBE.domain.meeting.dto.CreateMeetingResponse;
 import com.moive.MoiveBE.domain.meeting.dto.JoinMeetingResponse;
+import com.moive.MoiveBE.domain.meeting.dto.SubmitPreferenceRequest;
+import com.moive.MoiveBE.domain.meeting.dto.SubmitPreferenceResponse;
 import com.moive.MoiveBE.domain.meeting.service.MeetingService;
 import com.moive.MoiveBE.global.common.BaseResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -38,5 +40,17 @@ public class MeetingController {
             @PathVariable String inviteCode
     ) {
         return BaseResponse.success("모임에 참여했습니다.", meetingService.joinMeeting(inviteCode));
+    }
+
+    @Operation(
+            summary = "조건입력 제출",
+            description = "출발지, 최대 이동시간, 취향, 후보 일정을 한 번에 제출합니다. 전원 완료 시 모임이 VOTING 상태로 전환됩니다."
+    )
+    @PostMapping("/{meetingId}/preferences")
+    public BaseResponse<SubmitPreferenceResponse> submitPreference(
+            @PathVariable Long meetingId,
+            @RequestBody SubmitPreferenceRequest request
+    ) {
+        return BaseResponse.success("조건 입력이 완료되었습니다.", meetingService.submitPreference(meetingId, request));
     }
 }

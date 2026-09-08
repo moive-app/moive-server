@@ -48,4 +48,9 @@ public class Participant {
         p.conditionCompleted = false;
         return p;
     }
+
+    public void completeCondition() {
+        this.state = ParticipantState.COND_DONE;
+        this.conditionCompleted = true;
+    }
 }
