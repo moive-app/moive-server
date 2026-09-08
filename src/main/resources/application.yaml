@@ -20,3 +20,9 @@ kakao:
 app:
   invite:
     base-url: https://moiveserver.store/invite
+
+aws:
+  s3:
+    bucket: ${AWS_S3_BUCKET}
+  cloudfront:
+    domain: ${AWS_CLOUDFRONT_DOMAIN}
