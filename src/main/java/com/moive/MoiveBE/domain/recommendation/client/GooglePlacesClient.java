@@ -3,10 +3,13 @@ package com.moive.MoiveBE.domain.recommendation.client;
 import com.moive.MoiveBE.domain.recommendation.dto.GooglePlaceDetailsResponse;
 import com.moive.MoiveBE.domain.recommendation.dto.GooglePlacePhotoResponse;
 import com.moive.MoiveBE.domain.recommendation.dto.GooglePlaceSearchResponse;
+import com.moive.MoiveBE.global.exception.CustomErrorCode;
+import com.moive.MoiveBE.global.exception.CustomException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientResponseException;
 
 @Component
 @RequiredArgsConstructor
@@ -46,49 +49,81 @@ public class GooglePlacesClient {
     public GooglePlaceDetailsResponse getPlaceSummaryDetails(
             String googlePlaceId
     ) {
-        return restClient.get()
-                .uri(PLACE_DETAILS_URL, googlePlaceId)
-                .header("X-Goog-Api-Key", apiKey)
-                .header(
-                        "X-Goog-FieldMask",
-                        "displayName,primaryTypeDisplayName"
-                )
-                .retrieve()
-                .body(GooglePlaceDetailsResponse.class);
+        try {
+            return restClient.get()
+                    .uri(PLACE_DETAILS_URL, googlePlaceId)
+                    .header("X-Goog-Api-Key", apiKey)
+                    .header(
+                            "X-Goog-FieldMask",
+                            "displayName,primaryTypeDisplayName"
+                    )
+                    .retrieve()
+                    .body(GooglePlaceDetailsResponse.class);
+
+        } catch (RestClientResponseException e) {
+            throw new CustomException(
+                    CustomErrorCode.PLACE_INFO_LOOKUP_FAILED
+            );
+        } catch (Exception e) {
+            throw new CustomException(
+                    CustomErrorCode.PLACE_INFO_LOOKUP_FAILED
+            );
+        }
     }
 
     public GooglePlaceDetailsResponse getPlaceDetails(
             String googlePlaceId
     ) {
-        return restClient.get()
-                .uri(PLACE_DETAILS_URL, googlePlaceId)
-                .header("X-Goog-Api-Key", apiKey)
-                .header(
-                        "X-Goog-FieldMask",
-                        "displayName,primaryTypeDisplayName,formattedAddress,photos"
-                )
-                .retrieve()
-                .body(GooglePlaceDetailsResponse.class);
+        try {
+            return restClient.get()
+                    .uri(PLACE_DETAILS_URL, googlePlaceId)
+                    .header("X-Goog-Api-Key", apiKey)
+                    .header(
+                            "X-Goog-FieldMask",
+                            "displayName,primaryTypeDisplayName,formattedAddress,photos"
+                    )
+                    .retrieve()
+                    .body(GooglePlaceDetailsResponse.class);
+
+        } catch (RestClientResponseException e) {
+            throw new CustomException(
+                    CustomErrorCode.PLACE_INFO_LOOKUP_FAILED
+            );
+        } catch (Exception e) {
+            throw new CustomException(
+                    CustomErrorCode.PLACE_INFO_LOOKUP_FAILED
+            );
+        }
     }
 
     public String getPlacePhotoUrl(String photoName) {
+        try {
+            String photoUrl =
+                    "https://places.googleapis.com/v1/"
+                            + photoName
+                            + "/media?maxWidthPx=800&skipHttpRedirect=true";
 
-        String photoUrl =
-                "https://places.googleapis.com/v1/"
-                        + photoName
-                        + "/media?maxWidthPx=800&skipHttpRedirect=true";
+            GooglePlacePhotoResponse response =
+                    restClient.get()
+                            .uri(photoUrl)
+                            .header("X-Goog-Api-Key", apiKey)
+                            .retrieve()
+                            .body(GooglePlacePhotoResponse.class);
 
-        GooglePlacePhotoResponse response =
-                restClient.get()
-                        .uri(photoUrl)
-                        .header("X-Goog-Api-Key", apiKey)
-                        .retrieve()
-                        .body(GooglePlacePhotoResponse.class);
+            if (response == null) {
+                return null;
+            }
 
-        if (response == null) {
-            return null;
+            return response.photoUri();
+
+        } catch (RestClientResponseException e) {
+            throw new CustomException(
+                    CustomErrorCode.PLACE_INFO_LOOKUP_FAILED
+            );
+        } catch (Exception e) {
+            throw new CustomException(
+                    CustomErrorCode.PLACE_INFO_LOOKUP_FAILED
+            );
         }
-
-        return response.photoUri();
     }
 }
