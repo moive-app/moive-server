@@ -41,7 +41,8 @@ public class RouteDetailService {
         );
         if (kakaoResponse == null || kakaoResponse.status() == null) {
             log.error("[카카오맵 대중교통 경로 조회 API] Response Body가 비어있습니다.");
-            throw new CustomException(KAKAO_MAP_API_INVALID_RESPONSE);
+            throw new CustomException(KAKAO_MAP_API_SERVER_ERROR,
+                    KAKAO_MAP_API_SERVER_ERROR.messageWith("응답 데이터 규격 확인 필요"));
         }
 
         KakaoTransitStatusType status = KakaoTransitStatusType.valueOf(kakaoResponse.status());
@@ -75,7 +76,8 @@ public class RouteDetailService {
             // 대중교통 경로 조회가 불가능한 경우
             case STARTNODES_NULL, ENDNODES_NULL, INVALID_REQUEST -> {
                 log.error("[카카오맵 대중교통 경로 조회 API] 요청 좌표로 경로 탐색이 불가능합니다. (status={})", status);
-                throw new CustomException(KAKAO_MAP_API_INVALID_REQUEST);
+                throw new CustomException(KAKAO_MAP_API_SERVER_ERROR,
+                        KAKAO_MAP_API_SERVER_ERROR.messageWith("요청 좌표로 경로 탐색 불가"));
             }
 
             // 대중교통 경로가 존재하지 않는 경우

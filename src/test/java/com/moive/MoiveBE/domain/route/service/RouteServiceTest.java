@@ -144,7 +144,7 @@ class RouteServiceTest {
     }
 
     @Test
-    void 카카오_응답의_status가_경로_탐색_불가면_KAKAO_MAP_API_INVALID_REQUEST_예외가_발생한다() {
+    void 카카오_응답의_status가_경로_탐색_불가면_KAKAO_MAP_API_SERVER_ERROR_예외가_발생한다() {
         // given
         stubUserAndMeetingExist();
         stubParticipant(DEPARTURE_LATITUDE, DEPARTURE_LONGITUDE);
@@ -158,12 +158,15 @@ class RouteServiceTest {
         assertThatThrownBy(() -> routeService.getRecommendedPlaceRoute(
                 USER_ID, MEETING_ID, RECOMMENDED_PLACE_ID))
                 .isInstanceOf(CustomException.class)
-                .satisfies(e -> assertThat(((CustomException) e).getCustomErrorCode())
-                        .isEqualTo(CustomErrorCode.KAKAO_MAP_API_INVALID_REQUEST));
+                .satisfies(e -> {
+                    assertThat(((CustomException) e).getCustomErrorCode())
+                            .isEqualTo(CustomErrorCode.KAKAO_MAP_API_SERVER_ERROR);
+                    assertThat(e.getMessage()).contains("요청 좌표로 경로 탐색 불가");
+                });
     }
 
     @Test
-    void 카카오_응답_본문이_비어있으면_KAKAO_MAP_API_INVALID_RESPONSE_예외가_발생한다() {
+    void 카카오_응답_본문이_비어있으면_KAKAO_MAP_API_SERVER_ERROR_예외가_발생한다() {
         // given
         stubUserAndMeetingExist();
         stubParticipant(DEPARTURE_LATITUDE, DEPARTURE_LONGITUDE);
@@ -177,8 +180,11 @@ class RouteServiceTest {
         assertThatThrownBy(() -> routeService.getRecommendedPlaceRoute(
                 USER_ID, MEETING_ID, RECOMMENDED_PLACE_ID))
                 .isInstanceOf(CustomException.class)
-                .satisfies(e -> assertThat(((CustomException) e).getCustomErrorCode())
-                        .isEqualTo(CustomErrorCode.KAKAO_MAP_API_INVALID_RESPONSE));
+                .satisfies(e -> {
+                    assertThat(((CustomException) e).getCustomErrorCode())
+                            .isEqualTo(CustomErrorCode.KAKAO_MAP_API_SERVER_ERROR);
+                    assertThat(e.getMessage()).contains("응답 데이터 규격 확인 필요");
+                });
     }
 
     @Test

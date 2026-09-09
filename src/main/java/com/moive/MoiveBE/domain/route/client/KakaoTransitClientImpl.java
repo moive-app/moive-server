@@ -3,7 +3,6 @@ package com.moive.MoiveBE.domain.route.client;
 import com.moive.MoiveBE.domain.route.dto.KakaoTransitErrorResponse;
 import com.moive.MoiveBE.domain.route.dto.KakaoTransitRouteResponse;
 import com.moive.MoiveBE.domain.route.dto.Location;
-import com.moive.MoiveBE.global.exception.CustomErrorCode;
 import com.moive.MoiveBE.global.exception.CustomException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -52,15 +51,16 @@ public class KakaoTransitClientImpl implements KakaoTransitClient {
                     .body(KakaoTransitRouteResponse.class);
         } catch (RestClientResponseException e) {
             KakaoTransitErrorResponse errorBody = parseErrorBody(e.getResponseBodyAsString());
-            CustomErrorCode errorCode = classify(e.getStatusCode().value(), errorBody);
+            KakaoApiErrorCase cause = classify(e.getStatusCode().value(), errorBody);
 
-            log.error("[카카오맵 대중교통 경로 조회 API 연동 오류] - 분류={}, httpStatus={}, errorType={}, message={}",
-                    errorCode.name(),
+            log.error("[카카오맵 대중교통 경로 조회 API 연동 오류] - 분류={}, 원인={}, httpStatus={}, errorType={}, message={}",
+                    KAKAO_MAP_API_SERVER_ERROR.name(),
+                    cause.getDetail(),
                     e.getStatusCode().value(),
                     errorBody != null ? errorBody.errorType() : null,
                     errorBody != null ? errorBody.message() : e.getMessage());
 
-            throw new CustomException(errorCode);
+            throw new CustomException(KAKAO_MAP_API_SERVER_ERROR, KAKAO_MAP_API_SERVER_ERROR.messageWith(cause.getDetail()));
 
         } catch (Exception e) {
             log.error("[카카오맵 대중교통 경로 조회 API 통신 오류] - 분류={}, exceptionType={}, message={}",
@@ -89,27 +89,44 @@ public class KakaoTransitClientImpl implements KakaoTransitClient {
                 .toUri();
     }
 
-    // 카카오맵 API 공통 예외 처리
-    private CustomErrorCode classify(int httpStatus, KakaoTransitErrorResponse errorBody) {
+    // 카카오맵 API 오류 원인 분류
+    private KakaoApiErrorCase classify(int httpStatus, KakaoTransitErrorResponse errorBody) {
         if(httpStatus == 401) {
-            return KAKAO_MAP_API_CONFIG_ERROR;
+            return KakaoApiErrorCase.CONFIG;
         }
         if(httpStatus == 503) {
-            return KAKAO_MAP_API_SERVER_ERROR;
+            return KakaoApiErrorCase.SERVER;
         }
         if(httpStatus == 400) {
             String errorType = errorBody != null ? errorBody.errorType() : null;
             String message = errorBody != null ? errorBody.message() : null;
 
             if("ValidationError".equalsIgnoreCase(errorType)) {
-                return KAKAO_MAP_API_CONFIG_ERROR;
+                return KakaoApiErrorCase.CONFIG;
             }
             if(looksLikeQuotaExceeded(message)) {
-                return KAKAO_MAP_API_QUOTA_EXCEEDED;
+                return KakaoApiErrorCase.QUOTA_EXCEEDED;
             }
-            return KAKAO_MAP_API_SERVER_ERROR;
+            return KakaoApiErrorCase.SERVER;
         }
-        return CustomErrorCode.KAKAO_MAP_API_SERVER_ERROR;
+        return KakaoApiErrorCase.SERVER;
+    }
+
+    // 카카오맵 연동 오류의 세부 원인
+    private enum KakaoApiErrorCase {
+        CONFIG("서버 내부 설정 확인 필요"),
+        QUOTA_EXCEEDED("호출 한도 초과"),
+        SERVER("카카오 서버 장애 및 점검");
+
+        private final String detail;
+
+        KakaoApiErrorCase(String detail) {
+            this.detail = detail;
+        }
+
+        private String getDetail() {
+            return detail;
+        }
     }
 
     private boolean looksLikeQuotaExceeded(String message) {
