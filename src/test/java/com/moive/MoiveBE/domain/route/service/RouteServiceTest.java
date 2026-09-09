@@ -31,6 +31,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -44,6 +45,8 @@ class RouteServiceTest {
     private static final Long RECOMMENDED_PLACE_ID = 3L;
     private static final Long PARTICIPANT_ID = 100L;
     private static final String GOOGLE_PLACE_ID = "test-google-place-id";
+    private static final String DEPARTURE_NAME = "출발지";
+    private static final String PLACE_NAME = "도착지";
 
     // 출발지(참여자 선호 조건에 저장된 위치) 좌표 예시
     private static final BigDecimal DEPARTURE_LATITUDE = new BigDecimal("37.5788132079661");
@@ -98,7 +101,8 @@ class RouteServiceTest {
         stubRecommendedPlace();
         stubGooglePlaceLocation(PLACE_LATITUDE, PLACE_LONGITUDE);
         // 도보 300초 + 지하철 600초 + 버스 480초, 총 1800초, 요금 1500원
-        when(kakaoTransitClient.getTransitRoute(any(Location.class), any(Location.class)))
+        when(kakaoTransitClient.getTransitRoute(
+                any(Location.class), any(Location.class), anyString(), anyString()))
                 .thenReturn(okTransitRoute());
 
         // when
@@ -127,7 +131,8 @@ class RouteServiceTest {
         stubParticipant(DEPARTURE_LATITUDE, DEPARTURE_LONGITUDE);
         stubRecommendedPlace();
         stubGooglePlaceLocation(PLACE_LATITUDE, PLACE_LONGITUDE);
-        when(kakaoTransitClient.getTransitRoute(any(Location.class), any(Location.class)))
+        when(kakaoTransitClient.getTransitRoute(
+                any(Location.class), any(Location.class), anyString(), anyString()))
                 .thenReturn(new KakaoTransitRouteResponse("NO_RESULTS", null, List.of()));
 
         // when & then
@@ -145,7 +150,8 @@ class RouteServiceTest {
         stubParticipant(DEPARTURE_LATITUDE, DEPARTURE_LONGITUDE);
         stubRecommendedPlace();
         stubGooglePlaceLocation(PLACE_LATITUDE, PLACE_LONGITUDE);
-        when(kakaoTransitClient.getTransitRoute(any(Location.class), any(Location.class)))
+        when(kakaoTransitClient.getTransitRoute(
+                any(Location.class), any(Location.class), anyString(), anyString()))
                 .thenReturn(new KakaoTransitRouteResponse("INVALID_REQUEST", null, List.of()));
 
         // when & then
@@ -163,7 +169,8 @@ class RouteServiceTest {
         stubParticipant(DEPARTURE_LATITUDE, DEPARTURE_LONGITUDE);
         stubRecommendedPlace();
         stubGooglePlaceLocation(PLACE_LATITUDE, PLACE_LONGITUDE);
-        when(kakaoTransitClient.getTransitRoute(any(Location.class), any(Location.class)))
+        when(kakaoTransitClient.getTransitRoute(
+                any(Location.class), any(Location.class), anyString(), anyString()))
                 .thenReturn(null);
 
         // when & then
@@ -203,6 +210,7 @@ class RouteServiceTest {
         ParticipantPreference preference = mock(ParticipantPreference.class);
         lenient().when(preference.getDepartureLatitude()).thenReturn(latitude);
         lenient().when(preference.getDepartureLongitude()).thenReturn(longitude);
+        lenient().when(preference.getDepartureName()).thenReturn(DEPARTURE_NAME);
         when(participantPreferenceRepository.findByParticipantId(PARTICIPANT_ID))
                 .thenReturn(Optional.of(preference));
     }
@@ -215,7 +223,7 @@ class RouteServiceTest {
     private void stubGooglePlaceLocation(double latitude, double longitude) {
         when(googlePlacesClient.getPlaceLocation(GOOGLE_PLACE_ID))
                 .thenReturn(new GooglePlaceLocationResponse(
-                        null,
+                        new GooglePlaceLocationResponse.LocalizedText(PLACE_NAME, "ko"),
                         null,
                         null,
                         new GooglePlaceLocationResponse.Location(latitude, longitude)

@@ -10,7 +10,9 @@ import com.moive.MoiveBE.domain.recommendation.dto.GooglePlaceLocationResponse;
 import com.moive.MoiveBE.domain.recommendation.entity.RecommendedPlace;
 import com.moive.MoiveBE.domain.recommendation.repository.RecommendedPlaceRepository;
 import com.moive.MoiveBE.domain.route.dto.Location;
+import com.moive.MoiveBE.domain.route.dto.RouteDetail;
 import com.moive.MoiveBE.domain.route.dto.RouteDetailResponse;
+import com.moive.MoiveBE.domain.user.entity.User;
 import com.moive.MoiveBE.domain.user.repository.UserRepository;
 import com.moive.MoiveBE.global.exception.CustomException;
 import lombok.RequiredArgsConstructor;
@@ -39,7 +41,7 @@ public class RouteService {
             Long recommendedPlaceId
     ) {
         // 유저 조회
-        userRepository.findById(userId)
+        User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(USER_NOT_FOUND));
 
         // 모임 조회
@@ -64,9 +66,17 @@ public class RouteService {
         GooglePlaceLocationResponse placeInfo = googlePlacesClient.getPlaceLocation(place.getGooglePlaceId());
         Location placeLocation = new Location(placeInfo.location().latitude(), placeInfo.location().longitude());
 
-        return routeDetailService.getMyRouteDetail(
+        // 카카오맵 대중교통 경로 조회 => 이동 경로 관련 정보 생성
+        RouteDetail routeDetail = routeDetailService.getMyRouteDetail(
                 userLocation, placeLocation,
                 preference.getDepartureName(), placeInfo.displayName().text()
+        );
+
+        return RouteDetailResponse.of(
+                user.getNickname(),
+                userLocation,
+                placeLocation,
+                routeDetail
         );
     }
 
