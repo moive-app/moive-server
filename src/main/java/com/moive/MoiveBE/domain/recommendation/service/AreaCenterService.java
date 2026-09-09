@@ -29,7 +29,16 @@ public class AreaCenterService {
                 .toList();
 
         List<ParticipantPreference> preferences =
-                participantPreferenceRepository.findAllByParticipantIdIn(participantIds);
+                participantPreferenceRepository.findAllByParticipantIdIn(
+                        participantIds
+                );
+
+        return calculate(preferences);
+    }
+
+    public AreaCenter calculate(
+            List<ParticipantPreference> preferences
+    ) {
 
         if (preferences.isEmpty()) {
             throw new CustomException(
