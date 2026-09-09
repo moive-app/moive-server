@@ -45,6 +45,18 @@ public class MeetingController {
     }
 
     @Operation(
+            summary = "조건입력 제출",
+            description = "출발지, 최대 이동시간, 취향, 후보 일정을 한 번에 제출합니다. 전원 완료 시 모임이 VOTING 상태로 전환됩니다."
+    )
+    @PostMapping("/{meetingId}/preferences")
+    public BaseResponse<SubmitPreferenceResponse> submitPreference(
+            @PathVariable Long meetingId,
+            @RequestBody SubmitPreferenceRequest request
+    ) {
+        return BaseResponse.success("조건 입력이 완료되었습니다.", meetingService.submitPreference(meetingId, request));
+    }
+
+    @Operation(
             summary = "모임 전체보기",
             description = "내 모임 목록을 cursor 기반 무한스크롤로 반환합니다."
     )

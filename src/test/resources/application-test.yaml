@@ -8,3 +8,9 @@ google:
 kakao:
   transit:
     api-key: test-kakao-transit-api-key
+
+aws:
+  s3:
+    bucket: test-bucket
+  cloudfront:
+    domain: test.cloudfront.net

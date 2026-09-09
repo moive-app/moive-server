@@ -52,4 +52,9 @@ public class Participant {
     public void leave() {
         this.leftAt = java.time.LocalDateTime.now();
     }
+
+    public void completeCondition() {
+        this.state = ParticipantState.COND_DONE;
+        this.conditionCompleted = true;
+    }
 }

@@ -89,4 +89,12 @@ public class User {
         this.refreshToken = null;
         this.refreshTokenExpiresAt = null;
     }
+
+    public void updateProfile(
+            String nickname,
+            String profileImageUrl
+    ) {
+        this.nickname = nickname;
+        this.profileImageUrl = profileImageUrl;
+    }
 }
