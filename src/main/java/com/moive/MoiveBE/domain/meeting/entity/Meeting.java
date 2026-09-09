@@ -87,4 +87,16 @@ public class Meeting {
     public void incrementParticipantCnt() {
         this.participantCnt++;
     }
+
+    public void incrementSubmittedCnt() {
+        this.submittedCnt++;
+    }
+
+    public void transitionToVoting() {
+        this.status = MeetingStatus.VOTING;
+    }
+
+    public boolean hasSchedule() {
+        return this.scheduledDate != null;
+    }
 }

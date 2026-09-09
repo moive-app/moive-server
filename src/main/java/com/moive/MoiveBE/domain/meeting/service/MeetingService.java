@@ -3,13 +3,12 @@ package com.moive.MoiveBE.domain.meeting.service;
 import com.moive.MoiveBE.domain.meeting.dto.CreateMeetingRequest;
 import com.moive.MoiveBE.domain.meeting.dto.CreateMeetingResponse;
 import com.moive.MoiveBE.domain.meeting.dto.JoinMeetingResponse;
+import com.moive.MoiveBE.domain.meeting.dto.SubmitPreferenceRequest;
+import com.moive.MoiveBE.domain.meeting.dto.SubmitPreferenceResponse;
 import com.moive.MoiveBE.domain.meeting.entity.*;
-import com.moive.MoiveBE.domain.meeting.repository.MeetingPurposeRepository;
-import com.moive.MoiveBE.domain.meeting.repository.MeetingRepository;
-import com.moive.MoiveBE.domain.meeting.repository.ParticipantRepository;
+import com.moive.MoiveBE.domain.meeting.repository.*;
 import com.moive.MoiveBE.global.exception.CustomErrorCode;
 import com.moive.MoiveBE.global.exception.CustomException;
-import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -18,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.security.SecureRandom;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -28,9 +28,15 @@ public class MeetingService {
     private static final String INVITE_CODE_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
     private static final int INVITE_CODE_LENGTH = 8;
 
+    private static final List<Integer> VALID_TRAVEL_MINUTES = List.of(30, 60, 90);
+
     private final MeetingRepository meetingRepository;
     private final MeetingPurposeRepository meetingPurposeRepository;
     private final ParticipantRepository participantRepository;
+    private final ParticipantPreferenceRepository preferenceRepository;
+    private final PreferenceActivityRepository preferenceActivityRepository;
+    private final ActivityRepository activityRepository;
+    private final DateVoteRepository dateVoteRepository;
     private final String inviteBaseUrl;
     private final SecureRandom secureRandom = new SecureRandom();
 
@@ -38,11 +44,19 @@ public class MeetingService {
             MeetingRepository meetingRepository,
             MeetingPurposeRepository meetingPurposeRepository,
             ParticipantRepository participantRepository,
+            ParticipantPreferenceRepository preferenceRepository,
+            PreferenceActivityRepository preferenceActivityRepository,
+            ActivityRepository activityRepository,
+            DateVoteRepository dateVoteRepository,
             @Value("${app.invite.base-url}") String inviteBaseUrl
     ) {
         this.meetingRepository = meetingRepository;
         this.meetingPurposeRepository = meetingPurposeRepository;
         this.participantRepository = participantRepository;
+        this.preferenceRepository = preferenceRepository;
+        this.preferenceActivityRepository = preferenceActivityRepository;
+        this.activityRepository = activityRepository;
+        this.dateVoteRepository = dateVoteRepository;
         this.inviteBaseUrl = inviteBaseUrl;
     }
 
@@ -133,6 +147,109 @@ public class MeetingService {
         meeting.incrementParticipantCnt();
 
         return JoinMeetingResponse.of(meeting.getId(), participant.getId(), state, false);
+    }
+
+    public SubmitPreferenceResponse submitPreference(Long meetingId, SubmitPreferenceRequest request) {
+        Long userId = getCurrentUserId();
+
+        Meeting meeting = meetingRepository.findById(meetingId)
+                .orElseThrow(() -> new CustomException(CustomErrorCode.MEETING_NOT_FOUND));
+
+        if (meeting.getStatus() != MeetingStatus.CONDITION_INPUT) {
+            throw new CustomException(CustomErrorCode.MEETING_STATUS_INVALID_FOR_CONDITION);
+        }
+
+        Participant participant = participantRepository.findByMeetingIdAndUserIdAndLeftAtIsNull(meetingId, userId)
+                .orElseThrow(() -> new CustomException(CustomErrorCode.NOT_A_PARTICIPANT));
+
+        // 출발지 검증
+        if (request.departureName() == null || request.departureName().isBlank()
+                || request.departureLatitude() == null || request.departureLongitude() == null) {
+            throw new CustomException(CustomErrorCode.DEPARTURE_MISSING);
+        }
+
+        // 이동시간 검증 (null=상관없어요 허용, 그 외 30/60/90만 허용)
+        if (request.maxTravelMinutes() != null && !VALID_TRAVEL_MINUTES.contains(request.maxTravelMinutes())) {
+            throw new CustomException(CustomErrorCode.MAX_TRAVEL_MINUTES_INVALID);
+        }
+
+        // 취향 검증
+        if (request.activityTypes() == null || request.activityTypes().isEmpty()) {
+            throw new CustomException(CustomErrorCode.ACTIVITY_TYPES_EMPTY);
+        }
+
+        // 후보 일정 검증 (hasSchedule=false 모임만)
+        if (!meeting.hasSchedule()) {
+            if (request.availableSchedules() == null || request.availableSchedules().isEmpty()) {
+                throw new CustomException(CustomErrorCode.AVAILABLE_SCHEDULES_EMPTY);
+            }
+        }
+
+        // 선호조건 UPSERT
+        boolean isFirstSubmit = !participant.isConditionCompleted();
+        ParticipantPreference preference = preferenceRepository.findByParticipantId(participant.getId())
+                .orElse(null);
+
+        if (preference == null) {
+            preference = preferenceRepository.save(ParticipantPreference.create(
+                    participant.getId(),
+                    request.departureName(),
+                    request.departureLatitude(),
+                    request.departureLongitude(),
+                    request.maxTravelMinutes()
+            ));
+        } else {
+            preference.update(
+                    request.departureName(),
+                    request.departureLatitude(),
+                    request.departureLongitude(),
+                    request.maxTravelMinutes()
+            );
+        }
+
+        // 취향 UPSERT (기존 삭제 후 재저장)
+        preferenceActivityRepository.deleteByPreferenceId(preference.getId());
+        Long prefId = preference.getId();
+        for (ActivityType activityType : request.activityTypes()) {
+            Activity activity = activityRepository.findByName(activityType)
+                    .orElseThrow(() -> new CustomException(CustomErrorCode.INVALID_INPUT));
+            preferenceActivityRepository.save(PreferenceActivity.create(prefId, activity.getId()));
+        }
+
+        // 후보 일정 UPSERT (기존 삭제 후 재저장)
+        dateVoteRepository.deleteByMeetingIdAndParticipantId(meetingId, participant.getId());
+        if (!meeting.hasSchedule() && request.availableSchedules() != null) {
+            for (SubmitPreferenceRequest.AvailableSchedule schedule : request.availableSchedules()) {
+                dateVoteRepository.save(DateVote.create(
+                        meetingId,
+                        participant.getId(),
+                        LocalDate.parse(schedule.date()),
+                        LocalTime.parse(schedule.time())
+                ));
+            }
+        }
+
+        // 참여자 상태 전환
+        if (isFirstSubmit) {
+            participant.completeCondition();
+            meeting.incrementSubmittedCnt();
+        }
+
+        // 전원 완료 시 모임 상태 전환 및 추천 트리거
+        boolean triggered = false;
+        if (isFirstSubmit && meeting.getSubmittedCnt() >= meeting.getParticipantCnt()) {
+            meeting.transitionToVoting();
+            triggered = true;
+            // TODO: 추천 로직 트리거 (추후 구현)
+        }
+
+        return SubmitPreferenceResponse.of(
+                meetingId,
+                participant.getId(),
+                participant.getState(),
+                meeting.getStatus(),
+                triggered
+        );
     }
 
     private Long getCurrentUserId() {
