@@ -9,6 +9,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+@Disabled("실제 Google Routes APi 연동 확인용 테스트")
 @SpringBootTest
 class GooglePlacesClientTest {
 

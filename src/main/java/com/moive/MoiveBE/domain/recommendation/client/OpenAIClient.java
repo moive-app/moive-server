@@ -92,21 +92,31 @@ public class OpenAIClient {
 
             if (response == null
                     || response.output() == null
-                    || response.output().isEmpty()
-                    || response.output().get(0).content() == null
-                    || response.output().get(0).content().isEmpty()) {
+                    || response.output().isEmpty()) {
 
                 throw new CustomException(
                         CustomErrorCode.AREA_CANDIDATE_GENERATION_FAILED
                 );
             }
 
-            String json =
-                    response.output()
-                            .get(0)
-                            .content()
-                            .get(0)
-                            .text();
+            String json = response.output().stream()
+                    .filter(output ->
+                            output.content() != null
+                                    && !output.content().isEmpty()
+                    )
+                    .flatMap(output -> output.content().stream())
+                    .filter(content ->
+                            "output_text".equals(content.type())
+                                    && content.text() != null
+                                    && !content.text().isBlank()
+                    )
+                    .map(OpenAIResponse.Content::text)
+                    .findFirst()
+                    .orElseThrow(() ->
+                            new CustomException(
+                                    CustomErrorCode.AREA_CANDIDATE_GENERATION_FAILED
+                            )
+                    );
 
             return objectMapper.readValue(
                     json,
@@ -114,10 +124,12 @@ public class OpenAIClient {
             );
 
         } catch (RestClientResponseException e) {
+
             throw new CustomException(
                     CustomErrorCode.AREA_CANDIDATE_GENERATION_FAILED
             );
         } catch (Exception e) {
+
             throw new CustomException(
                     CustomErrorCode.AREA_CANDIDATE_GENERATION_FAILED
             );
