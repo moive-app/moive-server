@@ -1,6 +1,7 @@
 package com.moive.MoiveBE.domain.recommendation.service;
 
-import com.moive.MoiveBE.domain.recommendation.client.GooglePlacesClient;
+import com.moive.MoiveBE.domain.recommendation.dto.AreaCandidate;
+import com.moive.MoiveBE.domain.recommendation.dto.AreaCenter;
 import com.moive.MoiveBE.domain.recommendation.dto.GooglePlaceSearchResponse;
 import com.moive.MoiveBE.domain.recommendation.dto.RecommendedAreaListResponse;
 import com.moive.MoiveBE.domain.recommendation.entity.RecommendationRun;
@@ -21,7 +22,8 @@ public class RecommendedAreaQueryService {
 
     private final RecommendationRunRepository recommendationRunRepository;
     private final RecommendedAreaRepository recommendedAreaRepository;
-    private final GooglePlacesClient googlePlacesClient;
+    private final AreaCenterService areaCenterService;
+    private final AreaCandidateResolver areaCandidateResolver;
 
     public RecommendedAreaListResponse getRecommendedAreas(
             Long meetingId
@@ -45,35 +47,35 @@ public class RecommendedAreaQueryService {
                                 run.getId()
                         );
 
+        AreaCenter center =
+                areaCenterService.calculate(meetingId);
+
         List<RecommendedAreaListResponse.Area> areas =
                 recommendedAreas.stream()
-                        .map(this::toResponse)
+                        .map(recommendedArea ->
+                                toResponse(
+                                        recommendedArea,
+                                        center
+                                )
+                        )
                         .toList();
 
         return new RecommendedAreaListResponse(areas);
     }
 
     private RecommendedAreaListResponse.Area toResponse(
-            RecommendedArea recommendedArea
+            RecommendedArea recommendedArea,
+            AreaCenter center
     ) {
 
-        GooglePlaceSearchResponse response =
-                googlePlacesClient.searchAreaByName(
-                        recommendedArea.getAreaName()
+        GooglePlaceSearchResponse.Place place =
+                areaCandidateResolver.resolve(
+                        recommendedArea.getAreaName(),
+                        center.latitude(),
+                        center.longitude()
                 );
 
-        if (response == null
-                || response.places() == null
-                || response.places().isEmpty()) {
-            throw new CustomException(
-                    CustomErrorCode.AREA_INFO_LOOKUP_FAILED
-            );
-        }
-
-        GooglePlaceSearchResponse.Place place =
-                response.places().get(0);
-
-        if (place.location() == null) {
+        if (place == null || place.location() == null) {
             throw new CustomException(
                     CustomErrorCode.AREA_INFO_LOOKUP_FAILED
             );

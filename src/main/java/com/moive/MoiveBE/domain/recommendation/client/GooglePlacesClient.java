@@ -194,37 +194,4 @@ public class GooglePlacesClient {
     ) {
     }
 
-    public GooglePlaceSearchResponse searchAreaByName(
-            String areaName
-    ) {
-
-        GooglePlaceSearchRequest request =
-                new GooglePlaceSearchRequest(
-                        areaName,
-                        1,
-                        "ko"
-                );
-
-        try {
-            return restClient.post()
-                    .uri(TEXT_SEARCH_URL)
-                    .header("X-Goog-Api-Key", apiKey)
-                    .header(
-                            "X-Goog-FieldMask",
-                            "places.id,places.location"
-                    )
-                    .body(request)
-                    .retrieve()
-                    .body(GooglePlaceSearchResponse.class);
-
-        } catch (RestClientResponseException e) {
-            throw new CustomException(
-                    CustomErrorCode.AREA_INFO_LOOKUP_FAILED
-            );
-        } catch (Exception e) {
-            throw new CustomException(
-                    CustomErrorCode.AREA_INFO_LOOKUP_FAILED
-            );
-        }
-    }
 }

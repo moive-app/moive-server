@@ -357,12 +357,23 @@ meetingId
         ↓
 RecommendationRun에 속한 RecommendedArea 조회
         ↓
-저장된 지역명으로 Google Places 조회
+참가자 출발 위치를 기반으로 모임 중심 좌표 재계산
+        ↓
+저장된 지역명 + 모임 중심 좌표로 대표 위치 조회
+        ↓
+지하철역 → 버스 정류장 → 지역 자체 순으로 탐색
+        ↓
+모임 중심 좌표 기준 5km 이내인지 검증
         ↓
 latitude / longitude 조회
         ↓
 RecommendedAreaListResponse 반환
 ```
+
+지역명만으로 Google Places API를 조회할 경우 동일한 이름을 가진 다른 지역이 조회될 수 있다.
+
+이를 방지하기 위해 추천 지역 생성 시와 동일하게 모임 중심 좌표를 기준으로 지역을 탐색하며,
+조회된 대표 위치가 중심 좌표 기준 5km 이내에 존재하는지 검증한다.
 
 응답 예시는 다음과 같다.
 
@@ -372,26 +383,26 @@ RecommendedAreaListResponse 반환
     {
       "recommendedAreaId": 1,
       "name": "역삼동",
-      "latitude": 37.5007,
-      "longitude": 127.0385
+      "latitude": 37.500643,
+      "longitude": 127.036376
     },
     {
       "recommendedAreaId": 2,
-      "name": "강남동",
-      "latitude": 37.8563,
-      "longitude": 127.7018
+      "name": "삼성동",
+      "latitude": 37.508872,
+      "longitude": 127.063186
     },
     {
       "recommendedAreaId": 3,
       "name": "서초동",
-      "latitude": 37.4884,
-      "longitude": 127.0168
+      "latitude": 37.491848,
+      "longitude": 127.007704
     }
   ]
 }
 ```
 
-위도와 경도는 DB에 저장된 값이 아니라 조회 시 Google Places API를 통해 얻은 값이다.
+위도와 경도는 DB에 영구 저장하지 않으며,
+조회 시 모임 중심 좌표를 기준으로 Google Places API를 통해 검증된 대표 위치의 좌표를 반환한다.
 
 ---
-
