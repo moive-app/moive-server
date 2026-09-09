@@ -14,3 +14,6 @@ aws:
     bucket: test-bucket
   cloudfront:
     domain: test.cloudfront.net
+
+openai:
+  api-key: test-openai-api-key
