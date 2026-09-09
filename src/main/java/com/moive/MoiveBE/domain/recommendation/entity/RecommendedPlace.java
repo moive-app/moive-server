@@ -5,6 +5,8 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
+
 @Entity
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -23,6 +25,12 @@ public class RecommendedPlace {
 
     @Column(name = "preference_match_cnt", nullable = false)
     private Integer preferenceMatchCnt;
+
+    @Column(nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    @Column(nullable = false)
+    private LocalDateTime updatedAt;
 
     private RecommendedPlace(
             Long recommendedAreaId,
@@ -44,5 +52,17 @@ public class RecommendedPlace {
                 googlePlaceId,
                 preferenceMatchCnt
         );
+    }
+
+    @PrePersist
+    protected void onCreate() {
+        LocalDateTime now = LocalDateTime.now();
+        this.createdAt = now;
+        this.updatedAt = now;
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        this.updatedAt = LocalDateTime.now();
     }
 }
