@@ -1,0 +1,16 @@
+jwt:
+  secret: test-secret-key-for-jwt-testing-123456789
+
+google:
+  maps:
+    api-key: test-google-api-key
+
+kakao:
+  transit:
+    api-key: test-kakao-transit-api-key
+
+aws:
+  s3:
+    bucket: test-bucket
+  cloudfront:
+    domain: test.cloudfront.net

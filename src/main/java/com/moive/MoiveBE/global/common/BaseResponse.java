@@ -26,6 +26,10 @@ public class BaseResponse<T> {
         return new BaseResponse<>(true, 200, "요청에 성공했습니다.", data);
     }
 
+    public static <T> BaseResponse<T> success(String message, T data) {
+        return new BaseResponse<>(true, 200, message, data);
+    }
+
     public static <T> BaseResponse<T> fail(CustomErrorCode customErrorCode) {
         return new BaseResponse<>(false, customErrorCode.getCode(), customErrorCode.getMessage(), null);
     }
