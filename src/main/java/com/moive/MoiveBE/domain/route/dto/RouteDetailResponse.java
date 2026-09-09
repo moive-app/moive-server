@@ -8,7 +8,7 @@ import java.util.List;
 @Builder
 public record RouteDetailResponse(
         // 유저 정보
-        //String nickname,
+        String nickname,
 
         // 지도에 표시하는 정보
         Location userLocation,

@@ -51,6 +51,9 @@ public enum CustomErrorCode {
     DEPARTURE_MISSING(HttpStatus.BAD_REQUEST, 4050, "출발 위치를 입력해주세요."),
     MEETING_STATUS_INVALID_FOR_CONDITION(HttpStatus.BAD_REQUEST, 4051, "조건 입력이 불가능한 모임 상태입니다."),
 
+    // Meeting - Participant, ParticipantPreference
+    PARTICIPANT_NOT_FOUND(HttpStatus.NOT_FOUND, 4091, "존재하지 않는 참가자입니다."),
+    PARTICIPANT_PREFERENCE_NOT_FOUND(HttpStatus.NOT_FOUND, 4092, "존재하지 않는 참가자 선호 조건입니다."),
 
     // Recommendation(6xxx)
     RECOMMENDED_PLACE_NOT_FOUND(HttpStatus.NOT_FOUND,6001,"추천 장소를 찾을 수 없습니다."),

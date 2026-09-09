@@ -25,23 +25,14 @@ import static com.moive.MoiveBE.global.exception.CustomErrorCode.*;
 @Slf4j
 public class RouteDetailService {
 
-    private final KakaoTransitClient kakaoTransitClient;
     private final int FIRST_ROUTE_IDX = 0;
 
+    private final KakaoTransitClient kakaoTransitClient;
+
     public RouteDetailResponse getMyRouteDetail(
-//            Long meetingId,
-//            Long recommendedPlaceId,
             Location userLocation,
             Location placeLocation
     ) {
-        // TODO: 유저 조회
-
-        // TODO: 모임 조회
-
-        // TODO: 모임 참여자 조회
-
-        // TODO: 추천 장소 조회
-
         // 카카오맵 대중교통 경로 조회 API 호출
         KakaoTransitRouteResponse kakaoResponse = kakaoTransitClient.getTransitRoute(userLocation, placeLocation);
         if (kakaoResponse == null || kakaoResponse.status() == null) {
