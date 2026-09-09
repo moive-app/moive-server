@@ -3,9 +3,8 @@ package com.moive.MoiveBE.domain.meeting.service;
 import com.moive.MoiveBE.domain.meeting.dto.CreateMeetingRequest;
 import com.moive.MoiveBE.domain.meeting.dto.CreateMeetingResponse;
 import com.moive.MoiveBE.domain.meeting.entity.*;
-import com.moive.MoiveBE.domain.meeting.repository.MeetingPurposeRepository;
-import com.moive.MoiveBE.domain.meeting.repository.MeetingRepository;
-import com.moive.MoiveBE.domain.meeting.repository.ParticipantRepository;
+import com.moive.MoiveBE.domain.meeting.repository.*;
+
 import com.moive.MoiveBE.global.exception.CustomErrorCode;
 import com.moive.MoiveBE.global.exception.CustomException;
 import org.junit.jupiter.api.AfterEach;
@@ -31,14 +30,13 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class MeetingServiceCreateTest {
 
-    @Mock
-    private MeetingRepository meetingRepository;
-
-    @Mock
-    private MeetingPurposeRepository meetingPurposeRepository;
-
-    @Mock
-    private ParticipantRepository participantRepository;
+    @Mock private MeetingRepository meetingRepository;
+    @Mock private MeetingPurposeRepository meetingPurposeRepository;
+    @Mock private ParticipantRepository participantRepository;
+    @Mock private ParticipantPreferenceRepository preferenceRepository;
+    @Mock private PreferenceActivityRepository preferenceActivityRepository;
+    @Mock private ActivityRepository activityRepository;
+    @Mock private DateVoteRepository dateVoteRepository;
 
     private MeetingService meetingService;
 
@@ -48,6 +46,10 @@ class MeetingServiceCreateTest {
                 meetingRepository,
                 meetingPurposeRepository,
                 participantRepository,
+                preferenceRepository,
+                preferenceActivityRepository,
+                activityRepository,
+                dateVoteRepository,
                 "https://moive.app/invite"
         );
         SecurityContextHolder.getContext().setAuthentication(
