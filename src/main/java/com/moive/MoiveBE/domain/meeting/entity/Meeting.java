@@ -87,4 +87,20 @@ public class Meeting {
     public void incrementParticipantCnt() {
         this.participantCnt++;
     }
+
+    public void decrementParticipantCnt() {
+        this.participantCnt--;
+    }
+
+    public void decrementSubmittedCnt() {
+        if (this.submittedCnt > 0) this.submittedCnt--;
+    }
+
+    public void updateCreator(Long newCreatorUserId) {
+        this.creatorUserId = newCreatorUserId;
+    }
+
+    public void complete() {
+        this.status = MeetingStatus.COMPLETED;
+    }
 }

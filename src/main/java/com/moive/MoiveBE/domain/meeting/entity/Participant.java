@@ -48,4 +48,8 @@ public class Participant {
         p.conditionCompleted = false;
         return p;
     }
+
+    public void leave() {
+        this.leftAt = java.time.LocalDateTime.now();
+    }
 }
