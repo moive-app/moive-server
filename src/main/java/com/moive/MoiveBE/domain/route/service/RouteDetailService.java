@@ -30,11 +30,14 @@ public class RouteDetailService {
     private final KakaoTransitClient kakaoTransitClient;
 
     public RouteDetailResponse getMyRouteDetail(
-            Location userLocation,
-            Location placeLocation
+            Location userLocation, Location placeLocation,
+            String userAddress, String placeName
     ) {
         // 카카오맵 대중교통 경로 조회 API 호출
-        KakaoTransitRouteResponse kakaoResponse = kakaoTransitClient.getTransitRoute(userLocation, placeLocation);
+        KakaoTransitRouteResponse kakaoResponse = kakaoTransitClient.getTransitRoute(
+                userLocation, placeLocation,
+                userAddress, placeName
+        );
         if (kakaoResponse == null || kakaoResponse.status() == null) {
             log.error("[카카오맵 대중교통 경로 조회 API] Response Body가 비어있습니다.");
             throw new CustomException(KAKAO_MAP_API_INVALID_RESPONSE);

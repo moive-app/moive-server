@@ -33,10 +33,20 @@ public class KakaoTransitClientImpl implements KakaoTransitClient {
     private String apiKey;
 
     @Override
-    public KakaoTransitRouteResponse getTransitRoute(Location start, Location end) {
+    public KakaoTransitRouteResponse getTransitRoute(
+            Location start, Location end
+    ) {
+        return getTransitRoute(start, end, "출발지", "도착지");
+    }
+
+    @Override
+    public KakaoTransitRouteResponse getTransitRoute(
+            Location start, Location end,
+            String userAddress, String placeName
+    ) {
         try {
             return restClient.get()
-                    .uri(buildTransitRouteUri(start, end))
+                    .uri(buildTransitRouteUri(start, end, userAddress, placeName))
                     .header("Authorization", "KakaoAK " + apiKey)
                     .retrieve()
                     .body(KakaoTransitRouteResponse.class);
@@ -63,15 +73,18 @@ public class KakaoTransitClientImpl implements KakaoTransitClient {
     }
 
     // 카카오맵 대중교통 경로 조회 URI 및 파라미터 생성
-    private URI buildTransitRouteUri(Location start, Location end) {
+    private URI buildTransitRouteUri(
+            Location start, Location end,
+            String userAddress, String placeAddress
+    ) {
         // 카카오 좌표계 기준: WGS84 (기본값), x=경도(longitude), y=위도(latitude)
         return UriComponentsBuilder.fromUriString(TRANSIT_ROUTE_URL)
                 .queryParam("start_x", start.longitude())
                 .queryParam("start_y", start.latitude())
                 .queryParam("end_x", end.longitude())
                 .queryParam("end_y", end.latitude())
-                // .queryParam("s_name", "출발지")
-                // .queryParam("e_name", "도착지")
+                .queryParam("s_name", userAddress)
+                .queryParam("e_name", placeAddress)
                 .build()
                 .toUri();
     }

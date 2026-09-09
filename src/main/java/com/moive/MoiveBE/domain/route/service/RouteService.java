@@ -64,7 +64,10 @@ public class RouteService {
         GooglePlaceLocationResponse placeInfo = googlePlacesClient.getPlaceLocation(place.getGooglePlaceId());
         Location placeLocation = new Location(placeInfo.location().latitude(), placeInfo.location().longitude());
 
-        return routeDetailService.getMyRouteDetail(userLocation, placeLocation);
+        return routeDetailService.getMyRouteDetail(
+                userLocation, placeLocation,
+                preference.getDepartureName(), placeInfo.displayName().text()
+        );
     }
 
 }

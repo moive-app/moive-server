@@ -84,7 +84,9 @@ class RouteDetailServiceTest {
     @Test
     void 최종_응답_결과_확인() {
         // when
-        RouteDetailResponse response = routeDetailService.getMyRouteDetail(userLocation, placeLocation);
+        RouteDetailResponse response = routeDetailService.getMyRouteDetail(
+                userLocation, placeLocation, "출발지", "도착지"
+        );
 
         // then
         assertThat(response).isNotNull();
