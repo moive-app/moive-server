@@ -1,7 +1,13 @@
 package com.moive.MoiveBE.domain.recommendation.service;
 
+import com.moive.MoiveBE.domain.meeting.entity.Participant;
+import com.moive.MoiveBE.domain.meeting.entity.ParticipantPreference;
+import com.moive.MoiveBE.domain.meeting.repository.ParticipantPreferenceRepository;
+import com.moive.MoiveBE.domain.meeting.repository.ParticipantRepository;
 import com.moive.MoiveBE.domain.recommendation.client.GooglePlacesClient;
 import com.moive.MoiveBE.domain.recommendation.dto.GooglePlaceDetailsResponse;
+import com.moive.MoiveBE.domain.recommendation.dto.GoogleRouteMatrixResponse;
+import com.moive.MoiveBE.domain.recommendation.dto.PlaceRouteResult;
 import com.moive.MoiveBE.domain.recommendation.dto.RecommendedPlaceDetailResponse;
 import com.moive.MoiveBE.domain.recommendation.dto.RecommendedPlaceListResponse;
 import com.moive.MoiveBE.domain.recommendation.entity.RecommendationRun;
@@ -21,7 +27,9 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -43,6 +51,18 @@ class RecommendationServiceTest {
 
     @Mock
     private PlaceRecommendationGenerationService placeRecommendationGenerationService;
+
+    @Mock
+    private ParticipantRepository participantRepository;
+
+    @Mock
+    private ParticipantPreferenceRepository participantPreferenceRepository;
+
+    @Mock
+    private PlaceRouteService placeRouteService;
+
+    @Mock
+    private RouteMatrixService routeMatrixService;
 
     @InjectMocks
     private RecommendationService recommendationService;
@@ -73,6 +93,46 @@ class RecommendationServiceTest {
                 .existsByRecommendedAreaId(recommendedAreaId))
                 .willReturn(true);
 
+        Participant participant1 = mock(Participant.class);
+        Participant participant2 = mock(Participant.class);
+        Participant participant3 = mock(Participant.class);
+        Participant participant4 = mock(Participant.class);
+
+        given(participant1.getId()).willReturn(1L);
+        given(participant2.getId()).willReturn(2L);
+        given(participant3.getId()).willReturn(3L);
+        given(participant4.getId()).willReturn(4L);
+
+        given(participantRepository
+                .findAllByMeetingIdAndLeftAtIsNull(meetingId))
+                .willReturn(List.of(
+                        participant1,
+                        participant2,
+                        participant3,
+                        participant4
+                ));
+
+        ParticipantPreference preference1 = mock(ParticipantPreference.class);
+        ParticipantPreference preference2 = mock(ParticipantPreference.class);
+        ParticipantPreference preference3 = mock(ParticipantPreference.class);
+        ParticipantPreference preference4 = mock(ParticipantPreference.class);
+
+        given(preference1.getParticipantId()).willReturn(1L);
+        given(preference2.getParticipantId()).willReturn(2L);
+        given(preference3.getParticipantId()).willReturn(3L);
+        given(preference4.getParticipantId()).willReturn(4L);
+
+        given(participantPreferenceRepository
+                .findAllByParticipantIdIn(
+                        List.of(1L, 2L, 3L, 4L)
+                ))
+                .willReturn(List.of(
+                        preference1,
+                        preference2,
+                        preference3,
+                        preference4
+                ));
+
         RecommendedPlace recommendedPlace =
                 RecommendedPlace.create(
                         recommendedAreaId,
@@ -86,18 +146,46 @@ class RecommendationServiceTest {
 
         GooglePlaceDetailsResponse details =
                 new GooglePlaceDetailsResponse(
-                        new GooglePlaceDetailsResponse.LocalizedText("다몽집", "ko"),
-                        new GooglePlaceDetailsResponse.LocalizedText("한식", "ko"),
+                        new GooglePlaceDetailsResponse.LocalizedText(
+                                "다몽집",
+                                "ko"
+                        ),
+                        new GooglePlaceDetailsResponse.LocalizedText(
+                                "한식",
+                                "ko"
+                        ),
                         "서울특별시 강남구 테헤란로 123",
-                        List.of(
-                                new GooglePlaceDetailsResponse.Photo(
-                                        "places/test/photos/1"
-                                )
+                        List.of(),
+                        new GooglePlaceDetailsResponse.Location(
+                                37.4979,
+                                127.0276
                         )
                 );
 
-        given(googlePlacesClient.getPlaceSummaryDetails("google-place-id"))
+        given(googlePlacesClient
+                .getPlaceSummaryDetails("google-place-id"))
                 .willReturn(details);
+
+        List<GoogleRouteMatrixResponse> routeResponses =
+                List.of(mock(GoogleRouteMatrixResponse.class));
+
+        given(placeRouteService.calculate(
+                anyList(),
+                anyList()
+        )).willReturn(routeResponses);
+
+        PlaceRouteResult routeResult =
+                new PlaceRouteResult(
+                        0,
+                        1500.0,
+                        2400.0
+                );
+
+        given(routeMatrixService.calculateRouteResults(
+                anyList(),
+                eq(routeResponses),
+                eq(4)
+        )).willReturn(List.of(routeResult));
 
         RecommendedPlaceListResponse response =
                 recommendationService.getRecommendedPlaces(
@@ -108,22 +196,60 @@ class RecommendationServiceTest {
         assertThat(response.recommendedAreaId())
                 .isEqualTo(recommendedAreaId);
 
-        assertThat(response.places()).hasSize(1);
+        assertThat(response.places())
+                .hasSize(1);
 
         RecommendedPlaceListResponse.Place place =
                 response.places().get(0);
 
-        assertThat(place.name()).isEqualTo("다몽집");
-        assertThat(place.category()).isEqualTo("한식");
-        assertThat(place.preferenceMatchCnt()).isEqualTo(3);
+        assertThat(place.name())
+                .isEqualTo("다몽집");
+
+        assertThat(place.category())
+                .isEqualTo("한식");
+
+        assertThat(place.preferenceMatchCnt())
+                .isEqualTo(3);
+
+        assertThat(place.preferenceMatchRate())
+                .isEqualTo(75);
+
+        assertThat(place.averageTravelTime())
+                .isEqualTo(25);
+
+        assertThat(place.maxTravelTime())
+                .isEqualTo(40);
     }
 
     @Test
     void 추천_장소_상세를_조회한다() {
 
+        Long meetingId = 1L;
         Long recommendedAreaId = 1L;
         Long recommendedPlaceId = 1L;
+        Long recommendationRunId = 10L;
 
+        /*
+         * 추천 지역 → 추천 실행 → 모임 검증
+         */
+        RecommendedArea recommendedArea = mock(RecommendedArea.class);
+        RecommendationRun recommendationRun = mock(RecommendationRun.class);
+
+        given(recommendedAreaRepository.findById(recommendedAreaId))
+                .willReturn(Optional.of(recommendedArea));
+
+        given(recommendedArea.getRecommendationRunId())
+                .willReturn(recommendationRunId);
+
+        given(recommendationRunRepository.findById(recommendationRunId))
+                .willReturn(Optional.of(recommendationRun));
+
+        given(recommendationRun.getMeetingId())
+                .willReturn(meetingId);
+
+        /*
+         * 추천 장소
+         */
         RecommendedPlace recommendedPlace =
                 RecommendedPlace.create(
                         recommendedAreaId,
@@ -134,6 +260,9 @@ class RecommendationServiceTest {
         given(recommendedPlaceRepository.findById(recommendedPlaceId))
                 .willReturn(Optional.of(recommendedPlace));
 
+        /*
+         * Google Place 상세 정보
+         */
         GooglePlaceDetailsResponse details =
                 new GooglePlaceDetailsResponse(
                         new GooglePlaceDetailsResponse.LocalizedText(
@@ -146,35 +275,129 @@ class RecommendationServiceTest {
                         ),
                         "서울특별시 강남구 테헤란로 123",
                         List.of(
-                                new GooglePlaceDetailsResponse.Photo("places/test/photos/1"),
-                                new GooglePlaceDetailsResponse.Photo("places/test/photos/2"),
-                                new GooglePlaceDetailsResponse.Photo("places/test/photos/3")
+                                new GooglePlaceDetailsResponse.Photo(
+                                        "places/test/photos/1"
+                                ),
+                                new GooglePlaceDetailsResponse.Photo(
+                                        "places/test/photos/2"
+                                ),
+                                new GooglePlaceDetailsResponse.Photo(
+                                        "places/test/photos/3"
+                                )
+                        ),
+                        new GooglePlaceDetailsResponse.Location(
+                                37.4979,
+                                127.0276
                         )
                 );
 
         given(googlePlacesClient.getPlaceDetails("google-place-id"))
                 .willReturn(details);
 
-        given(googlePlacesClient.getPlacePhotoUrl("places/test/photos/1"))
+        /*
+         * 참가자 2명
+         */
+        Participant participant1 = mock(Participant.class);
+        Participant participant2 = mock(Participant.class);
+
+        given(participant1.getId()).willReturn(1L);
+        given(participant2.getId()).willReturn(2L);
+
+        given(participantRepository
+                .findAllByMeetingIdAndLeftAtIsNull(meetingId))
+                .willReturn(List.of(
+                        participant1,
+                        participant2
+                ));
+
+        /*
+         * 참가자 출발 위치
+         */
+        ParticipantPreference preference1 = mock(ParticipantPreference.class);
+        ParticipantPreference preference2 = mock(ParticipantPreference.class);
+
+        given(preference1.getParticipantId()).willReturn(1L);
+        given(preference2.getParticipantId()).willReturn(2L);
+
+        given(participantPreferenceRepository
+                .findAllByParticipantIdIn(
+                        List.of(1L, 2L)
+                ))
+                .willReturn(List.of(
+                        preference1,
+                        preference2
+                ));
+
+        /*
+         * Routes Matrix
+         */
+        List<GoogleRouteMatrixResponse> routeResponses =
+                List.of(mock(GoogleRouteMatrixResponse.class));
+
+        given(placeRouteService.calculate(
+                anyList(),
+                anyList()
+        )).willReturn(routeResponses);
+
+        /*
+         * 평균 1800초 = 30분
+         */
+        PlaceRouteResult routeResult =
+                new PlaceRouteResult(
+                        0,
+                        1800.0,
+                        2400.0
+                );
+
+        given(routeMatrixService.calculateRouteResults(
+                anyList(),
+                eq(routeResponses),
+                eq(2)
+        )).willReturn(List.of(routeResult));
+
+        /*
+         * 이미지
+         */
+        given(googlePlacesClient
+                .getPlacePhotoUrl("places/test/photos/1"))
                 .willReturn("https://example.com/photo1.jpg");
 
-        given(googlePlacesClient.getPlacePhotoUrl("places/test/photos/2"))
+        given(googlePlacesClient
+                .getPlacePhotoUrl("places/test/photos/2"))
                 .willReturn("https://example.com/photo2.jpg");
 
-        given(googlePlacesClient.getPlacePhotoUrl("places/test/photos/3"))
+        given(googlePlacesClient
+                .getPlacePhotoUrl("places/test/photos/3"))
                 .willReturn("https://example.com/photo3.jpg");
 
+        /*
+         * 실행
+         */
         RecommendedPlaceDetailResponse response =
                 recommendationService.getRecommendedPlaceDetail(
+                        meetingId,
                         recommendedAreaId,
                         recommendedPlaceId
                 );
 
-        assertThat(response.name()).isEqualTo("다몽집");
-        assertThat(response.category()).isEqualTo("한식 고기구이 레스토랑");
-        assertThat(response.address()).isEqualTo("서울특별시 강남구 테헤란로 123");
-        assertThat(response.preferenceMatchCnt()).isEqualTo(3);
-        assertThat(response.averageTravelTime()).isNull();
+        /*
+         * 검증
+         */
+        assertThat(response.name())
+                .isEqualTo("다몽집");
+
+        assertThat(response.category())
+                .isEqualTo("한식 고기구이 레스토랑");
+
+        assertThat(response.address())
+                .isEqualTo("서울특별시 강남구 테헤란로 123");
+
+        assertThat(response.preferenceMatchCnt())
+                .isEqualTo(3);
+
+        assertThat(response.averageTravelTime())
+                .isEqualTo(30);
+
         assertThat(response.imageUrls()).containsExactly(
                 "https://example.com/photo1.jpg",
                 "https://example.com/photo2.jpg",
@@ -185,14 +408,32 @@ class RecommendationServiceTest {
     @Test
     void 존재하지_않는_추천_장소를_조회하면_예외가_발생한다() {
 
+        Long meetingId = 1L;
         Long recommendedAreaId = 1L;
         Long recommendedPlaceId = 999L;
+        Long recommendationRunId = 10L;
+
+        RecommendedArea recommendedArea = mock(RecommendedArea.class);
+        RecommendationRun recommendationRun = mock(RecommendationRun.class);
+
+        given(recommendedAreaRepository.findById(recommendedAreaId))
+                .willReturn(Optional.of(recommendedArea));
+
+        given(recommendedArea.getRecommendationRunId())
+                .willReturn(recommendationRunId);
+
+        given(recommendationRunRepository.findById(recommendationRunId))
+                .willReturn(Optional.of(recommendationRun));
+
+        given(recommendationRun.getMeetingId())
+                .willReturn(meetingId);
 
         given(recommendedPlaceRepository.findById(recommendedPlaceId))
                 .willReturn(Optional.empty());
 
         assertThatThrownBy(() ->
                 recommendationService.getRecommendedPlaceDetail(
+                        meetingId,
                         recommendedAreaId,
                         recommendedPlaceId
                 )
@@ -203,9 +444,30 @@ class RecommendationServiceTest {
     @Test
     void 다른_추천_지역의_장소를_조회하면_예외가_발생한다() {
 
+        Long meetingId = 1L;
         Long requestedAreaId = 1L;
         Long recommendedPlaceId = 1L;
+        Long recommendationRunId = 10L;
 
+        RecommendedArea recommendedArea = mock(RecommendedArea.class);
+        RecommendationRun recommendationRun = mock(RecommendationRun.class);
+
+        given(recommendedAreaRepository.findById(requestedAreaId))
+                .willReturn(Optional.of(recommendedArea));
+
+        given(recommendedArea.getRecommendationRunId())
+                .willReturn(recommendationRunId);
+
+        given(recommendationRunRepository.findById(recommendationRunId))
+                .willReturn(Optional.of(recommendationRun));
+
+        given(recommendationRun.getMeetingId())
+                .willReturn(meetingId);
+
+        /*
+         * 요청한 지역은 1L인데
+         * 실제 장소는 2L 지역 소속
+         */
         RecommendedPlace recommendedPlace =
                 RecommendedPlace.create(
                         2L,
@@ -218,6 +480,7 @@ class RecommendationServiceTest {
 
         assertThatThrownBy(() ->
                 recommendationService.getRecommendedPlaceDetail(
+                        meetingId,
                         requestedAreaId,
                         recommendedPlaceId
                 )
@@ -251,6 +514,34 @@ class RecommendationServiceTest {
                 .existsByRecommendedAreaId(recommendedAreaId))
                 .willReturn(false);
 
+        Participant participant1 = mock(Participant.class);
+        Participant participant2 = mock(Participant.class);
+
+        given(participant1.getId()).willReturn(1L);
+        given(participant2.getId()).willReturn(2L);
+
+        given(participantRepository
+                .findAllByMeetingIdAndLeftAtIsNull(meetingId))
+                .willReturn(List.of(
+                        participant1,
+                        participant2
+                ));
+
+        ParticipantPreference preference1 = mock(ParticipantPreference.class);
+        ParticipantPreference preference2 = mock(ParticipantPreference.class);
+
+        given(preference1.getParticipantId()).willReturn(1L);
+        given(preference2.getParticipantId()).willReturn(2L);
+
+        given(participantPreferenceRepository
+                .findAllByParticipantIdIn(
+                        List.of(1L, 2L)
+                ))
+                .willReturn(List.of(
+                        preference1,
+                        preference2
+                ));
+
         RecommendedPlace recommendedPlace =
                 RecommendedPlace.create(
                         recommendedAreaId,
@@ -273,11 +564,37 @@ class RecommendationServiceTest {
                                 "ko"
                         ),
                         "서울특별시 강남구 테헤란로 123",
-                        List.of()
+                        List.of(),
+                        new GooglePlaceDetailsResponse.Location(
+                                37.4979,
+                                127.0276
+                        )
                 );
 
-        given(googlePlacesClient.getPlaceSummaryDetails("google-place-id"))
+        given(googlePlacesClient
+                .getPlaceSummaryDetails("google-place-id"))
                 .willReturn(details);
+
+        List<GoogleRouteMatrixResponse> routeResponses =
+                List.of(mock(GoogleRouteMatrixResponse.class));
+
+        given(placeRouteService.calculate(
+                anyList(),
+                anyList()
+        )).willReturn(routeResponses);
+
+        PlaceRouteResult routeResult =
+                new PlaceRouteResult(
+                        0,
+                        1200.0,
+                        1800.0
+                );
+
+        given(routeMatrixService.calculateRouteResults(
+                anyList(),
+                eq(routeResponses),
+                eq(2)
+        )).willReturn(List.of(routeResult));
 
         RecommendedPlaceListResponse response =
                 recommendationService.getRecommendedPlaces(
@@ -285,9 +602,23 @@ class RecommendationServiceTest {
                         recommendedAreaId
                 );
 
-        assertThat(response.places()).hasSize(1);
-        assertThat(response.places().get(0).name())
+        assertThat(response.places())
+                .hasSize(1);
+
+        RecommendedPlaceListResponse.Place place =
+                response.places().get(0);
+
+        assertThat(place.name())
                 .isEqualTo("다몽집");
+
+        assertThat(place.preferenceMatchRate())
+                .isEqualTo(100);
+
+        assertThat(place.averageTravelTime())
+                .isEqualTo(20);
+
+        assertThat(place.maxTravelTime())
+                .isEqualTo(30);
 
         verify(placeRecommendationGenerationService)
                 .recommend(recommendedAreaId);

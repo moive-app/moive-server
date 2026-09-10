@@ -64,6 +64,7 @@ public class RecommendationController {
     ) {
         return BaseResponse.success(
                 recommendationService.getRecommendedPlaceDetail(
+                        meetingId,
                         recommendedAreaId,
                         recommendedPlaceId
                 )

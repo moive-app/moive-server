@@ -55,7 +55,7 @@ public class GooglePlacesClient {
                     .header("X-Goog-Api-Key", apiKey)
                     .header(
                             "X-Goog-FieldMask",
-                            "displayName,primaryTypeDisplayName"
+                            "displayName,primaryTypeDisplayName,location"
                     )
                     .retrieve()
                     .body(GooglePlaceDetailsResponse.class);
@@ -80,7 +80,7 @@ public class GooglePlacesClient {
                     .header("X-Goog-Api-Key", apiKey)
                     .header(
                             "X-Goog-FieldMask",
-                            "displayName,primaryTypeDisplayName,formattedAddress,photos"
+                            "displayName,primaryTypeDisplayName,formattedAddress,photos,location"
                     )
                     .retrieve()
                     .body(GooglePlaceDetailsResponse.class);
