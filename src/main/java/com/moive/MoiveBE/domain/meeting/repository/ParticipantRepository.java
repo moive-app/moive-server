@@ -15,4 +15,5 @@ public interface ParticipantRepository extends JpaRepository<Participant, Long> 
     List<Participant> findAllByUserIdAndLeftAtIsNullOrderByIdAsc(Long userId);
 
     List<Participant> findAllByMeetingIdInAndLeftAtIsNullOrderByJoinedAtAsc(List<Long> meetingIds);
+    List<Participant> findAllByMeetingIdAndLeftAtIsNull(Long meetingId);
 }

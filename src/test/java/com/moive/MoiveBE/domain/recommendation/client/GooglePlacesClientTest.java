@@ -9,7 +9,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@Disabled("실제 Google Places API 연동 확인용 테스트")
+@Disabled("실제 Google Routes APi 연동 확인용 테스트")
 @SpringBootTest
 class GooglePlacesClientTest {
 
@@ -75,5 +75,28 @@ class GooglePlacesClientTest {
         System.out.println("photoUrl = " + photoUrl);
 
         assertThat(photoUrl).isNotBlank();
+    }
+
+    @Test
+    void 추천_지역_대표_좌표를_조회한다() {
+
+        GooglePlaceSearchResponse response =
+                googlePlacesClient.searchAreaPlace(
+                        "역삼역",
+                        37.4979,
+                        127.0276
+                );
+
+        System.out.println(response);
+
+        assertThat(response).isNotNull();
+        assertThat(response.places()).isNotEmpty();
+
+        GooglePlaceSearchResponse.Place place =
+                response.places().get(0);
+
+        System.out.println("placeId = " + place.id());
+        System.out.println("latitude = " + place.location().latitude());
+        System.out.println("longitude = " + place.location().longitude());
     }
 }
