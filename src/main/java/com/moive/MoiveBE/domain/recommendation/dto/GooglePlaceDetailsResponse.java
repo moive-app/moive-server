@@ -4,7 +4,6 @@ import java.util.List;
 
 public record GooglePlaceDetailsResponse(
         LocalizedText displayName,
-        LocalizedText primaryTypeDisplayName,
         String formattedAddress,
         List<Photo> photos,
         Location location

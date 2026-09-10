@@ -151,10 +151,6 @@ class RecommendationServiceTest {
                                 "다몽집",
                                 "ko"
                         ),
-                        new GooglePlaceDetailsResponse.LocalizedText(
-                                "한식 고기구이 레스토랑",
-                                "ko"
-                        ),
                         "서울특별시 강남구 테헤란로 123",
                         List.of(),
                         new GooglePlaceDetailsResponse.Location(
@@ -260,10 +256,6 @@ class RecommendationServiceTest {
                 new GooglePlaceDetailsResponse(
                         new GooglePlaceDetailsResponse.LocalizedText(
                                 "다몽집 | damongzip",
-                                "ko"
-                        ),
-                        new GooglePlaceDetailsResponse.LocalizedText(
-                                "한식 고기구이 레스토랑",
                                 "ko"
                         ),
                         "서울특별시 강남구 테헤란로 123",
@@ -527,10 +519,6 @@ class RecommendationServiceTest {
                 new GooglePlaceDetailsResponse(
                         new GooglePlaceDetailsResponse.LocalizedText(
                                 "다몽집",
-                                "ko"
-                        ),
-                        new GooglePlaceDetailsResponse.LocalizedText(
-                                "한식 고기구이 레스토랑",
                                 "ko"
                         ),
                         "서울특별시 강남구 테헤란로 123",
