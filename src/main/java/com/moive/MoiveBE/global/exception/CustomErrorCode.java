@@ -42,15 +42,19 @@ public enum CustomErrorCode {
     MEETING_NOT_FOUND(HttpStatus.NOT_FOUND, 4042, "존재하지 않는 모임이에요."),
     MEETING_FULL(HttpStatus.BAD_REQUEST, 4043, "모임 참여 인원이 가득 찼어요."),
     MEETING_COMPLETED(HttpStatus.BAD_REQUEST, 4044, "종료된 모임이에요. 참여할 수 없어요."),
+    NOT_A_PARTICIPANT(HttpStatus.FORBIDDEN, 4045, "해당 모임의 참여자가 아닙니다."),
+    CANNOT_LEAVE_COMPLETED_MEETING(HttpStatus.BAD_REQUEST, 4046, "종료된 모임은 나갈 수 없습니다."),
 
     // Meeting - 조건입력 (POST /api/meetings/{meetingId}/preferences)
-    NOT_A_PARTICIPANT(HttpStatus.FORBIDDEN, 4045, "해당 모임의 참여자가 아닙니다."),
     MAX_TRAVEL_MINUTES_INVALID(HttpStatus.BAD_REQUEST, 4047, "이동 가능 시간을 선택해주세요."),
     ACTIVITY_TYPES_EMPTY(HttpStatus.BAD_REQUEST, 4048, "취향을 최소 1개 선택해주세요."),
     AVAILABLE_SCHEDULES_EMPTY(HttpStatus.BAD_REQUEST, 4049, "만날 수 있는 일정을 최소 1개 입력해주세요."),
     DEPARTURE_MISSING(HttpStatus.BAD_REQUEST, 4050, "출발 위치를 입력해주세요."),
     MEETING_STATUS_INVALID_FOR_CONDITION(HttpStatus.BAD_REQUEST, 4051, "조건 입력이 불가능한 모임 상태입니다."),
 
+    // Meeting - Participant, ParticipantPreference
+    PARTICIPANT_NOT_FOUND(HttpStatus.NOT_FOUND, 4091, "존재하지 않는 참가자입니다."),
+    PARTICIPANT_PREFERENCE_NOT_FOUND(HttpStatus.NOT_FOUND, 4092, "존재하지 않는 참가자 선호 조건입니다."),
 
     // Recommendation(6xxx)
     RECOMMENDED_PLACE_NOT_FOUND(HttpStatus.NOT_FOUND,6001,"추천 장소를 찾을 수 없습니다."),
@@ -63,18 +67,19 @@ public enum CustomErrorCode {
     INSUFFICIENT_AREA_CANDIDATES(HttpStatus.INTERNAL_SERVER_ERROR, 6008, "추천 가능한 지역 후보가 부족합니다."),
 
     // Route (Kakao MAP API 연동) (3xxx)
-    // - 카카오맵 공통 에러코드
-    KAKAO_MAP_API_CONFIG_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, 3001, "카카오맵 API 연동 오류가 발생했습니다. (서버 내부 설정 확인 필요)"),
-    KAKAO_MAP_API_QUOTA_EXCEEDED(HttpStatus.INTERNAL_SERVER_ERROR, 3002, "카카오맵 API 연동 오류가 발생했습니다. (호출 한도 초과)"),
-    KAKAO_MAP_API_SERVER_ERROR(HttpStatus.SERVICE_UNAVAILABLE, 3003, "카카오맵 API 연동 오류가 발생했습니다. (카카오 서버 장애 및 점검)"),
-    KAKAO_MAP_API_CONNECTION_ERROR(HttpStatus.BAD_GATEWAY, 3004, "카카오맵 API 연동 오류가 발생했습니다. (외부 통신 및 네트워크 오류)"),
+    // - 카카오맵 연동 오류
+    KAKAO_MAP_API_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, 3003, "카카오맵 API 연동 오류가 발생했습니다."),
+    KAKAO_MAP_API_CONNECTION_ERROR(HttpStatus.BAD_GATEWAY, 3004, "카카오맵 API 통신 오류가 발생했습니다."),
     // - 카카오맵 대중교통 경로 조회 API 에러코드
-    KAKAO_MAP_API_INVALID_RESPONSE(HttpStatus.INTERNAL_SERVER_ERROR, 3005, "카카오맵 API 연동 오류가 발생했습니다. (응답 데이터 규격 확인 필요)"),
-    KAKAO_MAP_API_INVALID_REQUEST(HttpStatus.INTERNAL_SERVER_ERROR, 3006, "카카오맵 API 연동 오류가 발생했습니다. (요청 좌표로 경로 탐색 불가)"),
     TRANSIT_ROUTE_NOT_FOUND(HttpStatus.NOT_FOUND, 3007, "이용 가능한 대중교통 경로가 없습니다."),
 
     ;
     private final HttpStatus httpStatus;
     private final int code;
     private final String message;
+
+    // 기본 메시지 뒤에 세부 원인을 괄호로 덧붙인 메시지 생성 (ex. "... 오류가 발생했습니다. (호출 한도 초과)")
+    public String messageWith(String detail) {
+        return message + " (" + detail + ")";
+    }
 }
