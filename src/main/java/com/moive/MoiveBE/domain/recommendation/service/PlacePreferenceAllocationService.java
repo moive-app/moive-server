@@ -30,6 +30,25 @@ public class PlacePreferenceAllocationService {
             }
         }
 
-        return candidateAllocationService.allocate(selectionCounts);
+        Map<String, Integer> orderedSelectionCounts =
+                selectionCounts.entrySet().stream()
+                        .sorted(
+                                Map.Entry.<String, Integer>comparingByValue()
+                                        .reversed()
+                                        .thenComparing(Map.Entry.comparingByKey())
+                        )
+                        .collect(
+                                LinkedHashMap::new,
+                                (map, entry) ->
+                                        map.put(
+                                                entry.getKey(),
+                                                entry.getValue()
+                                        ),
+                                LinkedHashMap::putAll
+                        );
+
+        return candidateAllocationService.allocate(
+                orderedSelectionCounts
+        );
     }
 }
