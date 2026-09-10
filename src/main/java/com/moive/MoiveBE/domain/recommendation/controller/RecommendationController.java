@@ -1,10 +1,12 @@
 package com.moive.MoiveBE.domain.recommendation.controller;
 
+import com.moive.MoiveBE.domain.recommendation.dto.RecommendedAreaListResponse;
 import com.moive.MoiveBE.domain.recommendation.dto.RecommendedPlaceDetailResponse;
 import com.moive.MoiveBE.domain.recommendation.dto.RecommendedPlaceListResponse;
 import com.moive.MoiveBE.domain.recommendation.service.RecommendationService;
 import com.moive.MoiveBE.domain.route.dto.RouteDetailResponse;
 import com.moive.MoiveBE.domain.route.service.RouteService;
+import com.moive.MoiveBE.domain.recommendation.service.RecommendedAreaQueryService;
 import com.moive.MoiveBE.global.common.BaseResponse;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -22,6 +24,20 @@ public class RecommendationController {
 
     private final RecommendationService recommendationService;
     private final RouteService routeService;
+    private final RecommendedAreaQueryService recommendedAreaQueryService;
+
+    @Operation(
+            summary = "추천 지역 목록 조회",
+            description = "특정 모임의 참가자 출발 위치를 기반으로 선정된 추천 지역 TOP3를 조회합니다."
+    )
+    @GetMapping("/areas")
+    public BaseResponse<RecommendedAreaListResponse> getRecommendedAreas(
+            @PathVariable Long meetingId
+    ) {
+        return BaseResponse.success(
+                recommendedAreaQueryService.getRecommendedAreas(meetingId)
+        );
+    }
 
     @Operation(
             summary = "추천 장소 목록 조회",

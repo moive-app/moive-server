@@ -153,5 +153,71 @@ public class GooglePlacesClient {
         }
     }
 
+    public GooglePlaceSearchResponse searchAreaPlace(
+            String textQuery,
+            double latitude,
+            double longitude
+    ) {
+
+        GoogleAreaSearchRequest request =
+                new GoogleAreaSearchRequest(
+                        textQuery,
+                        1,
+                        "ko",
+                        new LocationBias(
+                                new Circle(
+                                        new Center(latitude, longitude),
+                                        5000.0
+                                )
+                        )
+                );
+
+        try {
+            return restClient.post()
+                    .uri(TEXT_SEARCH_URL)
+                    .header("X-Goog-Api-Key", apiKey)
+                    .header(
+                            "X-Goog-FieldMask",
+                            "places.id,places.location"
+                    )
+                    .body(request)
+                    .retrieve()
+                    .body(GooglePlaceSearchResponse.class);
+
+        } catch (RestClientResponseException e) {
+            throw new CustomException(
+                    CustomErrorCode.AREA_INFO_LOOKUP_FAILED
+            );
+        } catch (Exception e) {
+            throw new CustomException(
+                    CustomErrorCode.AREA_INFO_LOOKUP_FAILED
+            );
+        }
+    }
+
+    private record GoogleAreaSearchRequest(
+            String textQuery,
+            int pageSize,
+            String languageCode,
+            LocationBias locationBias
+    ) {
+    }
+
+    private record LocationBias(
+            Circle circle
+    ) {
+    }
+
+    private record Circle(
+            Center center,
+            double radius
+    ) {
+    }
+
+    private record Center(
+            double latitude,
+            double longitude
+    ) {
+    }
 
 }

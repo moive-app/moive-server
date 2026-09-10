@@ -60,6 +60,10 @@ public enum CustomErrorCode {
     RECOMMENDED_AREA_NOT_FOUND(HttpStatus.NOT_FOUND, 6002, "추천 지역을 찾을 수 없습니다."),
     RECOMMENDATION_RESULT_NOT_FOUND(HttpStatus.NOT_FOUND, 6003, "추천 결과를 찾을 수 없습니다."),
     PLACE_INFO_LOOKUP_FAILED(HttpStatus.BAD_GATEWAY, 6004, "장소 정보 조회에 실패했습니다."),
+    RECOMMENDATION_SOURCE_LOCATION_NOT_FOUND(HttpStatus.BAD_REQUEST, 6005, "추천 지역 계산에 필요한 참가자 출발 위치를 찾을 수 없습니다."),
+    AREA_CANDIDATE_GENERATION_FAILED(HttpStatus.BAD_GATEWAY, 6006, "추천 지역 후보 생성에 실패했습니다."),
+    AREA_INFO_LOOKUP_FAILED(HttpStatus.BAD_GATEWAY, 6007, "추천 지역 정보 조회에 실패했습니다."),
+    INSUFFICIENT_AREA_CANDIDATES(HttpStatus.INTERNAL_SERVER_ERROR, 6008, "추천 가능한 지역 후보가 부족합니다."),
 
     // Route (Kakao MAP API 연동) (3xxx)
     // - 카카오맵 연동 오류
