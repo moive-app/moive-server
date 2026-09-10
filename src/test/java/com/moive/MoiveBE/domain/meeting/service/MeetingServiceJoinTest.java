@@ -6,6 +6,7 @@ import com.moive.MoiveBE.domain.meeting.entity.Participant;
 import com.moive.MoiveBE.domain.meeting.entity.ParticipantState;
 import com.moive.MoiveBE.domain.meeting.entity.Meeting;
 import com.moive.MoiveBE.domain.meeting.repository.*;
+import com.moive.MoiveBE.domain.notification.service.NotificationService;
 import com.moive.MoiveBE.global.exception.CustomErrorCode;
 import com.moive.MoiveBE.global.exception.CustomException;
 import org.junit.jupiter.api.AfterEach;
@@ -36,6 +37,7 @@ class MeetingServiceJoinTest {
     @Mock private PreferenceActivityRepository preferenceActivityRepository;
     @Mock private ActivityRepository activityRepository;
     @Mock private DateVoteRepository dateVoteRepository;
+    @Mock private NotificationService notificationService;
 
     private MeetingService meetingService;
 
@@ -49,6 +51,7 @@ class MeetingServiceJoinTest {
                 preferenceActivityRepository,
                 activityRepository,
                 dateVoteRepository,
+                notificationService,
                 "https://moive.app/invite"
         );
         SecurityContextHolder.getContext().setAuthentication(

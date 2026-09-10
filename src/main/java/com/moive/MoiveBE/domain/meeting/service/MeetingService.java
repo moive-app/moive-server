@@ -7,6 +7,8 @@ import com.moive.MoiveBE.domain.meeting.dto.SubmitPreferenceRequest;
 import com.moive.MoiveBE.domain.meeting.dto.SubmitPreferenceResponse;
 import com.moive.MoiveBE.domain.meeting.entity.*;
 import com.moive.MoiveBE.domain.meeting.repository.*;
+import com.moive.MoiveBE.domain.notification.entity.NotificationType;
+import com.moive.MoiveBE.domain.notification.service.NotificationService;
 import com.moive.MoiveBE.global.exception.CustomErrorCode;
 import com.moive.MoiveBE.global.exception.CustomException;
 import org.springframework.beans.factory.annotation.Value;
@@ -37,6 +39,7 @@ public class MeetingService {
     private final PreferenceActivityRepository preferenceActivityRepository;
     private final ActivityRepository activityRepository;
     private final DateVoteRepository dateVoteRepository;
+    private final NotificationService notificationService;
     private final String inviteBaseUrl;
     private final SecureRandom secureRandom = new SecureRandom();
 
@@ -48,6 +51,7 @@ public class MeetingService {
             PreferenceActivityRepository preferenceActivityRepository,
             ActivityRepository activityRepository,
             DateVoteRepository dateVoteRepository,
+            NotificationService notificationService,
             @Value("${app.invite.base-url}") String inviteBaseUrl
     ) {
         this.meetingRepository = meetingRepository;
@@ -57,6 +61,7 @@ public class MeetingService {
         this.preferenceActivityRepository = preferenceActivityRepository;
         this.activityRepository = activityRepository;
         this.dateVoteRepository = dateVoteRepository;
+        this.notificationService = notificationService;
         this.inviteBaseUrl = inviteBaseUrl;
     }
 
@@ -107,6 +112,10 @@ public class MeetingService {
         // 모임장 참여자 등록
         participantRepository.save(Participant.create(meeting.getId(), userId, ParticipantState.COND_PENDING));
 
+        // NOTI-001: 조건 입력 요청 (방장)
+        notificationService.sendNotification(userId, meeting.getId(), NotificationType.COND_INPUT,
+                meeting.getName() + "의 조건을 아직 입력하지 않았어요.");
+
         String inviteUrl = inviteBaseUrl + "/" + inviteCode;
         return CreateMeetingResponse.from(meeting, purposeType, inviteUrl);
     }
@@ -145,6 +154,12 @@ public class MeetingService {
                 Participant.create(meeting.getId(), userId, state)
         );
         meeting.incrementParticipantCnt();
+
+        // NOTI-001: 조건 입력 요청 (CONDITION_INPUT 모임에 합류한 참여자만)
+        if (state == ParticipantState.COND_PENDING) {
+            notificationService.sendNotification(userId, meeting.getId(), NotificationType.COND_INPUT,
+                    meeting.getName() + "의 조건을 아직 입력하지 않았어요.");
+        }
 
         return JoinMeetingResponse.of(meeting.getId(), participant.getId(), state, false);
     }
@@ -233,6 +248,9 @@ public class MeetingService {
         if (isFirstSubmit) {
             participant.completeCondition();
             meeting.incrementSubmittedCnt();
+
+            // NOTI-001 자동 읽음: 조건 입력 완료 시
+            notificationService.autoReadByType(userId, meetingId, NotificationType.COND_INPUT);
         }
 
         // 전원 완료 시 모임 상태 전환 및 추천 트리거
@@ -241,6 +259,14 @@ public class MeetingService {
             meeting.transitionToVoting();
             triggered = true;
             // TODO: 추천 로직 트리거 (추후 구현)
+
+            // NOTI-003: 장소 투표 완료 요청 (전체 참여자)
+            List<Participant> allParticipants = participantRepository
+                    .findAllByMeetingIdAndLeftAtIsNullOrderByJoinedAtAsc(meetingId);
+            for (Participant p : allParticipants) {
+                notificationService.sendNotification(p.getUserId(), meetingId, NotificationType.PLACE_VOTE,
+                        meeting.getName() + "의 장소 투표를 아직 완료하지 않았어요.");
+            }
         }
 
         return SubmitPreferenceResponse.of(
