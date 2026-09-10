@@ -349,4 +349,113 @@ class RouteMatrixServiceTest {
                         "Google Routes API 응답 originIndex가 올바르지 않습니다."
                 );
     }
+    @Test
+    void 참가자_이동시간의_표준편차를_계산한다() {
+
+        List<GoogleRouteMatrixResponse> responses = List.of(
+                route(0, 0, "ROUTE_EXISTS", "1200s"),
+                route(1, 0, "ROUTE_EXISTS", "1800s"),
+                route(2, 0, "ROUTE_EXISTS", "2400s")
+        );
+
+        double standardDeviation =
+                routeMatrixService.calculateStandardDeviation(
+                        responses,
+                        0,
+                        3
+                );
+
+        assertThat(standardDeviation)
+                .isCloseTo(
+                        489.8979,
+                        org.assertj.core.data.Offset.offset(0.001)
+                );
+    }
+
+    @Test
+    void 추천_지역의_평균_최대_표준편차를_계산한다() {
+
+        List<GoogleRouteMatrixResponse> responses = List.of(
+                route(0, 0, "ROUTE_EXISTS", "1200s"),
+                route(1, 0, "ROUTE_EXISTS", "1800s"),
+                route(2, 0, "ROUTE_EXISTS", "2400s")
+        );
+
+        AreaRouteResult result =
+                routeMatrixService.calculateAreaRouteResult(
+                        responses,
+                        0,
+                        3
+                );
+
+        assertThat(result.destinationIndex())
+                .isEqualTo(0);
+
+        assertThat(result.averageTravelSeconds())
+                .isEqualTo(1800.0);
+
+        assertThat(result.maxTravelSeconds())
+                .isEqualTo(2400.0);
+
+        assertThat(result.standardDeviationSeconds())
+                .isCloseTo(
+                        489.8979,
+                        org.assertj.core.data.Offset.offset(0.001)
+                );
+    }
+
+    @Test
+    void 여러_추천_지역의_이동시간_지표를_계산한다() {
+
+        List<AreaCandidate> candidates = List.of(
+                new AreaCandidate(
+                        "역삼동",
+                        "place-1",
+                        37.500643,
+                        127.036377
+                ),
+                new AreaCandidate(
+                        "논현동",
+                        "place-2",
+                        37.5112,
+                        127.0285
+                )
+        );
+
+        List<GoogleRouteMatrixResponse> responses = List.of(
+                route(0, 0, "ROUTE_EXISTS", "1200s"),
+                route(1, 0, "ROUTE_EXISTS", "1800s"),
+
+                route(0, 1, "ROUTE_EXISTS", "900s"),
+                route(1, 1, "ROUTE_EXISTS", "1500s")
+        );
+
+        List<AreaRouteResult> results =
+                routeMatrixService.calculateAreaRouteResults(
+                        candidates,
+                        responses,
+                        2
+                );
+
+        assertThat(results).hasSize(2);
+
+        assertThat(results.get(0).destinationIndex())
+                .isEqualTo(0);
+        assertThat(results.get(0).averageTravelSeconds())
+                .isEqualTo(1500.0);
+        assertThat(results.get(0).maxTravelSeconds())
+                .isEqualTo(1800.0);
+        assertThat(results.get(0).standardDeviationSeconds())
+                .isEqualTo(300.0);
+
+        assertThat(results.get(1).destinationIndex())
+                .isEqualTo(1);
+        assertThat(results.get(1).averageTravelSeconds())
+                .isEqualTo(1200.0);
+        assertThat(results.get(1).maxTravelSeconds())
+                .isEqualTo(1500.0);
+        assertThat(results.get(1).standardDeviationSeconds())
+                .isEqualTo(300.0);
+    }
+
 }
