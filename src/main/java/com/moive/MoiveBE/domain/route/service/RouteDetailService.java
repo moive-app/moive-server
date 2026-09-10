@@ -57,10 +57,11 @@ public class RouteDetailService {
                 int busSeconds = timeSummary.busSeconds();
                 int subwaySeconds = timeSummary.subwaySeconds();
                 int walkSeconds = Math.max(0, totalSeconds - (busSeconds + subwaySeconds));
+                int transferCnt = totalSummary.transfers();
 
                 List<Location> pathPoints = buildSimplifiedPathPoints(bestRoute, userLocation, placeLocation);
 
-                Integer fare = totalSummary.fare() != null ? totalSummary.fare().value() : null;
+                int fare = totalSummary.fare() != null ? totalSummary.fare().value() : 0;
 
                 yield RouteDetail.builder()
                         .pathPoints(pathPoints)
@@ -68,6 +69,7 @@ public class RouteDetailService {
                         .subwayTime(toMinutes(subwaySeconds))
                         .busTime(toMinutes(busSeconds))
                         .walkTime(toMinutes(walkSeconds))
+                        .transferCnt(transferCnt)
                         .fare(fare)
                         .landingUrl(kakaoResponse.properties().landingURL())
                         .build();

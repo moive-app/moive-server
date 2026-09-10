@@ -14,7 +14,8 @@ public record RouteDetail(
         int walkTime,
         int busTime,
         int subwayTime,
-        Integer fare,
+        int transferCnt,
+        int fare,
         String landingUrl
 ) {
 }
