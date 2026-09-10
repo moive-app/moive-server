@@ -66,6 +66,12 @@ public enum CustomErrorCode {
     AREA_INFO_LOOKUP_FAILED(HttpStatus.BAD_GATEWAY, 6007, "추천 지역 정보 조회에 실패했습니다."),
     INSUFFICIENT_AREA_CANDIDATES(HttpStatus.INTERNAL_SERVER_ERROR, 6008, "추천 가능한 지역 후보가 부족합니다."),
 
+    // Notification (5xxx)
+    NOTIFICATION_NOT_FOUND(HttpStatus.NOT_FOUND, 5001, "존재하지 않는 알림입니다."),
+    NOTIFICATION_FORBIDDEN(HttpStatus.FORBIDDEN, 5002, "본인의 알림이 아닙니다."),
+    DEVICE_TOKEN_MISSING(HttpStatus.BAD_REQUEST, 5003, "기기 토큰을 입력해주세요."),
+    DEVICE_TOKEN_NOT_FOUND(HttpStatus.NOT_FOUND, 5004, "등록되지 않은 기기입니다."),
+
     // Route (Kakao MAP API 연동) (3xxx)
     // - 카카오맵 연동 오류
     KAKAO_MAP_API_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, 3003, "카카오맵 API 연동 오류가 발생했습니다."),
