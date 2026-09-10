@@ -95,8 +95,11 @@ class KakaoTransitClientTest {
         // when & then
         assertThatThrownBy(() -> kakaoTransitClient.getTransitRoute(start, end))
                 .isInstanceOf(CustomException.class)
-                .extracting(e -> ((CustomException) e).getCustomErrorCode())
-                .isEqualTo(CustomErrorCode.KAKAO_MAP_API_CONFIG_ERROR);
+                .satisfies(e -> {
+                    assertThat(((CustomException) e).getCustomErrorCode())
+                            .isEqualTo(CustomErrorCode.KAKAO_MAP_API_SERVER_ERROR);
+                    assertThat(e.getMessage()).contains("서버 내부 설정 확인 필요");
+                });
     }
 
     // 카카오 에러 응답 포맷이 KakaoTransitErrorResponse로 매핑이 잘 되는지 확인하기 위한 출력
