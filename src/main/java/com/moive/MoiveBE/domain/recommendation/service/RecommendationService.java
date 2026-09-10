@@ -4,10 +4,15 @@ import com.moive.MoiveBE.domain.recommendation.client.GooglePlacesClient;
 import com.moive.MoiveBE.domain.recommendation.dto.GooglePlaceDetailsResponse;
 import com.moive.MoiveBE.domain.recommendation.dto.RecommendedPlaceDetailResponse;
 import com.moive.MoiveBE.domain.recommendation.dto.RecommendedPlaceListResponse;
+import com.moive.MoiveBE.domain.recommendation.entity.RecommendationRun;
+import com.moive.MoiveBE.domain.recommendation.entity.RecommendedArea;
 import com.moive.MoiveBE.domain.recommendation.entity.RecommendedPlace;
+import com.moive.MoiveBE.domain.recommendation.repository.RecommendationRunRepository;
+import com.moive.MoiveBE.domain.recommendation.repository.RecommendedAreaRepository;
 import com.moive.MoiveBE.domain.recommendation.repository.RecommendedPlaceRepository;
 import com.moive.MoiveBE.global.exception.CustomErrorCode;
 import com.moive.MoiveBE.global.exception.CustomException;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -19,12 +24,25 @@ public class RecommendationService {
 
     private final RecommendedPlaceRepository recommendedPlaceRepository;
     private final GooglePlacesClient googlePlacesClient;
+    private final RecommendedAreaRepository recommendedAreaRepository;
+    private final RecommendationRunRepository recommendationRunRepository;
+    private final PlaceRecommendationGenerationService placeRecommendationGenerationService;
 
+    @Transactional
     public RecommendedPlaceListResponse getRecommendedPlaces(
+            Long meetingId,
             Long recommendedAreaId
     ) {
+        validateRecommendedArea(meetingId, recommendedAreaId);
+
+        if (!recommendedPlaceRepository.existsByRecommendedAreaId(recommendedAreaId)) {
+            placeRecommendationGenerationService.recommend(recommendedAreaId);
+        }
+
         List<RecommendedPlace> recommendedPlaces =
-                recommendedPlaceRepository.findAllByRecommendedAreaId(recommendedAreaId);
+                recommendedPlaceRepository.findAllByRecommendedAreaId(
+                        recommendedAreaId
+                );
 
         List<RecommendedPlaceListResponse.Place> places =
                 recommendedPlaces.stream()
@@ -106,5 +124,34 @@ public class RecommendationService {
                 null,
                 imageUrls
         );
+    }
+
+    private void validateRecommendedArea(
+            Long meetingId,
+            Long recommendedAreaId
+    ) {
+        RecommendedArea recommendedArea =
+                recommendedAreaRepository.findById(recommendedAreaId)
+                        .orElseThrow(() ->
+                                new IllegalArgumentException(
+                                        "추천 지역이 존재하지 않습니다."
+                                )
+                        );
+
+        RecommendationRun recommendationRun =
+                recommendationRunRepository.findById(
+                                recommendedArea.getRecommendationRunId()
+                        )
+                        .orElseThrow(() ->
+                                new IllegalStateException(
+                                        "추천 실행 정보가 존재하지 않습니다."
+                                )
+                        );
+
+        if (!recommendationRun.getMeetingId().equals(meetingId)) {
+            throw new IllegalArgumentException(
+                    "해당 모임의 추천 지역이 아닙니다."
+            );
+        }
     }
 }

@@ -45,7 +45,10 @@ public class RecommendationController {
             @PathVariable Long recommendedAreaId
     ) {
         return BaseResponse.success(
-                recommendationService.getRecommendedPlaces(recommendedAreaId)
+                recommendationService.getRecommendedPlaces(
+                        meetingId,
+                        recommendedAreaId
+                )
         );
     }
 
