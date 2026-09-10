@@ -440,8 +440,8 @@ public class RecommendationService {
         RecommendedArea recommendedArea =
                 recommendedAreaRepository.findById(recommendedAreaId)
                         .orElseThrow(() ->
-                                new IllegalArgumentException(
-                                        "추천 지역이 존재하지 않습니다."
+                                new CustomException(
+                                        CustomErrorCode.RECOMMENDED_AREA_NOT_FOUND
                                 )
                         );
 
@@ -450,14 +450,14 @@ public class RecommendationService {
                                 recommendedArea.getRecommendationRunId()
                         )
                         .orElseThrow(() ->
-                                new IllegalStateException(
-                                        "추천 실행 정보가 존재하지 않습니다."
+                                new CustomException(
+                                        CustomErrorCode.RECOMMENDATION_RESULT_NOT_FOUND
                                 )
                         );
 
         if (!recommendationRun.getMeetingId().equals(meetingId)) {
-            throw new IllegalArgumentException(
-                    "해당 모임의 추천 지역이 아닙니다."
+            throw new CustomException(
+                    CustomErrorCode.RECOMMENDED_AREA_NOT_FOUND
             );
         }
     }

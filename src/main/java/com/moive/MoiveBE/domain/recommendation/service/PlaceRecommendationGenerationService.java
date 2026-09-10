@@ -16,6 +16,8 @@ import com.moive.MoiveBE.domain.recommendation.entity.RecommendationRun;
 import com.moive.MoiveBE.domain.recommendation.repository.RecommendedAreaRepository;
 import com.moive.MoiveBE.domain.recommendation.repository.RecommendedPlaceRepository;
 import com.moive.MoiveBE.domain.recommendation.repository.RecommendationRunRepository;
+import com.moive.MoiveBE.global.exception.CustomErrorCode;
+import com.moive.MoiveBE.global.exception.CustomException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -57,8 +59,8 @@ public class PlaceRecommendationGenerationService {
         RecommendedArea recommendedArea =
                 recommendedAreaRepository.findById(recommendedAreaId)
                         .orElseThrow(() ->
-                                new IllegalArgumentException(
-                                        "추천 지역이 존재하지 않습니다."
+                                new CustomException(
+                                        CustomErrorCode.RECOMMENDED_AREA_NOT_FOUND
                                 )
                         );
 
@@ -68,8 +70,8 @@ public class PlaceRecommendationGenerationService {
                                 recommendedArea.getRecommendationRunId()
                         )
                         .orElseThrow(() ->
-                                new IllegalStateException(
-                                        "추천 실행 정보가 존재하지 않습니다."
+                                new CustomException(
+                                        CustomErrorCode.RECOMMENDATION_RESULT_NOT_FOUND
                                 )
                         );
 
