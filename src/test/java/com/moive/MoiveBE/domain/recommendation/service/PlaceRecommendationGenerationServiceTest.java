@@ -140,27 +140,33 @@ class PlaceRecommendationGenerationServiceTest {
         when(placePreferenceAllocationService.allocate(conditions))
                 .thenReturn(allocations);
 
+        /*
+         * 각 장소 후보는 하나의 preferenceType만 가진다.
+         *
+         * 해당 값은 장소 후보를 검색할 때 사용한
+         * MOIVE 활동 카테고리이다.
+         */
         List<PlaceCandidate> candidates = List.of(
                 new PlaceCandidate(
                         "place-1",
                         37.1,
                         127.1,
                         0,
-                        Set.of("한식")
+                        "한식"
                 ),
                 new PlaceCandidate(
                         "place-2",
                         37.2,
                         127.2,
                         1,
-                        Set.of("볼링")
+                        "볼링"
                 ),
                 new PlaceCandidate(
                         "place-3",
                         37.3,
                         127.3,
                         2,
-                        Set.of("한식")
+                        "한식"
                 )
         );
 
@@ -253,8 +259,20 @@ class PlaceRecommendationGenerationServiceTest {
                 );
 
         assertThat(result)
+                .extracting(RecommendedPlace::getCategory)
+                .containsExactly(
+                        "한식",
+                        "한식",
+                        "볼링"
+                );
+
+        assertThat(result)
                 .extracting(RecommendedPlace::getPreferenceMatchCnt)
-                .containsExactly(2, 2, 1);
+                .containsExactly(
+                        2,
+                        2,
+                        1
+                );
 
         verify(participantRecommendationConditionService)
                 .createConditions(
@@ -266,6 +284,7 @@ class PlaceRecommendationGenerationServiceTest {
                 candidates
         );
 
-        verify(recommendedPlaceRepository).saveAll(anyList());
+        verify(recommendedPlaceRepository)
+                .saveAll(anyList());
     }
 }

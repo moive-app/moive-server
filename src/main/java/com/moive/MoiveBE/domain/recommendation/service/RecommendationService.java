@@ -26,7 +26,6 @@ import org.springframework.stereotype.Service;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -125,7 +124,7 @@ public class RecommendationService {
                                     details.location().latitude(),
                                     details.location().longitude(),
                                     destinationIndex,
-                                    Set.of()
+                                    recommendedPlace.getCategory()
                             );
                         })
                         .toList();
@@ -273,7 +272,7 @@ public class RecommendationService {
                         details.location().latitude(),
                         details.location().longitude(),
                         0,
-                        Set.of()
+                        recommendedPlace.getCategory()
                 );
 
         List<PlaceCandidate> candidates =
@@ -331,7 +330,7 @@ public class RecommendationService {
         return new RecommendedPlaceDetailResponse(
                 recommendedPlace.getId(),
                 extractKoreanPlaceName(details.displayName().text()),
-                details.primaryTypeDisplayName().text(),
+                recommendedPlace.getCategory(),
                 details.formattedAddress(),
                 recommendedPlace.getPreferenceMatchCnt(),
                 averageTravelTime,
@@ -377,7 +376,7 @@ public class RecommendationService {
         return new RecommendedPlaceListResponse.Place(
                 recommendedPlace.getId(),
                 extractKoreanPlaceName(details.displayName().text()),
-                details.primaryTypeDisplayName().text(),
+                recommendedPlace.getCategory(),
                 preferenceMatchRate,
                 averageTravelTime,
                 maxTravelTime,

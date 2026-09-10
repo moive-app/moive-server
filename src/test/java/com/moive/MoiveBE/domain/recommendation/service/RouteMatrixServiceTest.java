@@ -184,9 +184,9 @@ class RouteMatrixServiceTest {
     @Test
     void 경로가_없는_장소_후보를_제외한다() {
         List<PlaceCandidate> candidates = List.of(
-                new PlaceCandidate("A", 37.1, 127.1, 0,Set.of("한식")),
-                new PlaceCandidate("B", 37.2, 127.2, 1,Set.of("카페")),
-                new PlaceCandidate("C", 37.3, 127.3, 2,Set.of("보드게임"))
+                new PlaceCandidate("A", 37.1, 127.1, 0, "한식"),
+                new PlaceCandidate("B", 37.2, 127.2, 1, "카페"),
+                new PlaceCandidate("C", 37.3, 127.3, 2, "보드게임")
         );
 
         List<GoogleRouteMatrixResponse> responses = List.of(
@@ -249,9 +249,9 @@ class RouteMatrixServiceTest {
     @Test
     void 도달_가능한_장소들의_평균과_최대_이동시간을_계산한다() {
         List<PlaceCandidate> candidates = List.of(
-                new PlaceCandidate("A", 37.1, 127.1, 0,Set.of("한식")),
-                new PlaceCandidate("B", 37.2, 127.2, 1,Set.of("카페")),
-                new PlaceCandidate("C", 37.3, 127.3, 2,Set.of("보드게임"))
+                new PlaceCandidate("A", 37.1, 127.1, 0, "한식"),
+                new PlaceCandidate("B", 37.2, 127.2, 1, "카페"),
+                new PlaceCandidate("C", 37.3, 127.3, 2, "보드게임")
         );
 
         List<GoogleRouteMatrixResponse> responses = List.of(

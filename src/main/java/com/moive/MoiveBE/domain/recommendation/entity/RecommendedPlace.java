@@ -23,6 +23,9 @@ public class RecommendedPlace {
     @Column(name = "google_place_id", nullable = false)
     private String googlePlaceId;
 
+    @Column(name = "category", nullable = false, length = 30)
+    private String category;
+
     @Column(name = "preference_match_cnt", nullable = false)
     private Integer preferenceMatchCnt;
 
@@ -35,21 +38,25 @@ public class RecommendedPlace {
     private RecommendedPlace(
             Long recommendedAreaId,
             String googlePlaceId,
+            String category,
             Integer preferenceMatchCnt
     ) {
         this.recommendedAreaId = recommendedAreaId;
         this.googlePlaceId = googlePlaceId;
+        this.category = category;
         this.preferenceMatchCnt = preferenceMatchCnt;
     }
 
     public static RecommendedPlace create(
             Long recommendedAreaId,
             String googlePlaceId,
+            String category,
             Integer preferenceMatchCnt
     ) {
         return new RecommendedPlace(
                 recommendedAreaId,
                 googlePlaceId,
+                category,
                 preferenceMatchCnt
         );
     }

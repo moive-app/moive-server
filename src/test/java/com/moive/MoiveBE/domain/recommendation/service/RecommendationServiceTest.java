@@ -137,6 +137,7 @@ class RecommendationServiceTest {
                 RecommendedPlace.create(
                         recommendedAreaId,
                         "google-place-id",
+                        "한식",
                         3
                 );
 
@@ -151,7 +152,7 @@ class RecommendationServiceTest {
                                 "ko"
                         ),
                         new GooglePlaceDetailsResponse.LocalizedText(
-                                "한식",
+                                "한식 고기구이 레스토랑",
                                 "ko"
                         ),
                         "서울특별시 강남구 테헤란로 123",
@@ -229,9 +230,6 @@ class RecommendationServiceTest {
         Long recommendedPlaceId = 1L;
         Long recommendationRunId = 10L;
 
-        /*
-         * 추천 지역 → 추천 실행 → 모임 검증
-         */
         RecommendedArea recommendedArea = mock(RecommendedArea.class);
         RecommendationRun recommendationRun = mock(RecommendationRun.class);
 
@@ -247,22 +245,17 @@ class RecommendationServiceTest {
         given(recommendationRun.getMeetingId())
                 .willReturn(meetingId);
 
-        /*
-         * 추천 장소
-         */
         RecommendedPlace recommendedPlace =
                 RecommendedPlace.create(
                         recommendedAreaId,
                         "google-place-id",
+                        "한식",
                         3
                 );
 
         given(recommendedPlaceRepository.findById(recommendedPlaceId))
                 .willReturn(Optional.of(recommendedPlace));
 
-        /*
-         * Google Place 상세 정보
-         */
         GooglePlaceDetailsResponse details =
                 new GooglePlaceDetailsResponse(
                         new GooglePlaceDetailsResponse.LocalizedText(
@@ -294,9 +287,6 @@ class RecommendationServiceTest {
         given(googlePlacesClient.getPlaceDetails("google-place-id"))
                 .willReturn(details);
 
-        /*
-         * 참가자 2명
-         */
         Participant participant1 = mock(Participant.class);
         Participant participant2 = mock(Participant.class);
 
@@ -310,9 +300,6 @@ class RecommendationServiceTest {
                         participant2
                 ));
 
-        /*
-         * 참가자 출발 위치
-         */
         ParticipantPreference preference1 = mock(ParticipantPreference.class);
         ParticipantPreference preference2 = mock(ParticipantPreference.class);
 
@@ -328,9 +315,6 @@ class RecommendationServiceTest {
                         preference2
                 ));
 
-        /*
-         * Routes Matrix
-         */
         List<GoogleRouteMatrixResponse> routeResponses =
                 List.of(mock(GoogleRouteMatrixResponse.class));
 
@@ -339,9 +323,6 @@ class RecommendationServiceTest {
                 anyList()
         )).willReturn(routeResponses);
 
-        /*
-         * 평균 1800초 = 30분
-         */
         PlaceRouteResult routeResult =
                 new PlaceRouteResult(
                         0,
@@ -355,9 +336,6 @@ class RecommendationServiceTest {
                 eq(2)
         )).willReturn(List.of(routeResult));
 
-        /*
-         * 이미지
-         */
         given(googlePlacesClient
                 .getPlacePhotoUrl("places/test/photos/1"))
                 .willReturn("https://example.com/photo1.jpg");
@@ -370,9 +348,6 @@ class RecommendationServiceTest {
                 .getPlacePhotoUrl("places/test/photos/3"))
                 .willReturn("https://example.com/photo3.jpg");
 
-        /*
-         * 실행
-         */
         RecommendedPlaceDetailResponse response =
                 recommendationService.getRecommendedPlaceDetail(
                         meetingId,
@@ -380,14 +355,11 @@ class RecommendationServiceTest {
                         recommendedPlaceId
                 );
 
-        /*
-         * 검증
-         */
         assertThat(response.name())
                 .isEqualTo("다몽집");
 
         assertThat(response.category())
-                .isEqualTo("한식 고기구이 레스토랑");
+                .isEqualTo("한식");
 
         assertThat(response.address())
                 .isEqualTo("서울특별시 강남구 테헤란로 123");
@@ -464,14 +436,11 @@ class RecommendationServiceTest {
         given(recommendationRun.getMeetingId())
                 .willReturn(meetingId);
 
-        /*
-         * 요청한 지역은 1L인데
-         * 실제 장소는 2L 지역 소속
-         */
         RecommendedPlace recommendedPlace =
                 RecommendedPlace.create(
                         2L,
                         "google-place-id",
+                        "한식",
                         3
                 );
 
@@ -546,6 +515,7 @@ class RecommendationServiceTest {
                 RecommendedPlace.create(
                         recommendedAreaId,
                         "google-place-id",
+                        "한식",
                         2
                 );
 
@@ -560,7 +530,7 @@ class RecommendationServiceTest {
                                 "ko"
                         ),
                         new GooglePlaceDetailsResponse.LocalizedText(
-                                "한식",
+                                "한식 고기구이 레스토랑",
                                 "ko"
                         ),
                         "서울특별시 강남구 테헤란로 123",
@@ -610,6 +580,9 @@ class RecommendationServiceTest {
 
         assertThat(place.name())
                 .isEqualTo("다몽집");
+
+        assertThat(place.category())
+                .isEqualTo("한식");
 
         assertThat(place.preferenceMatchRate())
                 .isEqualTo(100);

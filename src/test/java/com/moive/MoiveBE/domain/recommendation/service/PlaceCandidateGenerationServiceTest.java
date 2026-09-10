@@ -52,44 +52,24 @@ class PlaceCandidateGenerationServiceTest {
 
         assertThat(result.get(0).googlePlaceId()).isEqualTo("A");
         assertThat(result.get(0).candidateOrder()).isEqualTo(0);
-        assertThat(result.get(0).preferenceTypes())
-                .containsExactly("한식");
+        assertThat(result.get(0).preferenceType())
+                .isEqualTo("한식");
 
         assertThat(result.get(1).googlePlaceId()).isEqualTo("B");
         assertThat(result.get(1).candidateOrder()).isEqualTo(1);
-        assertThat(result.get(1).preferenceTypes())
-                .containsExactly("한식","카페");
+        assertThat(result.get(1).preferenceType())
+                .isEqualTo("한식");
 
         assertThat(result.get(2).googlePlaceId()).isEqualTo("C");
         assertThat(result.get(2).candidateOrder()).isEqualTo(2);
-        assertThat(result.get(2).preferenceTypes())
-                .containsExactly("카페");
+        assertThat(result.get(2).preferenceType())
+                .isEqualTo("카페");
 
         verify(googlePlacesClient)
                 .searchPlaces("강남역 한식", 2);
 
         verify(googlePlacesClient)
                 .searchPlaces("강남역 카페", 2);
-    }
-
-    private GooglePlaceSearchResponse response(
-            GooglePlaceSearchResponse.Place... places
-    ) {
-        return new GooglePlaceSearchResponse(List.of(places));
-    }
-
-    private GooglePlaceSearchResponse.Place place(
-            String id,
-            double latitude,
-            double longitude
-    ) {
-        return new GooglePlaceSearchResponse.Place(
-                id,
-                new GooglePlaceSearchResponse.Location(
-                        latitude,
-                        longitude
-                )
-        );
     }
 
     @Test
@@ -140,5 +120,23 @@ class PlaceCandidateGenerationServiceTest {
         verifyNoMoreInteractions(googlePlacesClient);
     }
 
+    private GooglePlaceSearchResponse response(
+            GooglePlaceSearchResponse.Place... places
+    ) {
+        return new GooglePlaceSearchResponse(List.of(places));
+    }
 
+    private GooglePlaceSearchResponse.Place place(
+            String id,
+            double latitude,
+            double longitude
+    ) {
+        return new GooglePlaceSearchResponse.Place(
+                id,
+                new GooglePlaceSearchResponse.Location(
+                        latitude,
+                        longitude
+                )
+        );
+    }
 }

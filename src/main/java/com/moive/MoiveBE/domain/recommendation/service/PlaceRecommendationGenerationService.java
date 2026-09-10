@@ -186,16 +186,34 @@ public class PlaceRecommendationGenerationService {
                         matchResults
                 );
 
-        // 12. TOP3만 RecommendedPlace에 저장
+        // 12. googlePlaceId 기준으로 원본 후보 조회용 Map 생성
+        Map<String, PlaceCandidate> candidateMap =
+                candidates.stream()
+                        .collect(Collectors.toMap(
+                                PlaceCandidate::googlePlaceId,
+                                Function.identity()
+                        ));
+
+// 13. TOP3만 RecommendedPlace에 저장
         List<RecommendedPlace> recommendedPlaces =
                 topPlaces.stream()
-                        .map(result ->
-                                RecommendedPlace.create(
-                                        recommendedAreaId,
-                                        result.googlePlaceId(),
-                                        result.preferenceMatchCnt()
-                                )
-                        )
+                        .map(result -> {
+                            PlaceCandidate candidate =
+                                    candidateMap.get(result.googlePlaceId());
+
+                            if (candidate == null) {
+                                throw new IllegalStateException(
+                                        "추천 장소 후보 정보가 존재하지 않습니다."
+                                );
+                            }
+
+                            return RecommendedPlace.create(
+                                    recommendedAreaId,
+                                    result.googlePlaceId(),
+                                    candidate.preferenceType(),
+                                    result.preferenceMatchCnt()
+                            );
+                        })
                         .toList();
 
         return recommendedPlaceRepository.saveAll(

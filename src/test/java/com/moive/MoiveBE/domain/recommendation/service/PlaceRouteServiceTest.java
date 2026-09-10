@@ -14,7 +14,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.util.List;
-import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
@@ -52,7 +51,7 @@ class PlaceRouteServiceTest {
                 37.5200000,
                 127.0200000,
                 0,
-                Set.of("한식")
+                "한식"
         );
 
         PlaceCandidate candidate2 = new PlaceCandidate(
@@ -60,7 +59,7 @@ class PlaceRouteServiceTest {
                 37.5300000,
                 127.0300000,
                 1,
-                Set.of("볼링")
+                "볼링"
         );
 
         List<GoogleRouteMatrixResponse> expectedResponse = List.of();
@@ -79,7 +78,8 @@ class PlaceRouteServiceTest {
         ArgumentCaptor<GoogleRouteMatrixRequest> captor =
                 ArgumentCaptor.forClass(GoogleRouteMatrixRequest.class);
 
-        verify(googleRoutesClient).computeRouteMatrix(captor.capture());
+        verify(googleRoutesClient)
+                .computeRouteMatrix(captor.capture());
 
         GoogleRouteMatrixRequest request = captor.getValue();
 
