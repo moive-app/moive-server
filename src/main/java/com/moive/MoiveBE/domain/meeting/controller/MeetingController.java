@@ -70,17 +70,6 @@ public class MeetingController {
     }
 
     @Operation(
-            summary = "모임 상세 조회",
-            description = "모임 상세 정보를 조회합니다. 모든 phase(조건입력중/투표진행중/확정/완료)를 하나의 응답으로 반환합니다."
-    )
-    @GetMapping("/{meetingId}")
-    public BaseResponse<MeetingDetailResponse> getMeetingDetail(
-            @PathVariable Long meetingId
-    ) {
-        return BaseResponse.success("모임 상세 조회에 성공했습니다.", meetingDetailService.getMeetingDetail(meetingId));
-    }
-
-    @Operation(
             summary = "모임 나가기",
             description = "모임에서 나갑니다. 모임장 나가기 시 자동 승계, 마지막 참여자 나가기 시 모임 종료 처리됩니다."
     )

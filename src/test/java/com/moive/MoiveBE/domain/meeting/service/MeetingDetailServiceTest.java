@@ -1,13 +1,10 @@
 package com.moive.MoiveBE.domain.meeting.service;
 
-import com.moive.MoiveBE.domain.meeting.dto.MeetingDetailResponse;
 import com.moive.MoiveBE.domain.meeting.dto.MeetingHomeResponse;
 import com.moive.MoiveBE.domain.meeting.entity.*;
 import com.moive.MoiveBE.domain.meeting.repository.MeetingPurposeRepository;
 import com.moive.MoiveBE.domain.meeting.repository.MeetingRepository;
 import com.moive.MoiveBE.domain.meeting.repository.ParticipantRepository;
-import com.moive.MoiveBE.domain.recommendation.client.GooglePlacesClient;
-import com.moive.MoiveBE.domain.recommendation.repository.RecommendedPlaceRepository;
 import com.moive.MoiveBE.domain.user.entity.User;
 import com.moive.MoiveBE.domain.user.repository.UserRepository;
 import com.moive.MoiveBE.global.exception.CustomErrorCode;
@@ -36,8 +33,6 @@ class MeetingDetailServiceTest {
     @Mock private MeetingPurposeRepository meetingPurposeRepository;
     @Mock private ParticipantRepository participantRepository;
     @Mock private UserRepository userRepository;
-    @Mock private RecommendedPlaceRepository recommendedPlaceRepository;
-    @Mock private GooglePlacesClient googlePlacesClient;
 
     private MeetingDetailService meetingDetailService;
     private static final Long CURRENT_USER_ID = 1L;
@@ -47,8 +42,7 @@ class MeetingDetailServiceTest {
     void setUp() {
         meetingDetailService = new MeetingDetailService(
                 meetingRepository, meetingPurposeRepository, participantRepository,
-                userRepository, recommendedPlaceRepository, googlePlacesClient,
-                "https://moive.app/invite"
+                userRepository, "https://moive.app/invite"
         );
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken(
@@ -61,126 +55,6 @@ class MeetingDetailServiceTest {
     void tearDown() {
         SecurityContextHolder.clearContext();
     }
-
-    @Test
-    void CONDITION_INPUT_모임_상세를_정상_조회한다() {
-        Meeting meeting = mockMeeting(MEETING_ID, MeetingStatus.CONDITION_INPUT, null);
-        Participant me = mockParticipant(1L, CURRENT_USER_ID, ParticipantState.COND_PENDING);
-        Participant other = mockParticipant(2L, 2L, ParticipantState.COND_PENDING);
-        MeetingPurpose purpose = mockPurpose(PurposeType.NETWORKING);
-        User user1 = mockUser(CURRENT_USER_ID, "나");
-        User user2 = mockUser(2L, "상대");
-
-        when(meetingRepository.findById(MEETING_ID)).thenReturn(Optional.of(meeting));
-        when(participantRepository.findByMeetingIdAndUserIdAndLeftAtIsNull(MEETING_ID, CURRENT_USER_ID))
-                .thenReturn(Optional.of(me));
-        when(meetingPurposeRepository.findByMeetingId(MEETING_ID)).thenReturn(Optional.of(purpose));
-        when(participantRepository.findAllByMeetingIdAndLeftAtIsNullOrderByJoinedAtAsc(MEETING_ID))
-                .thenReturn(List.of(me, other));
-        when(userRepository.findAllById(any())).thenReturn(List.of(user1, user2));
-
-        MeetingDetailResponse response = meetingDetailService.getMeetingDetail(MEETING_ID);
-
-        assertThat(response.meetingId()).isEqualTo(MEETING_ID);
-        assertThat(response.status()).isEqualTo("CONDITION_INPUT");
-        assertThat(response.statusLabel()).isEqualTo("조건 입력중");
-        assertThat(response.purposeType()).isEqualTo("NETWORKING");
-        assertThat(response.canShare()).isTrue();
-        assertThat(response.participants()).hasSize(2);
-        assertThat(response.confirmedPlace()).isNull();
-        assertThat(response.travelSummary()).isNull();
-    }
-
-    @Test
-    void COMPLETED_모임이면_inviteCode가_null이고_canShare가_false이다() {
-        Meeting meeting = mockMeeting(MEETING_ID, MeetingStatus.COMPLETED, null);
-        Participant me = mockParticipant(1L, CURRENT_USER_ID, ParticipantState.CONFIRMED);
-        MeetingPurpose purpose = mockPurpose(PurposeType.FRIENDLY);
-        User user = mockUser(CURRENT_USER_ID, "나");
-
-        when(meetingRepository.findById(MEETING_ID)).thenReturn(Optional.of(meeting));
-        when(participantRepository.findByMeetingIdAndUserIdAndLeftAtIsNull(MEETING_ID, CURRENT_USER_ID))
-                .thenReturn(Optional.of(me));
-        when(meetingPurposeRepository.findByMeetingId(MEETING_ID)).thenReturn(Optional.of(purpose));
-        when(participantRepository.findAllByMeetingIdAndLeftAtIsNullOrderByJoinedAtAsc(MEETING_ID))
-                .thenReturn(List.of(me));
-        when(userRepository.findAllById(any())).thenReturn(List.of(user));
-
-        MeetingDetailResponse response = meetingDetailService.getMeetingDetail(MEETING_ID);
-
-        assertThat(response.inviteCode()).isNull();
-        assertThat(response.inviteUrl()).isNull();
-        assertThat(response.canShare()).isFalse();
-    }
-
-    @Test
-    void recommendationReady는_전원_COND_DONE일_때만_true이다() {
-        Meeting meeting = mockMeeting(MEETING_ID, MeetingStatus.CONDITION_INPUT, null);
-        Participant p1 = mockParticipant(1L, CURRENT_USER_ID, ParticipantState.COND_DONE);
-        Participant p2 = mockParticipant(2L, 2L, ParticipantState.COND_DONE);
-        MeetingPurpose purpose = mockPurpose(PurposeType.NETWORKING);
-        User user1 = mockUser(CURRENT_USER_ID, "나");
-        User user2 = mockUser(2L, "상대");
-
-        when(meetingRepository.findById(MEETING_ID)).thenReturn(Optional.of(meeting));
-        when(participantRepository.findByMeetingIdAndUserIdAndLeftAtIsNull(MEETING_ID, CURRENT_USER_ID))
-                .thenReturn(Optional.of(p1));
-        when(meetingPurposeRepository.findByMeetingId(MEETING_ID)).thenReturn(Optional.of(purpose));
-        when(participantRepository.findAllByMeetingIdAndLeftAtIsNullOrderByJoinedAtAsc(MEETING_ID))
-                .thenReturn(List.of(p1, p2));
-        when(userRepository.findAllById(any())).thenReturn(List.of(user1, user2));
-
-        MeetingDetailResponse response = meetingDetailService.getMeetingDetail(MEETING_ID);
-
-        assertThat(response.recommendationReady()).isTrue();
-    }
-
-    @Test
-    void recommendationReady는_일부만_COND_DONE이면_false이다() {
-        Meeting meeting = mockMeeting(MEETING_ID, MeetingStatus.CONDITION_INPUT, null);
-        Participant p1 = mockParticipant(1L, CURRENT_USER_ID, ParticipantState.COND_DONE);
-        Participant p2 = mockParticipant(2L, 2L, ParticipantState.COND_PENDING);
-        MeetingPurpose purpose = mockPurpose(PurposeType.NETWORKING);
-        User user1 = mockUser(CURRENT_USER_ID, "나");
-        User user2 = mockUser(2L, "상대");
-
-        when(meetingRepository.findById(MEETING_ID)).thenReturn(Optional.of(meeting));
-        when(participantRepository.findByMeetingIdAndUserIdAndLeftAtIsNull(MEETING_ID, CURRENT_USER_ID))
-                .thenReturn(Optional.of(p1));
-        when(meetingPurposeRepository.findByMeetingId(MEETING_ID)).thenReturn(Optional.of(purpose));
-        when(participantRepository.findAllByMeetingIdAndLeftAtIsNullOrderByJoinedAtAsc(MEETING_ID))
-                .thenReturn(List.of(p1, p2));
-        when(userRepository.findAllById(any())).thenReturn(List.of(user1, user2));
-
-        MeetingDetailResponse response = meetingDetailService.getMeetingDetail(MEETING_ID);
-
-        assertThat(response.recommendationReady()).isFalse();
-    }
-
-    @Test
-    void 존재하지_않는_모임이면_MEETING_NOT_FOUND_예외가_발생한다() {
-        when(meetingRepository.findById(MEETING_ID)).thenReturn(Optional.empty());
-
-        assertThatThrownBy(() -> meetingDetailService.getMeetingDetail(MEETING_ID))
-                .isInstanceOf(CustomException.class)
-                .satisfies(e -> assertThat(((CustomException) e).getCustomErrorCode())
-                        .isEqualTo(CustomErrorCode.MEETING_NOT_FOUND));
-    }
-
-    @Test
-    void 모임_참여자가_아니면_NOT_A_PARTICIPANT_예외가_발생한다() {
-        Meeting meeting = mockMeeting(MEETING_ID, MeetingStatus.CONDITION_INPUT, null);
-        when(meetingRepository.findById(MEETING_ID)).thenReturn(Optional.of(meeting));
-        when(participantRepository.findByMeetingIdAndUserIdAndLeftAtIsNull(MEETING_ID, CURRENT_USER_ID))
-                .thenReturn(Optional.empty());
-
-        assertThatThrownBy(() -> meetingDetailService.getMeetingDetail(MEETING_ID))
-                .isInstanceOf(CustomException.class)
-                .satisfies(e -> assertThat(((CustomException) e).getCustomErrorCode())
-                        .isEqualTo(CustomErrorCode.NOT_A_PARTICIPANT));
-    }
-
-    // --- getMeetingHome 테스트 ---
 
     @Test
     void CONDITION_INPUT이면_배너_문구와_CTA가_올바르게_조립된다() {
@@ -246,8 +120,6 @@ class MeetingDetailServiceTest {
         lenient().when(meeting.getStatus()).thenReturn(status);
         lenient().when(meeting.getConfirmedPlaceId()).thenReturn(confirmedPlaceId);
         lenient().when(meeting.getInviteCode()).thenReturn("ABC123XY");
-        lenient().when(meeting.getScheduledDate()).thenReturn(null);
-        lenient().when(meeting.getScheduledTime()).thenReturn(null);
         return meeting;
     }
 
