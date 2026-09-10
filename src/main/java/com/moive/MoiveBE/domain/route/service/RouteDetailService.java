@@ -3,7 +3,7 @@ package com.moive.MoiveBE.domain.route.service;
 import com.moive.MoiveBE.domain.route.client.KakaoTransitClient;
 import com.moive.MoiveBE.domain.route.dto.KakaoTransitRouteResponse;
 import com.moive.MoiveBE.domain.route.dto.Location;
-import com.moive.MoiveBE.domain.route.dto.RouteDetailResponse;
+import com.moive.MoiveBE.domain.route.dto.RouteDetail;
 import com.moive.MoiveBE.domain.route.type.TransitType;
 import com.moive.MoiveBE.domain.route.type.KakaoTransitStatusType;
 import com.moive.MoiveBE.domain.route.util.PathPointsSimplifier;
@@ -25,28 +25,24 @@ import static com.moive.MoiveBE.global.exception.CustomErrorCode.*;
 @Slf4j
 public class RouteDetailService {
 
-    private final KakaoTransitClient kakaoTransitClient;
     private final int FIRST_ROUTE_IDX = 0;
 
-    public RouteDetailResponse getMyRouteDetail(
-//            Long meetingId,
-//            Long recommendedPlaceId,
-            Location userLocation,
-            Location placeLocation
+    private final KakaoTransitClient kakaoTransitClient;
+
+    // 이동 경로 관련 정보(경로 좌표, 이동 시간, 요금 등)만 생성한다. 응답 DTO 조립은 RouteService가 담당한다.
+    public RouteDetail getMyRouteDetail(
+            Location userLocation, Location placeLocation,
+            String userAddress, String placeName
     ) {
-        // TODO: 유저 조회
-
-        // TODO: 모임 조회
-
-        // TODO: 모임 참여자 조회
-
-        // TODO: 추천 장소 조회
-
         // 카카오맵 대중교통 경로 조회 API 호출
-        KakaoTransitRouteResponse kakaoResponse = kakaoTransitClient.getTransitRoute(userLocation, placeLocation);
+        KakaoTransitRouteResponse kakaoResponse = kakaoTransitClient.getTransitRoute(
+                userLocation, placeLocation,
+                userAddress, placeName
+        );
         if (kakaoResponse == null || kakaoResponse.status() == null) {
             log.error("[카카오맵 대중교통 경로 조회 API] Response Body가 비어있습니다.");
-            throw new CustomException(KAKAO_MAP_API_INVALID_RESPONSE);
+            throw new CustomException(KAKAO_MAP_API_SERVER_ERROR,
+                    KAKAO_MAP_API_SERVER_ERROR.messageWith("응답 데이터 규격 확인 필요"));
         }
 
         KakaoTransitStatusType status = KakaoTransitStatusType.valueOf(kakaoResponse.status());
@@ -62,15 +58,12 @@ public class RouteDetailService {
                 int subwaySeconds = timeSummary.subwaySeconds();
                 int walkSeconds = Math.max(0, totalSeconds - (busSeconds + subwaySeconds));
 
-                List<RouteDetailResponse.RouteStep> routeSteps =
-                        addBoundaryWalkingSteps(getRouteSteps(bestRoute), userLocation, placeLocation);
+                List<Location> pathPoints = buildSimplifiedPathPoints(bestRoute, userLocation, placeLocation);
 
                 Integer fare = totalSummary.fare() != null ? totalSummary.fare().value() : null;
 
-                yield RouteDetailResponse.builder()
-                        .userLocation(userLocation)
-                        .placeLocation(placeLocation)
-                        .routeSteps(routeSteps)
+                yield RouteDetail.builder()
+                        .pathPoints(pathPoints)
                         .totalTime(toMinutes(totalSeconds))
                         .subwayTime(toMinutes(subwaySeconds))
                         .busTime(toMinutes(busSeconds))
@@ -83,7 +76,8 @@ public class RouteDetailService {
             // 대중교통 경로 조회가 불가능한 경우
             case STARTNODES_NULL, ENDNODES_NULL, INVALID_REQUEST -> {
                 log.error("[카카오맵 대중교통 경로 조회 API] 요청 좌표로 경로 탐색이 불가능합니다. (status={})", status);
-                throw new CustomException(KAKAO_MAP_API_INVALID_REQUEST);
+                throw new CustomException(KAKAO_MAP_API_SERVER_ERROR,
+                        KAKAO_MAP_API_SERVER_ERROR.messageWith("요청 좌표로 경로 탐색 불가"));
             }
 
             // 대중교통 경로가 존재하지 않는 경우
@@ -119,39 +113,33 @@ public class RouteDetailService {
     record TransitTimeSummary(int subwaySeconds, int busSeconds) {
     }
 
-    // 각 step의 이동 수단과 경로 좌표(path)로 RouteStep 목록 구성
-    List<RouteDetailResponse.RouteStep> getRouteSteps(KakaoTransitRouteResponse.Route bestRoute) {
-        List<KakaoTransitRouteResponse.Step> steps = bestRoute.steps();
-        List<RouteDetailResponse.RouteStep> routeSteps = new ArrayList<>();
-
-        for (KakaoTransitRouteResponse.Step step : steps) {
-            TransitType type = TransitType.fromKakaoType(step.properties().type());
-            List<Location> simplifiedPath = PathPointsSimplifier.simplify(getPathPoints(step.path()));
-            routeSteps.add(new RouteDetailResponse.RouteStep(type, simplifiedPath));
-        }
-
-        return routeSteps;
-    }
-
-    // userLocation -> 첫 탑승 지점, 마지막 하차 지점 -> placeLocation 구간 도보 직선 경로로 추가
-    List<RouteDetailResponse.RouteStep> addBoundaryWalkingSteps(
-            List<RouteDetailResponse.RouteStep> routeSteps,
+    // 모든 step의 원본 좌표를 순서대로 이어붙이고, 출발지/도착지를 양 끝에 붙인 뒤 전체를 한 번에 단순화
+    List<Location> buildSimplifiedPathPoints(
+            KakaoTransitRouteResponse.Route bestRoute,
             Location userLocation,
             Location placeLocation
     ) {
-        Location firstTransitPoint = routeSteps.get(0).path().get(0);
-        RouteDetailResponse.RouteStep lastStep = routeSteps.get(routeSteps.size() - 1);
-        Location lastTransitPoint = lastStep.path().get(lastStep.path().size() - 1);
+        List<Location> rawPoints = new ArrayList<>();
+        addIfNotDuplicate(rawPoints, userLocation);
 
-        List<RouteDetailResponse.RouteStep> result = new ArrayList<>();
-        result.add(new RouteDetailResponse.RouteStep(TransitType.WALKING, List.of(userLocation, firstTransitPoint)));
-        result.addAll(routeSteps);
-        result.add(new RouteDetailResponse.RouteStep(TransitType.WALKING, List.of(lastTransitPoint, placeLocation)));
+        for (KakaoTransitRouteResponse.Step step : bestRoute.steps()) {
+            // step 경계에서 앞 step의 마지막 좌표와 겹치는 중복 좌표는 제거
+            getPathPoints(step.path()).forEach(point -> addIfNotDuplicate(rawPoints, point));
+        }
 
-        return result;
+        addIfNotDuplicate(rawPoints, placeLocation);
+
+        return PathPointsSimplifier.simplify(rawPoints);
     }
 
-    // 카카오 원본 좌표 전부 반환
+    // 직전 좌표와 동일하지 않은 경우에만 추가 (연속 중복 좌표 제거)
+    private void addIfNotDuplicate(List<Location> points, Location point) {
+        if (points.isEmpty() || !points.get(points.size() - 1).equals(point)) {
+            points.add(point);
+        }
+    }
+
+    // 카카오 원본 좌표 전부 반환 (카카오 규격: [경도, 위도] 순서)
     private List<Location> getPathPoints(KakaoTransitRouteResponse.Path path) {
         return Arrays.stream(path.points())
                 .map(point -> new Location(point[1], point[0]))

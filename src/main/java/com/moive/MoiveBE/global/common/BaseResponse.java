@@ -34,6 +34,10 @@ public class BaseResponse<T> {
         return new BaseResponse<>(false, customErrorCode.getCode(), customErrorCode.getMessage(), null);
     }
 
+    public static <T> BaseResponse<T> fail(int code, String message) {
+        return new BaseResponse<>(false, code, message, null);
+    }
+
     public static <T> BaseResponse<T> fail(CustomErrorCode customErrorCode, T data) {
         return new BaseResponse<>(false, customErrorCode.getCode(), customErrorCode.getMessage(), data);
     }
