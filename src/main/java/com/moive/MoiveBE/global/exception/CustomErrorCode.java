@@ -73,6 +73,10 @@ public enum CustomErrorCode {
     // - 카카오맵 대중교통 경로 조회 API 에러코드
     TRANSIT_ROUTE_NOT_FOUND(HttpStatus.NOT_FOUND, 3007, "이용 가능한 대중교통 경로가 없습니다."),
 
+    // Vote (7xxx)
+    VOTE_ACCESS_DENIED(HttpStatus.FORBIDDEN, 7002, "이 모임의 참여자만 조회할 수 있습니다."),
+
+
     ;
     private final HttpStatus httpStatus;
     private final int code;
