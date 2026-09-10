@@ -49,6 +49,10 @@ public class Participant {
         return p;
     }
 
+    public void leave() {
+        this.leftAt = java.time.LocalDateTime.now();
+    }
+
     public void completeCondition() {
         this.state = ParticipantState.COND_DONE;
         this.conditionCompleted = true;

@@ -10,6 +10,11 @@ public interface ParticipantRepository extends JpaRepository<Participant, Long> 
 
     Optional<Participant> findByMeetingIdAndUserIdAndLeftAtIsNull(Long meetingId, Long userId);
 
+    List<Participant> findAllByMeetingIdAndLeftAtIsNullOrderByJoinedAtAsc(Long meetingId);
+
+    List<Participant> findAllByUserIdAndLeftAtIsNullOrderByIdAsc(Long userId);
+
+    List<Participant> findAllByMeetingIdInAndLeftAtIsNullOrderByJoinedAtAsc(List<Long> meetingIds);
     Optional<Participant> findByMeetingIdAndUserId(Long meetingId, Long userId);
     List<Participant> findAllByMeetingIdAndLeftAtIsNull(Long meetingId);
 }

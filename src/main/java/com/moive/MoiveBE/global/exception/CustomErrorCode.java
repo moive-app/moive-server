@@ -42,9 +42,10 @@ public enum CustomErrorCode {
     MEETING_NOT_FOUND(HttpStatus.NOT_FOUND, 4042, "존재하지 않는 모임이에요."),
     MEETING_FULL(HttpStatus.BAD_REQUEST, 4043, "모임 참여 인원이 가득 찼어요."),
     MEETING_COMPLETED(HttpStatus.BAD_REQUEST, 4044, "종료된 모임이에요. 참여할 수 없어요."),
+    NOT_A_PARTICIPANT(HttpStatus.FORBIDDEN, 4045, "해당 모임의 참여자가 아닙니다."),
+    CANNOT_LEAVE_COMPLETED_MEETING(HttpStatus.BAD_REQUEST, 4046, "종료된 모임은 나갈 수 없습니다."),
 
     // Meeting - 조건입력 (POST /api/meetings/{meetingId}/preferences)
-    NOT_A_PARTICIPANT(HttpStatus.FORBIDDEN, 4045, "해당 모임의 참여자가 아닙니다."),
     MAX_TRAVEL_MINUTES_INVALID(HttpStatus.BAD_REQUEST, 4047, "이동 가능 시간을 선택해주세요."),
     ACTIVITY_TYPES_EMPTY(HttpStatus.BAD_REQUEST, 4048, "취향을 최소 1개 선택해주세요."),
     AVAILABLE_SCHEDULES_EMPTY(HttpStatus.BAD_REQUEST, 4049, "만날 수 있는 일정을 최소 1개 입력해주세요."),

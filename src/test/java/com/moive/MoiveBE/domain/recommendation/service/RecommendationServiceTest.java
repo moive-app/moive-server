@@ -55,7 +55,8 @@ class RecommendationServiceTest {
                         "서울특별시 강남구 테헤란로 123",
                         List.of(
                                 new GooglePlaceDetailsResponse.Photo("places/test/photos/1")
-                        )
+                        ),
+                        null
                 );
 
         given(googlePlacesClient.getPlaceSummaryDetails("google-place-id"))
@@ -108,7 +109,8 @@ class RecommendationServiceTest {
                                 new GooglePlaceDetailsResponse.Photo("places/test/photos/1"),
                                 new GooglePlaceDetailsResponse.Photo("places/test/photos/2"),
                                 new GooglePlaceDetailsResponse.Photo("places/test/photos/3")
-                        )
+                        ),
+                        null
                 );
 
         given(googlePlacesClient.getPlaceDetails("google-place-id"))
