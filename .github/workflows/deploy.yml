@@ -64,6 +64,9 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
+      - name: Firebase 서비스 계정 파일 생성
+        run: echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}' > firebase-service-account.json
+
       - name: Build, tag, and push Docker image to ECR
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
