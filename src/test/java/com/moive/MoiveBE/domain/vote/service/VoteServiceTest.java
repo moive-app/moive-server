@@ -341,6 +341,34 @@ class VoteServiceTest {
         });
     }
 
+    @Test
+    void 마지막_투표자가_투표하면_득표_1위_장소로_모임이_확정된다() {
+        // given: 참여자 2명 모임, 마지막 투표 상황 가정
+        Meeting meeting = meetingWithStatus(MeetingStatus.VOTING);
+        lenient().when(meeting.getParticipantCnt()).thenReturn(2);
+        stubMeetingAndRecommendation(meeting, 101L, 102L);
+        stubParticipant();
+        when(placeVoteRepository.existsByMeetingIdAndParticipantId(MEETING_ID, MY_PARTICIPANT_ID)).thenReturn(false);
+        when(placeVoteRepository.countDistinctVoters(MEETING_ID)).thenReturn(2L);
+
+        // 투표 집계: 101L=2표 (1위), 102L=1표
+        when(placeVoteRepository.aggregateByPlace(MEETING_ID, MY_PARTICIPANT_ID)).thenReturn(List.of(
+                new PlaceVoteSummary(101L, 2L, 1L),
+                new PlaceVoteSummary(102L, 1L, 0L)
+        ));
+        RecommendedPlace place101 = recommendedPlaceWithId(101L, "gp-101", 1);
+        RecommendedPlace place102 = recommendedPlaceWithId(102L, "gp-102", 1);
+        when(recommendedPlaceRepository.findAllById(anyList())).thenReturn(List.of(place101, place102));
+        stubSingleActiveParticipantLocation(37.0, 127.0);
+        lenient().when(googlePlacesClient.getPlaceLocation(any())).thenThrow(new CustomException(PLACE_INFO_LOOKUP_FAILED));
+
+        // when
+        voteService.createPlaceVote(USER_ID, MEETING_ID, placeVoteRequest(101L));
+
+        // then: 1위(101L)로 모임이 확정됨
+        verify(meeting).confirmPlace(101L);
+    }
+
     /**
      * [장소 투표 현황 조회] 테스트
      */

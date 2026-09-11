@@ -163,13 +163,18 @@ public class VoteService {
                 .toList();
         placeVoteRepository.saveAll(placeVotes);
 
-        // 마지막 투표자 여부 확인
+        // 마지막 투표자인 경우 => 득표 집계 결과 1위 장소를 모임 장소로 확정
         long voterCnt = placeVoteRepository.countDistinctVoters(meetingId);
-        if(voterCnt >= meeting.getParticipantCnt()) {
-            // TODO 마지막 투표자인 경우 모임 상태 및 장소 확정 처리
-            log.info("[장소 투표] 마지막 투표자입니다. meetingId={}, participantId={}", meetingId, participant.getId());
+        if(voterCnt == meeting.getParticipantCnt()) {
+            confirmMeetingPlace(meeting, participant.getId());
         }
+    }
 
+    // 마지막 투표 완료 => 완료 시점의 집계 결과 1위 장소를 모임 장소로 확정, 모임 상태를 CONFIRMED로 전환
+    private void confirmMeetingPlace(Meeting meeting, Long lastVoterParticipantId) {
+        Long confirmedPlaceId = rankCandidates(meeting.getId(), lastVoterParticipantId).get(0).recommendedPlaceId();
+        meeting.confirmPlace(confirmedPlaceId);
+        log.info("[장소 투표] 마지막 투표자 완료 => 장소 확정 (meetingId={}, confirmedPlaceId={})", meeting.getConfirmedPlaceId(), confirmedPlaceId);
     }
 
     /**
@@ -195,9 +200,21 @@ public class VoteService {
         boolean isVoteFinished = meeting.getStatus() == MeetingStatus.CONFIRMED || meeting.getStatus() == MeetingStatus.COMPLETED;
         int totalVoterCnt = (int) placeVoteRepository.countDistinctVoters(meetingId);
 
-        List<PlaceVoteSummary> placeVotes = placeVoteRepository.aggregateByPlace(meetingId, me.getId());
+        List<CandidateDetail> ranked = rankCandidates(meetingId, me.getId());
+
+        List<PlaceVoteResultResponse.Candidate> candidates = ranked.stream()
+                .limit(TOP_N)
+                .map(CandidateDetail::toResponse)
+                .toList();
+
+        return PlaceVoteResultResponse.of(isVoteFinished, totalVoterCnt, candidates);
+    }
+
+    // 장소별 투표 내역 집계
+    private List<CandidateDetail> rankCandidates(Long meetingId, Long participantId) {
+        List<PlaceVoteSummary> placeVotes = placeVoteRepository.aggregateByPlace(meetingId, participantId);
         if(placeVotes.isEmpty()) {
-            return PlaceVoteResultResponse.of(isVoteFinished, totalVoterCnt, List.of());
+            return List.of();
         }
 
         // 추천 장소 정보 IN 배치 조회 -> Map<recommendedPlaceId, RecommendedPlace>
@@ -208,17 +225,10 @@ public class VoteService {
         // 참여자 출발지 좌표 IN 배치 조회
         List<double[]> departureCoordinates = getParticipantDepartureLocations(meetingId);
 
-        List<CandidateDetail> details = placeVotes.stream()
+        return placeVotes.stream()
                 .map(summary -> toCandidateDetail(summary, placeById.get(summary.recommendedPlaceId()), departureCoordinates))
-                .toList();
-
-        List<PlaceVoteResultResponse.Candidate> candidates = details.stream()
                 .sorted(CANDIDATE_COMPARATOR)
-                .limit(TOP_N)
-                .map(CandidateDetail::toResponse)
                 .toList();
-
-        return PlaceVoteResultResponse.of(isVoteFinished, totalVoterCnt, candidates);
     }
 
     private List<double[]> getParticipantDepartureLocations(Long meetingId) {
@@ -246,7 +256,7 @@ public class VoteService {
                 );
             }
         } catch (CustomException e) {
-            log.warn("[장소 투표 결과] 구글 장소 조회 실패 => 정렬 기준 취향 일치 수로 대체, recommendedPlaceId={}, errorCode={}",
+            log.warn("[장소 투표 현황 조회] 구글 장소 조회 실패 => 정렬 기준 취향 일치 수로 대체 (recommendedPlaceId={}, errorCode={})",
                     summary.recommendedPlaceId(), e.getCustomErrorCode());
         }
 
@@ -260,6 +270,7 @@ public class VoteService {
         );
     }
 
+    // 참여자들의 출발지 <-> 추천 장소 간 직선거리 합의 평균값
     private Double averageDistanceKm(List<double[]> departureCoordinates, double placeLat, double placeLng) {
         return departureCoordinates.stream()
                 .mapToDouble(c -> areaDistanceService.calculateDistanceKm(c[0], c[1], placeLat, placeLng))
