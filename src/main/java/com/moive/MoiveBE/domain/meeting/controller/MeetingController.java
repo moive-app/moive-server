@@ -5,10 +5,13 @@ import com.moive.MoiveBE.domain.meeting.service.HomeService;
 import com.moive.MoiveBE.domain.meeting.service.MeetingDetailService;
 import com.moive.MoiveBE.domain.meeting.service.MeetingLeaveService;
 import com.moive.MoiveBE.domain.meeting.service.MeetingService;
+import com.moive.MoiveBE.domain.route.dto.MeetingDetailResponse;
+import com.moive.MoiveBE.domain.route.service.MeetingRouteService;
 import com.moive.MoiveBE.global.common.BaseResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @Tag(name = "Meeting", description = "모임 관련 API")
@@ -19,6 +22,7 @@ public class MeetingController {
 
     private final MeetingService meetingService;
     private final MeetingDetailService meetingDetailService;
+    private final MeetingRouteService meetingRouteService;
     private final HomeService homeService;
     private final MeetingLeaveService meetingLeaveService;
 
@@ -90,5 +94,18 @@ public class MeetingController {
             @PathVariable Long meetingId
     ) {
         return BaseResponse.success("모임 홈 조회에 성공했습니다.", meetingDetailService.getMeetingHome(meetingId));
+    }
+
+    @Operation(
+            summary = "모임 상세 조회",
+            description = "확정된 모임의 상세 정보를 조회합니다. "
+                    + "모임 일시 경과 여부에 따라 status가 CONFIRMED(확정된 모임 진행 전)/ENDED(확정된 모임 종료)으로 구분됩니다."
+    )
+    @GetMapping("/{meetingId}")
+    public BaseResponse<MeetingDetailResponse> getMeetingDetail(
+            @AuthenticationPrincipal Long userId,
+            @PathVariable Long meetingId
+    ) {
+        return BaseResponse.success(meetingRouteService.getMeetingDetail(meetingId, userId));
     }
 }

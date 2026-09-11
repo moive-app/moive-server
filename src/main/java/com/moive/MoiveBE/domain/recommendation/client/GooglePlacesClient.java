@@ -1,7 +1,7 @@
 package com.moive.MoiveBE.domain.recommendation.client;
 
-import com.moive.MoiveBE.domain.recommendation.dto.GooglePlaceLocationResponse;
 import com.moive.MoiveBE.domain.recommendation.dto.GooglePlaceDetailsResponse;
+import com.moive.MoiveBE.domain.recommendation.dto.GooglePlaceLocationResponse;
 import com.moive.MoiveBE.domain.recommendation.dto.GooglePlacePhotoResponse;
 import com.moive.MoiveBE.domain.recommendation.dto.GooglePlaceSearchResponse;
 import com.moive.MoiveBE.global.exception.CustomErrorCode;
@@ -97,6 +97,32 @@ public class GooglePlacesClient {
         }
     }
 
+    // 이름/카테고리/주소 + 좌표(location) 까지 함께 조회
+    public GooglePlaceLocationResponse getPlaceLocation(
+            String googlePlaceId
+    ) {
+        try {
+            return restClient.get()
+                    .uri(PLACE_DETAILS_URL, googlePlaceId)
+                    .header("X-Goog-Api-Key", apiKey)
+                    .header(
+                            "X-Goog-FieldMask",
+                            "displayName,primaryTypeDisplayName,formattedAddress,location"
+                    )
+                    .retrieve()
+                    .body(GooglePlaceLocationResponse.class);
+
+        } catch (RestClientResponseException e) {
+            throw new CustomException(
+                    CustomErrorCode.PLACE_INFO_LOOKUP_FAILED
+            );
+        } catch (Exception e) {
+            throw new CustomException(
+                    CustomErrorCode.PLACE_INFO_LOOKUP_FAILED
+            );
+        }
+    }
+
     public String getPlacePhotoUrl(String photoName) {
         try {
             String photoUrl =
@@ -116,31 +142,6 @@ public class GooglePlacesClient {
             }
 
             return response.photoUri();
-
-        } catch (RestClientResponseException e) {
-            throw new CustomException(
-                    CustomErrorCode.PLACE_INFO_LOOKUP_FAILED
-            );
-        } catch (Exception e) {
-            throw new CustomException(
-                    CustomErrorCode.PLACE_INFO_LOOKUP_FAILED
-            );
-        }
-    }
-
-    public GooglePlaceLocationResponse getPlaceLocation (
-            String googlePlaceId
-    ) {
-        try {
-            return restClient.get()
-                    .uri(PLACE_DETAILS_URL, googlePlaceId)
-                    .header("X-Goog-Api-Key", apiKey)
-                    .header(
-                            "X-Goog-FieldMask",
-                            "displayName,primaryTypeDisplayName,formattedAddress,location"
-                    )
-                    .retrieve()
-                    .body(GooglePlaceLocationResponse.class);
 
         } catch (RestClientResponseException e) {
             throw new CustomException(
