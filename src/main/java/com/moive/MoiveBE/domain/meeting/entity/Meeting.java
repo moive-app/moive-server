@@ -88,15 +88,36 @@ public class Meeting {
         this.participantCnt++;
     }
 
+    public void decrementParticipantCnt() {
+        this.participantCnt--;
+    }
+
     public void incrementSubmittedCnt() {
         this.submittedCnt++;
+    }
+
+    public void decrementSubmittedCnt() {
+        if (this.submittedCnt > 0) this.submittedCnt--;
+    }
+
+    public void updateCreator(Long newCreatorUserId) {
+        this.creatorUserId = newCreatorUserId;
     }
 
     public void transitionToVoting() {
         this.status = MeetingStatus.VOTING;
     }
 
+    public void complete() {
+        this.status = MeetingStatus.COMPLETED;
+    }
+
     public boolean hasSchedule() {
         return this.scheduledDate != null;
+    }
+
+    public void confirmPlace(Long placeId) {
+        this.confirmedPlaceId = placeId;
+        this.status = MeetingStatus.CONFIRMED;
     }
 }

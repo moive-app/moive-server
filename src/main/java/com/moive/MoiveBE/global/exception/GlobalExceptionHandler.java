@@ -20,10 +20,21 @@ public class GlobalExceptionHandler {
     // Custom Exception
     @ExceptionHandler(CustomException.class)
     public ResponseEntity<BaseResponse<Void>> handleCustomException(CustomException e, HttpServletRequest request) {
-        log.error("*** Custom Exception - url: {} ({}), httpStatus: {}, errorCode: {}, errorMessage: {}",
-                request.getRequestURL(), request.getMethod(), e.getCustomErrorCode().getHttpStatus(), e.getCustomErrorCode().getCode(), e.getMessage());
+        CustomErrorCode errorCode = e.getCustomErrorCode();
 
-        return buildResponseEntity(e.getCustomErrorCode());
+        log.error("*** Custom Exception - url: {} ({}), httpStatus: {}, errorCode: {}, errorMessage: {}",
+                request.getRequestURL(), request.getMethod(), errorCode.getHttpStatus(), errorCode.getCode(), e.getMessage());
+
+        // 별도 메시지가 지정된 경우 해당 메시지로 응답, 아니면 기존처럼 에러코드 기본 메시지 사용
+        if (hasCustomMessage(e)) {
+            return buildResponseEntity(errorCode, e.getMessage());
+        }
+        return buildResponseEntity(errorCode);
+    }
+
+    private boolean hasCustomMessage(CustomException e) {
+        return e.getMessage() != null
+                && !e.getMessage().equals(e.getCustomErrorCode().getMessage());
     }
 
     // @Valid Exception
@@ -53,6 +64,12 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(customErrorCode.getHttpStatus())
                 .body(BaseResponse.fail(customErrorCode));
+    }
+
+    private ResponseEntity<BaseResponse<Void>> buildResponseEntity(CustomErrorCode customErrorCode, String message) {
+        return ResponseEntity
+                .status(customErrorCode.getHttpStatus())
+                .body(BaseResponse.fail(customErrorCode.getCode(), message));
     }
 
     private <T> ResponseEntity<BaseResponse<T>> buildResponseEntity(CustomErrorCode customErrorCode, T data) {

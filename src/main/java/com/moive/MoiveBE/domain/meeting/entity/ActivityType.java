@@ -21,7 +21,13 @@ public enum ActivityType {
     PARK("공원"),
     WALK("산책"),
     HIKING("등산"),
-    SHOPPING("쇼핑");
+    SHOPPING("쇼핑"),
+    CAFE("카페"),
+    DESSERT("디저트"),
+    IZAKAYA("이자카야"),
+    COCKTAIL_BAR("칵테일바"),
+    MOVIE("영화"),
+    EXHIBITION("전시/미술관");
 
     private final String label;
 }

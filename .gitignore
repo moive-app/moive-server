@@ -45,3 +45,4 @@ scripts/image.env
 
 ### Local Config ###
 application-local.yaml
+src/main/resources/data-local.sql

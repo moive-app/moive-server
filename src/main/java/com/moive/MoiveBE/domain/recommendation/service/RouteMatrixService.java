@@ -1,9 +1,6 @@
 package com.moive.MoiveBE.domain.recommendation.service;
 
-import com.moive.MoiveBE.domain.recommendation.dto.GoogleRouteMatrixResponse;
-import com.moive.MoiveBE.domain.recommendation.dto.PlaceCandidate;
-import com.moive.MoiveBE.domain.recommendation.dto.PlaceRouteResult;
-import com.moive.MoiveBE.domain.recommendation.dto.RouteTravelTime;
+import com.moive.MoiveBE.domain.recommendation.dto.*;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -148,6 +145,110 @@ public class RouteMatrixService {
                 )
                 .mapToObj(destinationIndex ->
                         calculateRouteResult(
+                                responses,
+                                destinationIndex,
+                                originCount
+                        )
+                )
+                .toList();
+    }
+
+    public double calculateStandardDeviation(
+            List<GoogleRouteMatrixResponse> responses,
+            int destinationIndex,
+            int originCount
+    ) {
+
+        List<Double> travelTimes = responses.stream()
+                .filter(response ->
+                        response.destinationIndex() == destinationIndex)
+                .filter(this::hasRoute)
+                .map(response ->
+                        parseDurationSeconds(response.duration()))
+                .toList();
+
+        if (travelTimes.size() != originCount) {
+            throw new IllegalArgumentException(
+                    "모든 참가자의 이동시간이 존재하지 않습니다."
+            );
+        }
+
+        double average = travelTimes.stream()
+                .mapToDouble(Double::doubleValue)
+                .average()
+                .orElseThrow();
+
+        double variance = travelTimes.stream()
+                .mapToDouble(time ->
+                        Math.pow(time - average, 2))
+                .average()
+                .orElseThrow();
+
+        return Math.sqrt(variance);
+    }
+
+    public AreaRouteResult calculateAreaRouteResult(
+            List<GoogleRouteMatrixResponse> responses,
+            int destinationIndex,
+            int originCount
+    ) {
+
+        List<Double> travelTimes = responses.stream()
+                .filter(response ->
+                        response.destinationIndex() == destinationIndex)
+                .filter(this::hasRoute)
+                .map(response ->
+                        parseDurationSeconds(response.duration()))
+                .toList();
+
+        if (travelTimes.size() != originCount) {
+            throw new IllegalArgumentException(
+                    "모든 참가자의 이동시간이 존재하지 않습니다."
+            );
+        }
+
+        double average = travelTimes.stream()
+                .mapToDouble(Double::doubleValue)
+                .average()
+                .orElseThrow();
+
+        double max = travelTimes.stream()
+                .mapToDouble(Double::doubleValue)
+                .max()
+                .orElseThrow();
+
+        double variance = travelTimes.stream()
+                .mapToDouble(time ->
+                        Math.pow(time - average, 2))
+                .average()
+                .orElseThrow();
+
+        double standardDeviation =
+                Math.sqrt(variance);
+
+        return new AreaRouteResult(
+                destinationIndex,
+                average,
+                max,
+                standardDeviation
+        );
+    }
+
+    public List<AreaRouteResult> calculateAreaRouteResults(
+            List<AreaCandidate> candidates,
+            List<GoogleRouteMatrixResponse> responses,
+            int originCount
+    ) {
+        return IntStream.range(0, candidates.size())
+                .filter(destinationIndex ->
+                        isCandidateReachable(
+                                responses,
+                                destinationIndex,
+                                originCount
+                        )
+                )
+                .mapToObj(destinationIndex ->
+                        calculateAreaRouteResult(
                                 responses,
                                 destinationIndex,
                                 originCount

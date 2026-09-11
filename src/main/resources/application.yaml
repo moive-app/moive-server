@@ -26,3 +26,7 @@ aws:
     bucket: ${AWS_S3_BUCKET}
   cloudfront:
     domain: ${AWS_CLOUDFRONT_DOMAIN}
+
+openai:
+  api-key: ${OPENAI_API_KEY}
+  model: gpt-5-mini

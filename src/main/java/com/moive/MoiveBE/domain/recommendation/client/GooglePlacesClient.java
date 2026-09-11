@@ -1,6 +1,7 @@
 package com.moive.MoiveBE.domain.recommendation.client;
 
 import com.moive.MoiveBE.domain.recommendation.dto.GooglePlaceDetailsResponse;
+import com.moive.MoiveBE.domain.recommendation.dto.GooglePlaceLocationResponse;
 import com.moive.MoiveBE.domain.recommendation.dto.GooglePlacePhotoResponse;
 import com.moive.MoiveBE.domain.recommendation.dto.GooglePlaceSearchResponse;
 import com.moive.MoiveBE.global.exception.CustomErrorCode;
@@ -55,7 +56,7 @@ public class GooglePlacesClient {
                     .header("X-Goog-Api-Key", apiKey)
                     .header(
                             "X-Goog-FieldMask",
-                            "displayName,primaryTypeDisplayName"
+                            "displayName,location"
                     )
                     .retrieve()
                     .body(GooglePlaceDetailsResponse.class);
@@ -80,10 +81,36 @@ public class GooglePlacesClient {
                     .header("X-Goog-Api-Key", apiKey)
                     .header(
                             "X-Goog-FieldMask",
-                            "displayName,primaryTypeDisplayName,formattedAddress,photos"
+                            "displayName,formattedAddress,photos,location"
                     )
                     .retrieve()
                     .body(GooglePlaceDetailsResponse.class);
+
+        } catch (RestClientResponseException e) {
+            throw new CustomException(
+                    CustomErrorCode.PLACE_INFO_LOOKUP_FAILED
+            );
+        } catch (Exception e) {
+            throw new CustomException(
+                    CustomErrorCode.PLACE_INFO_LOOKUP_FAILED
+            );
+        }
+    }
+
+    // 이름/카테고리/주소 + 좌표(location) 까지 함께 조회
+    public GooglePlaceLocationResponse getPlaceLocation(
+            String googlePlaceId
+    ) {
+        try {
+            return restClient.get()
+                    .uri(PLACE_DETAILS_URL, googlePlaceId)
+                    .header("X-Goog-Api-Key", apiKey)
+                    .header(
+                            "X-Goog-FieldMask",
+                            "displayName,primaryTypeDisplayName,formattedAddress,location"
+                    )
+                    .retrieve()
+                    .body(GooglePlaceLocationResponse.class);
 
         } catch (RestClientResponseException e) {
             throw new CustomException(
@@ -126,4 +153,72 @@ public class GooglePlacesClient {
             );
         }
     }
+
+    public GooglePlaceSearchResponse searchAreaPlace(
+            String textQuery,
+            double latitude,
+            double longitude
+    ) {
+
+        GoogleAreaSearchRequest request =
+                new GoogleAreaSearchRequest(
+                        textQuery,
+                        1,
+                        "ko",
+                        new LocationBias(
+                                new Circle(
+                                        new Center(latitude, longitude),
+                                        5000.0
+                                )
+                        )
+                );
+
+        try {
+            return restClient.post()
+                    .uri(TEXT_SEARCH_URL)
+                    .header("X-Goog-Api-Key", apiKey)
+                    .header(
+                            "X-Goog-FieldMask",
+                            "places.id,places.location"
+                    )
+                    .body(request)
+                    .retrieve()
+                    .body(GooglePlaceSearchResponse.class);
+
+        } catch (RestClientResponseException e) {
+            throw new CustomException(
+                    CustomErrorCode.AREA_INFO_LOOKUP_FAILED
+            );
+        } catch (Exception e) {
+            throw new CustomException(
+                    CustomErrorCode.AREA_INFO_LOOKUP_FAILED
+            );
+        }
+    }
+
+    private record GoogleAreaSearchRequest(
+            String textQuery,
+            int pageSize,
+            String languageCode,
+            LocationBias locationBias
+    ) {
+    }
+
+    private record LocationBias(
+            Circle circle
+    ) {
+    }
+
+    private record Circle(
+            Center center,
+            double radius
+    ) {
+    }
+
+    private record Center(
+            double latitude,
+            double longitude
+    ) {
+    }
+
 }

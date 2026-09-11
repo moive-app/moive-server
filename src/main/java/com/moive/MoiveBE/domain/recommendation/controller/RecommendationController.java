@@ -1,14 +1,19 @@
 package com.moive.MoiveBE.domain.recommendation.controller;
 
+import com.moive.MoiveBE.domain.recommendation.dto.RecommendedAreaListResponse;
 import com.moive.MoiveBE.domain.recommendation.dto.RecommendedPlaceDetailResponse;
 import com.moive.MoiveBE.domain.recommendation.dto.RecommendedPlaceListResponse;
 import com.moive.MoiveBE.domain.recommendation.service.RecommendationService;
+import com.moive.MoiveBE.domain.route.dto.RouteDetailResponse;
+import com.moive.MoiveBE.domain.route.service.RouteService;
+import com.moive.MoiveBE.domain.recommendation.service.RecommendedAreaQueryService;
 import com.moive.MoiveBE.global.common.BaseResponse;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @Tag(name = "Recommendation", description = "지역/장소 추천 관련 API")
@@ -18,6 +23,21 @@ import org.springframework.web.bind.annotation.*;
 public class RecommendationController {
 
     private final RecommendationService recommendationService;
+    private final RouteService routeService;
+    private final RecommendedAreaQueryService recommendedAreaQueryService;
+
+    @Operation(
+            summary = "추천 지역 목록 조회",
+            description = "특정 모임의 참가자 출발 위치를 기반으로 선정된 추천 지역 TOP3를 조회합니다."
+    )
+    @GetMapping("/areas")
+    public BaseResponse<RecommendedAreaListResponse> getRecommendedAreas(
+            @PathVariable Long meetingId
+    ) {
+        return BaseResponse.success(
+                recommendedAreaQueryService.getRecommendedAreas(meetingId)
+        );
+    }
 
     @Operation(
             summary = "추천 장소 목록 조회",
@@ -29,7 +49,10 @@ public class RecommendationController {
             @PathVariable Long recommendedAreaId
     ) {
         return BaseResponse.success(
-                recommendationService.getRecommendedPlaces(recommendedAreaId)
+                recommendationService.getRecommendedPlaces(
+                        meetingId,
+                        recommendedAreaId
+                )
         );
     }
 
@@ -45,7 +68,27 @@ public class RecommendationController {
     ) {
         return BaseResponse.success(
                 recommendationService.getRecommendedPlaceDetail(
+                        meetingId,
                         recommendedAreaId,
+                        recommendedPlaceId
+                )
+        );
+    }
+
+    @Operation(
+            summary = "추천 장소 상세 조회 (이동 시간 및 경로)",
+            description = "특정 추천 장소에 대해 참여자의 이동 시간 및 경로 정보를 조회합니다."
+    )
+    @GetMapping("/places/{recommendedPlaceId}/routes/me")
+    public BaseResponse<RouteDetailResponse> getRecommendedPlaceRouteDetail(
+            @AuthenticationPrincipal Long userId,
+            @PathVariable Long meetingId,
+            @PathVariable Long recommendedPlaceId
+    ) {
+        return BaseResponse.success(
+                routeService.getRecommendedPlaceRoute(
+                        userId,
+                        meetingId,
                         recommendedPlaceId
                 )
         );

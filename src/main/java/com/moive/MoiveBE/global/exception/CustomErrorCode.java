@@ -30,6 +30,11 @@ public enum CustomErrorCode {
     ACCESS_TOKEN_EXPIRED(HttpStatus.UNAUTHORIZED, 2012, "Access Token이 만료되었습니다."),
     REFRESH_TOKEN_EXPIRED(HttpStatus.UNAUTHORIZED, 2013, "Refresh Token이 만료되었습니다. 다시 로그인해주세요."),
 
+    // Route (Kakao MAP API 연동) (3xxx)
+    KAKAO_MAP_API_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, 3001, "카카오맵 API 연동 오류가 발생했습니다."),
+    KAKAO_MAP_API_CONNECTION_ERROR(HttpStatus.BAD_GATEWAY, 3002, "카카오맵 API 통신 오류가 발생했습니다."),
+    TRANSIT_ROUTE_NOT_FOUND(HttpStatus.NOT_FOUND, 3003, "이용 가능한 대중교통 경로가 없습니다."),
+
     // Meeting - 생성 (POST /api/meetings)
     MEETING_NAME_EMPTY(HttpStatus.BAD_REQUEST, 4001, "모임 이름을 입력해주세요."),
     MEETING_NAME_TOO_LONG(HttpStatus.BAD_REQUEST, 4002, "모임 이름은 최대 20자까지 입력할 수 있습니다."),
@@ -42,35 +47,49 @@ public enum CustomErrorCode {
     MEETING_NOT_FOUND(HttpStatus.NOT_FOUND, 4042, "존재하지 않는 모임이에요."),
     MEETING_FULL(HttpStatus.BAD_REQUEST, 4043, "모임 참여 인원이 가득 찼어요."),
     MEETING_COMPLETED(HttpStatus.BAD_REQUEST, 4044, "종료된 모임이에요. 참여할 수 없어요."),
+    NOT_A_PARTICIPANT(HttpStatus.FORBIDDEN, 4045, "해당 모임의 참여자가 아닙니다."),
+    CANNOT_LEAVE_COMPLETED_MEETING(HttpStatus.BAD_REQUEST, 4046, "종료된 모임은 나갈 수 없습니다."),
 
     // Meeting - 조건입력 (POST /api/meetings/{meetingId}/preferences)
-    NOT_A_PARTICIPANT(HttpStatus.FORBIDDEN, 4045, "해당 모임의 참여자가 아닙니다."),
     MAX_TRAVEL_MINUTES_INVALID(HttpStatus.BAD_REQUEST, 4047, "이동 가능 시간을 선택해주세요."),
     ACTIVITY_TYPES_EMPTY(HttpStatus.BAD_REQUEST, 4048, "취향을 최소 1개 선택해주세요."),
     AVAILABLE_SCHEDULES_EMPTY(HttpStatus.BAD_REQUEST, 4049, "만날 수 있는 일정을 최소 1개 입력해주세요."),
     DEPARTURE_MISSING(HttpStatus.BAD_REQUEST, 4050, "출발 위치를 입력해주세요."),
     MEETING_STATUS_INVALID_FOR_CONDITION(HttpStatus.BAD_REQUEST, 4051, "조건 입력이 불가능한 모임 상태입니다."),
 
+    // Meeting - 상세 조회 (GET /api/meetings/{meetingId})
+    MEETING_ACCESS_DENIED(HttpStatus.FORBIDDEN, 4052, "이 모임의 참여자만 조회할 수 있습니다."),
+    MEETING_NOT_CONFIRMED(HttpStatus.BAD_REQUEST, 4053, "아직 확정되지 않은 모임은 조회할 수 없습니다."),
+    // Meeting - Participant, ParticipantPreference
+    PARTICIPANT_NOT_FOUND(HttpStatus.NOT_FOUND, 4091, "존재하지 않는 참여자입니다."),
+    PARTICIPANT_PREFERENCE_NOT_FOUND(HttpStatus.NOT_FOUND, 4092, "존재하지 않는 참여자 선호 조건입니다."),
 
     // Recommendation(6xxx)
     RECOMMENDED_PLACE_NOT_FOUND(HttpStatus.NOT_FOUND,6001,"추천 장소를 찾을 수 없습니다."),
     RECOMMENDED_AREA_NOT_FOUND(HttpStatus.NOT_FOUND, 6002, "추천 지역을 찾을 수 없습니다."),
     RECOMMENDATION_RESULT_NOT_FOUND(HttpStatus.NOT_FOUND, 6003, "추천 결과를 찾을 수 없습니다."),
     PLACE_INFO_LOOKUP_FAILED(HttpStatus.BAD_GATEWAY, 6004, "장소 정보 조회에 실패했습니다."),
+    RECOMMENDATION_SOURCE_LOCATION_NOT_FOUND(HttpStatus.BAD_REQUEST, 6005, "추천 지역 계산에 필요한 참가자 출발 위치를 찾을 수 없습니다."),
+    AREA_CANDIDATE_GENERATION_FAILED(HttpStatus.BAD_GATEWAY, 6006, "추천 지역 후보 생성에 실패했습니다."),
+    AREA_INFO_LOOKUP_FAILED(HttpStatus.BAD_GATEWAY, 6007, "추천 지역 정보 조회에 실패했습니다."),
+    INSUFFICIENT_AREA_CANDIDATES(HttpStatus.INTERNAL_SERVER_ERROR, 6008, "추천 가능한 지역 후보가 부족합니다."),
 
-    // Route (Kakao MAP API 연동) (3xxx)
-    // - 카카오맵 공통 에러코드
-    KAKAO_MAP_API_CONFIG_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, 3001, "카카오맵 API 연동 오류가 발생했습니다. (서버 내부 설정 확인 필요)"),
-    KAKAO_MAP_API_QUOTA_EXCEEDED(HttpStatus.INTERNAL_SERVER_ERROR, 3002, "카카오맵 API 연동 오류가 발생했습니다. (호출 한도 초과)"),
-    KAKAO_MAP_API_SERVER_ERROR(HttpStatus.SERVICE_UNAVAILABLE, 3003, "카카오맵 API 연동 오류가 발생했습니다. (카카오 서버 장애 및 점검)"),
-    KAKAO_MAP_API_CONNECTION_ERROR(HttpStatus.BAD_GATEWAY, 3004, "카카오맵 API 연동 오류가 발생했습니다. (외부 통신 및 네트워크 오류)"),
-    // - 카카오맵 대중교통 경로 조회 API 에러코드
-    KAKAO_MAP_API_INVALID_RESPONSE(HttpStatus.INTERNAL_SERVER_ERROR, 3005, "카카오맵 API 연동 오류가 발생했습니다. (응답 데이터 규격 확인 필요)"),
-    KAKAO_MAP_API_INVALID_REQUEST(HttpStatus.INTERNAL_SERVER_ERROR, 3006, "카카오맵 API 연동 오류가 발생했습니다. (요청 좌표로 경로 탐색 불가)"),
-    TRANSIT_ROUTE_NOT_FOUND(HttpStatus.NOT_FOUND, 3007, "이용 가능한 대중교통 경로가 없습니다."),
+    // Vote (7xxx)
+    PLACE_VOTE_ACCESS_DENIED(HttpStatus.FORBIDDEN, 7001, "이 모임의 참여자만 투표할 수 있습니다."),
+    VOTE_ACCESS_DENIED(HttpStatus.FORBIDDEN, 7002, "이 모임의 참여자만 조회할 수 있습니다."),
+    PLACE_VOTE_ALREADY_DONE(HttpStatus.CONFLICT, 7003, "이미 장소 투표를 완료했습니다."),
+    PLACE_VOTE_CLOSED(HttpStatus.CONFLICT, 7004, "이미 마감된 장소 투표입니다."),
+    PLACE_VOTE_NOT_STARTED(HttpStatus.CONFLICT, 7005, "아직 장소 투표를 시작할 수 없습니다."),
+    //PLACE_VOTE_SELECTION_EMPTY(HttpStatus.BAD_REQUEST, 7006, "최소 1개의 장소를 선택해야 합니다."),
+    PLACE_VOTE_INVALID_PLACE(HttpStatus.NOT_FOUND, 7007, "이 모임의 추천 장소가 아닌 곳이 포함되어 있습니다."),
 
     ;
     private final HttpStatus httpStatus;
     private final int code;
     private final String message;
+
+    // 기본 커스텀 에러 메시지에 세부 원인 추가
+    public String messageWith(String detail) {
+        return message + " (" + detail + ")";
+    }
 }
