@@ -575,6 +575,7 @@ class VoteServiceTest {
     private Meeting meetingWithStatus(MeetingStatus status) {
         Meeting meeting = mock(Meeting.class);
         lenient().when(meeting.getStatus()).thenReturn(status);
+        lenient().when(meeting.getId()).thenReturn(MEETING_ID);
         return meeting;
     }
 
