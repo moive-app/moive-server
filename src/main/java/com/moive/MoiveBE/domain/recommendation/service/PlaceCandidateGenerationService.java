@@ -6,7 +6,9 @@ import com.moive.MoiveBE.domain.recommendation.dto.PlaceCandidate;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -30,7 +32,8 @@ public class PlaceCandidateGenerationService {
                 continue;
             }
 
-            String textQuery = regionName + " " + preferenceKeyword;
+            String textQuery =
+                    regionName + " " + preferenceKeyword;
 
             GooglePlaceSearchResponse response =
                     googlePlacesClient.searchPlaces(
@@ -47,8 +50,11 @@ public class PlaceCandidateGenerationService {
                             response.places(),
                             preferenceKeyword
                     );
-            mergeCandidates(candidates, searchedCandidates);
 
+            mergeCandidates(
+                    candidates,
+                    searchedCandidates
+            );
         }
 
         return candidates;
@@ -60,34 +66,16 @@ public class PlaceCandidateGenerationService {
     ) {
         for (PlaceCandidate searchedCandidate : searchedCandidates) {
 
-            int existingIndex =
-                    findCandidateIndex(
-                            candidates,
-                            searchedCandidate.googlePlaceId()
-                    );
+            boolean alreadyExists =
+                    candidates.stream()
+                            .anyMatch(candidate ->
+                                    candidate.googlePlaceId()
+                                            .equals(
+                                                    searchedCandidate.googlePlaceId()
+                                            )
+                            );
 
-            if (existingIndex >= 0) {
-                PlaceCandidate existing =
-                        candidates.get(existingIndex);
-
-                Set<String> mergedPreferenceTypes =
-                        new HashSet<>(existing.preferenceTypes());
-
-                mergedPreferenceTypes.addAll(
-                        searchedCandidate.preferenceTypes()
-                );
-
-                candidates.set(
-                        existingIndex,
-                        new PlaceCandidate(
-                                existing.googlePlaceId(),
-                                existing.latitude(),
-                                existing.longitude(),
-                                existing.candidateOrder(),
-                                mergedPreferenceTypes
-                        )
-                );
-
+            if (alreadyExists) {
                 continue;
             }
 
@@ -97,24 +85,9 @@ public class PlaceCandidateGenerationService {
                             searchedCandidate.latitude(),
                             searchedCandidate.longitude(),
                             candidates.size(),
-                            searchedCandidate.preferenceTypes()
+                            searchedCandidate.preferenceType()
                     )
             );
         }
-    }
-
-    private int findCandidateIndex(
-            List<PlaceCandidate> candidates,
-            String googlePlaceId
-    ) {
-        for (int i = 0; i < candidates.size(); i++) {
-            if (candidates.get(i)
-                    .googlePlaceId()
-                    .equals(googlePlaceId)) {
-                return i;
-            }
-        }
-
-        return -1;
     }
 }

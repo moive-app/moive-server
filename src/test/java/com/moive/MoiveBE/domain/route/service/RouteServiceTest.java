@@ -223,7 +223,7 @@ class RouteServiceTest {
 
     private void stubRecommendedPlace() {
         when(recommendedPlaceRepository.findById(RECOMMENDED_PLACE_ID))
-                .thenReturn(Optional.of(RecommendedPlace.create(10L, GOOGLE_PLACE_ID, 2)));
+                .thenReturn(Optional.of(RecommendedPlace.create(10L, GOOGLE_PLACE_ID,"한식", 2)));
     }
 
     private void stubGooglePlaceLocation(double latitude, double longitude) {

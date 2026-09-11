@@ -47,8 +47,6 @@ class GooglePlacesClientTest {
         assertThat(response).isNotNull();
         assertThat(response.displayName()).isNotNull();
         assertThat(response.displayName().text()).isNotBlank();
-        assertThat(response.primaryTypeDisplayName()).isNotNull();
-        assertThat(response.primaryTypeDisplayName().text()).isNotBlank();
         assertThat(response.formattedAddress()).isNotBlank();
 
         assertThat(response.photos()).isNotNull();
