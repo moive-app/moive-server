@@ -29,7 +29,6 @@ public class RouteDetailService {
 
     private final KakaoTransitClient kakaoTransitClient;
 
-    // 이동 경로 관련 정보(경로 좌표, 이동 시간, 요금 등)만 생성한다. 응답 DTO 조립은 RouteService가 담당한다.
     public RouteDetail getMyRouteDetail(
             Location userLocation, Location placeLocation,
             String userAddress, String placeName
@@ -57,10 +56,11 @@ public class RouteDetailService {
                 int busSeconds = timeSummary.busSeconds();
                 int subwaySeconds = timeSummary.subwaySeconds();
                 int walkSeconds = Math.max(0, totalSeconds - (busSeconds + subwaySeconds));
+                int transferCnt = totalSummary.transfers();
 
                 List<Location> pathPoints = buildSimplifiedPathPoints(bestRoute, userLocation, placeLocation);
 
-                Integer fare = totalSummary.fare() != null ? totalSummary.fare().value() : null;
+                int fare = totalSummary.fare() != null ? totalSummary.fare().value() : 0;
 
                 yield RouteDetail.builder()
                         .pathPoints(pathPoints)
@@ -68,6 +68,7 @@ public class RouteDetailService {
                         .subwayTime(toMinutes(subwaySeconds))
                         .busTime(toMinutes(busSeconds))
                         .walkTime(toMinutes(walkSeconds))
+                        .transferCnt(transferCnt)
                         .fare(fare)
                         .landingUrl(kakaoResponse.properties().landingURL())
                         .build();

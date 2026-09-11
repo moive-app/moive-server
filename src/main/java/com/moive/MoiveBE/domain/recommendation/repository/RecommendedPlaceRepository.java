@@ -9,4 +9,7 @@ public interface RecommendedPlaceRepository
         extends JpaRepository<RecommendedPlace, Long> {
 
     List<RecommendedPlace> findAllByRecommendedAreaId(Long recommendedAreaId);
+
+    boolean existsByRecommendedAreaId(Long recommendedAreaId);
+
 }

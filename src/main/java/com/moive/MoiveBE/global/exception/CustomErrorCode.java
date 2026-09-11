@@ -30,6 +30,11 @@ public enum CustomErrorCode {
     ACCESS_TOKEN_EXPIRED(HttpStatus.UNAUTHORIZED, 2012, "Access Token이 만료되었습니다."),
     REFRESH_TOKEN_EXPIRED(HttpStatus.UNAUTHORIZED, 2013, "Refresh Token이 만료되었습니다. 다시 로그인해주세요."),
 
+    // Route (Kakao MAP API 연동) (3xxx)
+    KAKAO_MAP_API_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, 3001, "카카오맵 API 연동 오류가 발생했습니다."),
+    KAKAO_MAP_API_CONNECTION_ERROR(HttpStatus.BAD_GATEWAY, 3002, "카카오맵 API 통신 오류가 발생했습니다."),
+    TRANSIT_ROUTE_NOT_FOUND(HttpStatus.NOT_FOUND, 3003, "이용 가능한 대중교통 경로가 없습니다."),
+
     // Meeting - 생성 (POST /api/meetings)
     MEETING_NAME_EMPTY(HttpStatus.BAD_REQUEST, 4001, "모임 이름을 입력해주세요."),
     MEETING_NAME_TOO_LONG(HttpStatus.BAD_REQUEST, 4002, "모임 이름은 최대 20자까지 입력할 수 있습니다."),
@@ -52,9 +57,12 @@ public enum CustomErrorCode {
     DEPARTURE_MISSING(HttpStatus.BAD_REQUEST, 4050, "출발 위치를 입력해주세요."),
     MEETING_STATUS_INVALID_FOR_CONDITION(HttpStatus.BAD_REQUEST, 4051, "조건 입력이 불가능한 모임 상태입니다."),
 
+    // Meeting - 상세 조회 (GET /api/meetings/{meetingId})
+    MEETING_ACCESS_DENIED(HttpStatus.FORBIDDEN, 4052, "이 모임의 참여자만 조회할 수 있습니다."),
+    MEETING_NOT_CONFIRMED(HttpStatus.BAD_REQUEST, 4053, "아직 확정되지 않은 모임은 조회할 수 없습니다."),
     // Meeting - Participant, ParticipantPreference
-    PARTICIPANT_NOT_FOUND(HttpStatus.NOT_FOUND, 4091, "존재하지 않는 참가자입니다."),
-    PARTICIPANT_PREFERENCE_NOT_FOUND(HttpStatus.NOT_FOUND, 4092, "존재하지 않는 참가자 선호 조건입니다."),
+    PARTICIPANT_NOT_FOUND(HttpStatus.NOT_FOUND, 4091, "존재하지 않는 참여자입니다."),
+    PARTICIPANT_PREFERENCE_NOT_FOUND(HttpStatus.NOT_FOUND, 4092, "존재하지 않는 참여자 선호 조건입니다."),
 
     // Recommendation(6xxx)
     RECOMMENDED_PLACE_NOT_FOUND(HttpStatus.NOT_FOUND,6001,"추천 장소를 찾을 수 없습니다."),
@@ -72,19 +80,15 @@ public enum CustomErrorCode {
     DEVICE_TOKEN_MISSING(HttpStatus.BAD_REQUEST, 5003, "기기 토큰을 입력해주세요."),
     DEVICE_TOKEN_NOT_FOUND(HttpStatus.NOT_FOUND, 5004, "등록되지 않은 기기입니다."),
 
-    // Route (Kakao MAP API 연동) (3xxx)
-    // - 카카오맵 연동 오류
-    KAKAO_MAP_API_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, 3003, "카카오맵 API 연동 오류가 발생했습니다."),
-    KAKAO_MAP_API_CONNECTION_ERROR(HttpStatus.BAD_GATEWAY, 3004, "카카오맵 API 통신 오류가 발생했습니다."),
-    // - 카카오맵 대중교통 경로 조회 API 에러코드
-    TRANSIT_ROUTE_NOT_FOUND(HttpStatus.NOT_FOUND, 3007, "이용 가능한 대중교통 경로가 없습니다."),
+    // Vote (7xxx)
+    VOTE_ACCESS_DENIED(HttpStatus.FORBIDDEN, 7002, "이 모임의 참여자만 조회할 수 있습니다."),
 
     ;
     private final HttpStatus httpStatus;
     private final int code;
     private final String message;
 
-    // 기본 메시지 뒤에 세부 원인을 괄호로 덧붙인 메시지 생성 (ex. "... 오류가 발생했습니다. (호출 한도 초과)")
+    // 기본 커스텀 에러 메시지에 세부 원인 추가
     public String messageWith(String detail) {
         return message + " (" + detail + ")";
     }

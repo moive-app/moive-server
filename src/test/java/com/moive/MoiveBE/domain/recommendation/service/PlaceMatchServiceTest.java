@@ -26,7 +26,7 @@ class PlaceMatchServiceTest {
                         37.1,
                         127.1,
                         0,
-                        Set.of("한식", "카페")
+                        "한식"
                 );
 
         List<ParticipantRecommendationCondition> participants = List.of(
@@ -34,7 +34,7 @@ class PlaceMatchServiceTest {
                         0, Set.of("한식"), 30
                 ),
                 new ParticipantRecommendationCondition(
-                        1, Set.of("카페"), 30
+                        1, Set.of("한식"), 30
                 ),
                 new ParticipantRecommendationCondition(
                         2, Set.of("보드게임"), 60
@@ -42,8 +42,8 @@ class PlaceMatchServiceTest {
         );
 
         List<GoogleRouteMatrixResponse> responses = List.of(
-                route(0, 0, "1200s"), // 20분 → 매칭
-                route(1, 0, "2400s"), // 40분 → 시간 초과
+                route(0, 0, "1200s"), // 한식 + 20분 → 매칭
+                route(1, 0, "2400s"), // 한식 + 40분 → 시간 초과
                 route(2, 0, "1200s")  // 취향 불일치
         );
 
@@ -58,20 +58,6 @@ class PlaceMatchServiceTest {
         assertThat(result.preferenceMatchCnt()).isEqualTo(1);
     }
 
-    private GoogleRouteMatrixResponse route(
-            int originIndex,
-            int destinationIndex,
-            String duration
-    ) {
-        return new GoogleRouteMatrixResponse(
-                originIndex,
-                destinationIndex,
-                new GoogleRouteMatrixResponse.Status(null, null),
-                "ROUTE_EXISTS",
-                duration
-        );
-    }
-
     @Test
     void 최대이동시간_제한이_없으면_취향만_일치해도_매칭된다() {
 
@@ -81,7 +67,7 @@ class PlaceMatchServiceTest {
                         37.1,
                         127.1,
                         0,
-                        Set.of("한식")
+                        "한식"
                 );
 
         List<ParticipantRecommendationCondition> participants = List.of(
@@ -113,11 +99,11 @@ class PlaceMatchServiceTest {
         List<PlaceCandidate> candidates = List.of(
                 new PlaceCandidate(
                         "A", 37.1, 127.1, 0,
-                        Set.of("한식")
+                        "한식"
                 ),
                 new PlaceCandidate(
                         "B", 37.2, 127.2, 1,
-                        Set.of("카페")
+                        "카페"
                 )
         );
 
@@ -156,5 +142,19 @@ class PlaceMatchServiceTest {
                         tuple(0, 2),
                         tuple(1, 1)
                 );
+    }
+
+    private GoogleRouteMatrixResponse route(
+            int originIndex,
+            int destinationIndex,
+            String duration
+    ) {
+        return new GoogleRouteMatrixResponse(
+                originIndex,
+                destinationIndex,
+                new GoogleRouteMatrixResponse.Status(null, null),
+                "ROUTE_EXISTS",
+                duration
+        );
     }
 }

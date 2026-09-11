@@ -7,7 +7,6 @@ import com.moive.MoiveBE.domain.recommendation.dto.PlaceRouteResult;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
-import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -70,7 +69,7 @@ class PlaceRankingServiceTest {
                 37.0,
                 127.0,
                 candidateOrder,
-                Set.of("한식")
+                "한식"
         );
     }
 
