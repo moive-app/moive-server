@@ -2,6 +2,7 @@ package com.moive.MoiveBE.domain.vote.entity;
 
 import jakarta.persistence.*;
 import lombok.AccessLevel;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -45,4 +46,26 @@ public class PlaceVote {
         this.updatedAt = LocalDateTime.now();
     }
 
+    @Builder
+    private PlaceVote(
+            Long meetingId,
+            Long participantId,
+            Long recommendedPlaceId
+    ) {
+        this.meetingId = meetingId;
+        this.participantId = participantId;
+        this.recommendedPlaceId = recommendedPlaceId;
+    }
+
+    public static PlaceVote create(
+            Long meetingId,
+            Long participantId,
+            Long recommendedPlaceId
+    ) {
+        return PlaceVote.builder()
+                .meetingId(meetingId)
+                .participantId(participantId)
+                .recommendedPlaceId(recommendedPlaceId)
+                .build();
+    }
 }

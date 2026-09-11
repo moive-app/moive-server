@@ -75,7 +75,13 @@ public enum CustomErrorCode {
     INSUFFICIENT_AREA_CANDIDATES(HttpStatus.INTERNAL_SERVER_ERROR, 6008, "추천 가능한 지역 후보가 부족합니다."),
 
     // Vote (7xxx)
+    PLACE_VOTE_ACCESS_DENIED(HttpStatus.FORBIDDEN, 7001, "이 모임의 참여자만 투표할 수 있습니다."),
     VOTE_ACCESS_DENIED(HttpStatus.FORBIDDEN, 7002, "이 모임의 참여자만 조회할 수 있습니다."),
+    PLACE_VOTE_ALREADY_DONE(HttpStatus.CONFLICT, 7003, "이미 장소 투표를 완료했습니다."),
+    PLACE_VOTE_CLOSED(HttpStatus.CONFLICT, 7004, "이미 마감된 장소 투표입니다."),
+    PLACE_VOTE_NOT_STARTED(HttpStatus.CONFLICT, 7005, "아직 장소 투표를 시작할 수 없습니다."),
+    //PLACE_VOTE_SELECTION_EMPTY(HttpStatus.BAD_REQUEST, 7006, "최소 1개의 장소를 선택해야 합니다."),
+    PLACE_VOTE_INVALID_PLACE(HttpStatus.NOT_FOUND, 7007, "이 모임의 추천 장소가 아닌 곳이 포함되어 있습니다."),
 
     ;
     private final HttpStatus httpStatus;
