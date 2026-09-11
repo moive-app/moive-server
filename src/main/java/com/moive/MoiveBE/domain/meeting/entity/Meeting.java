@@ -115,4 +115,9 @@ public class Meeting {
     public boolean hasSchedule() {
         return this.scheduledDate != null;
     }
+
+    public void confirmPlace(Long placeId) {
+        this.confirmedPlaceId = placeId;
+        this.status = MeetingStatus.CONFIRMED;
+    }
 }
