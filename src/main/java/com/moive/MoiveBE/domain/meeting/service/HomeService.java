@@ -53,12 +53,21 @@ public class HomeService {
         Map<Long, MeetingPurpose> purposeMap = meetingPurposeRepository.findAllByMeetingIdIn(myMeetingIds)
                 .stream().collect(Collectors.toMap(MeetingPurpose::getMeetingId, Function.identity()));
 
+        // 참여자 프로필 이미지 배치 조회
+        List<Participant> allHomeParticipants = participantRepository
+                .findAllByMeetingIdInAndLeftAtIsNullOrderByJoinedAtAsc(myMeetingIds);
+        Map<Long, List<Participant>> homeParticipantsByMeeting = allHomeParticipants.stream()
+                .collect(Collectors.groupingBy(Participant::getMeetingId));
+        List<Long> homeUserIds = allHomeParticipants.stream().map(Participant::getUserId).distinct().toList();
+        Map<Long, User> homeUserMap = userRepository.findAllById(homeUserIds)
+                .stream().collect(Collectors.toMap(User::getId, Function.identity()));
+
         // myMeetings (filter 적용, 가입 순 유지)
         List<MeetingItemDto> myMeetings = myParticipations.stream()
                 .map(p -> meetingMap.get(p.getMeetingId()))
                 .filter(Objects::nonNull)
                 .filter(m -> filter.matches(m.getStatus()))
-                .map(m -> toMeetingItem(m, purposeMap))
+                .map(m -> toMeetingItem(m, purposeMap, homeParticipantsByMeeting, homeUserMap))
                 .toList();
 
         // confirmedMeetings (CONFIRMED, scheduledDate 있는 것만, dDay 오름차순)
@@ -105,8 +114,17 @@ public class HomeService {
         Map<Long, MeetingPurpose> purposeMap = meetingPurposeRepository.findAllByMeetingIdIn(pageMeetingIds)
                 .stream().collect(Collectors.toMap(MeetingPurpose::getMeetingId, Function.identity()));
 
+        // 참여자 프로필 이미지 배치 조회
+        List<Participant> allParticipants = participantRepository
+                .findAllByMeetingIdInAndLeftAtIsNullOrderByJoinedAtAsc(pageMeetingIds);
+        Map<Long, List<Participant>> participantsByMeeting = allParticipants.stream()
+                .collect(Collectors.groupingBy(Participant::getMeetingId));
+        List<Long> allUserIds = allParticipants.stream().map(Participant::getUserId).distinct().toList();
+        Map<Long, User> userMap = userRepository.findAllById(allUserIds)
+                .stream().collect(Collectors.toMap(User::getId, Function.identity()));
+
         List<MeetingItemDto> meetings = page.stream()
-                .map(p -> toMeetingItem(meetingMap.get(p.getMeetingId()), purposeMap))
+                .map(p -> toMeetingItem(meetingMap.get(p.getMeetingId()), purposeMap, participantsByMeeting, userMap))
                 .filter(Objects::nonNull)
                 .toList();
 
@@ -169,9 +187,22 @@ public class HomeService {
                 .orElse(null);
     }
 
-    private MeetingItemDto toMeetingItem(Meeting m, Map<Long, MeetingPurpose> purposeMap) {
+    private MeetingItemDto toMeetingItem(
+            Meeting m,
+            Map<Long, MeetingPurpose> purposeMap,
+            Map<Long, List<Participant>> participantsByMeeting,
+            Map<Long, User> userMap
+    ) {
         if (m == null) return null;
         MeetingPurpose purpose = purposeMap.get(m.getId());
+        List<String> participantImages = participantsByMeeting
+                .getOrDefault(m.getId(), List.of()).stream()
+                .limit(3)
+                .map(p -> {
+                    User u = userMap.get(p.getUserId());
+                    return u != null ? u.getProfileImageUrl() : null;
+                })
+                .toList();
         return new MeetingItemDto(
                 m.getId(),
                 m.getName(),
@@ -181,7 +212,7 @@ public class HomeService {
                 m.getScheduledDate() != null ? m.getScheduledDate().toString() : null,
                 m.getScheduledTime() != null ? m.getScheduledTime().toString() : null,
                 m.getParticipantCnt(),
-                m.getSubmittedCnt()
+                participantImages
         );
     }
 
