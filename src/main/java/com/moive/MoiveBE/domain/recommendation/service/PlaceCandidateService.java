@@ -7,7 +7,6 @@ import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 @Service
 public class PlaceCandidateService {
@@ -32,7 +31,7 @@ public class PlaceCandidateService {
                     place.location().latitude(),
                     place.location().longitude(),
                     candidateOrder,
-                    new HashSet<>(List.of(preferenceType))
+                    preferenceType
             ));
         }
 

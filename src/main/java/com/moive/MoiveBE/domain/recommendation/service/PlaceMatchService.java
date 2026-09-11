@@ -27,8 +27,8 @@ public class PlaceMatchService {
         for (ParticipantRecommendationCondition participant : participants) {
 
             boolean preferenceMatched =
-                    participant.preferenceTypes().stream()
-                            .anyMatch(candidate.preferenceTypes()::contains);
+                    participant.preferenceTypes()
+                            .contains(candidate.preferenceType());
 
             if (!preferenceMatched) {
                 continue;
