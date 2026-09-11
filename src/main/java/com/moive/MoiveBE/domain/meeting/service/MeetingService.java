@@ -9,6 +9,7 @@ import com.moive.MoiveBE.domain.meeting.entity.*;
 import com.moive.MoiveBE.domain.meeting.repository.*;
 import com.moive.MoiveBE.domain.notification.entity.NotificationType;
 import com.moive.MoiveBE.domain.notification.service.NotificationService;
+import com.moive.MoiveBE.domain.recommendation.service.AreaRecommendationService;
 import com.moive.MoiveBE.global.exception.CustomErrorCode;
 import com.moive.MoiveBE.global.exception.CustomException;
 import org.springframework.beans.factory.annotation.Value;
@@ -40,6 +41,7 @@ public class MeetingService {
     private final ActivityRepository activityRepository;
     private final DateVoteRepository dateVoteRepository;
     private final NotificationService notificationService;
+    private final AreaRecommendationService areaRecommendationService;
     private final String inviteBaseUrl;
     private final SecureRandom secureRandom = new SecureRandom();
 
@@ -52,6 +54,7 @@ public class MeetingService {
             ActivityRepository activityRepository,
             DateVoteRepository dateVoteRepository,
             NotificationService notificationService,
+            AreaRecommendationService areaRecommendationService,
             @Value("${app.invite.base-url}") String inviteBaseUrl
     ) {
         this.meetingRepository = meetingRepository;
@@ -62,6 +65,7 @@ public class MeetingService {
         this.activityRepository = activityRepository;
         this.dateVoteRepository = dateVoteRepository;
         this.notificationService = notificationService;
+        this.areaRecommendationService = areaRecommendationService;
         this.inviteBaseUrl = inviteBaseUrl;
     }
 
@@ -258,7 +262,7 @@ public class MeetingService {
         if (isFirstSubmit && meeting.getSubmittedCnt() >= meeting.getParticipantCnt()) {
             meeting.transitionToVoting();
             triggered = true;
-            // TODO: 추천 로직 트리거 (추후 구현)
+            areaRecommendationService.recommend(meetingId);
 
             // NOTI-003: 장소 투표 완료 요청 (전체 참여자)
             List<Participant> allParticipants = participantRepository
