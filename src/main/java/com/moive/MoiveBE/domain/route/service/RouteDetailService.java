@@ -29,7 +29,6 @@ public class RouteDetailService {
 
     private final KakaoTransitClient kakaoTransitClient;
 
-    // 이동 경로 관련 정보(경로 좌표, 이동 시간, 요금 등)만 생성한다. 응답 DTO 조립은 RouteService가 담당한다.
     public RouteDetail getMyRouteDetail(
             Location userLocation, Location placeLocation,
             String userAddress, String placeName

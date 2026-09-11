@@ -7,6 +7,8 @@ import com.moive.MoiveBE.domain.user.entity.User;
 import lombok.AccessLevel;
 import lombok.Builder;
 
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
@@ -14,14 +16,13 @@ import java.util.List;
 public record MeetingDetailResponse(
         String status,               // CONFIRMED | ENDED
         Place place,                 // 전원 미투표 => null
-        String meetingDate,          // yyyy-MM-dd
-        String meetingTime,          // HH:mm
+        LocalDate meetingDate,       // yyyy-MM-dd
+        LocalTime meetingTime,       // HH:mm
         List<ParticipantInfo> participants
 ) {
 
     private static final String STATUS_CONFIRMED = "CONFIRMED";
     private static final String STATUS_ENDED = "ENDED";
-    private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm");
 
     public static MeetingDetailResponse of(
             boolean isEnded,
@@ -32,8 +33,8 @@ public record MeetingDetailResponse(
         return MeetingDetailResponse.builder()
                 .status(isEnded ? STATUS_ENDED : STATUS_CONFIRMED)
                 .place(place)
-                .meetingDate(meeting.getScheduledDate().toString())
-                .meetingTime(meeting.getScheduledTime().format(TIME_FORMATTER))
+                .meetingDate(meeting.getScheduledDate())
+                .meetingTime(meeting.getScheduledTime())
                 .participants(participants)
                 .build();
     }
@@ -49,13 +50,13 @@ public record MeetingDetailResponse(
     ) {
 
         // 구글맵 장소 조회 성공
-        public static Place of(Long placeId, GooglePlaceLocationResponse googlePlace) {
+        public static Place of(Long placeId, GooglePlaceLocationResponse googlePlace, String category) {
             return Place.builder()
                     .id(placeId)
                     .isFetchFailed(false)
                     .name(textOrNull(googlePlace.displayName()))
                     .address(googlePlace.formattedAddress())
-                    .category(textOrNull(googlePlace.primaryTypeDisplayName()))
+                    .category(category)
                     .location(new Location(
                             googlePlace.location().latitude(),
                             googlePlace.location().longitude()

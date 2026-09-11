@@ -200,7 +200,7 @@ class MeetingRouteServiceTest {
         assertThat(response.place().id()).isEqualTo(CONFIRMED_PLACE_ID);
         assertThat(response.place().isFetchFailed()).isFalse();
         assertThat(response.place().name()).isEqualTo("XXX 맛집");
-        assertThat(response.place().category()).isEqualTo("레스토랑");
+        assertThat(response.place().category()).isEqualTo("일식");
         assertThat(response.place().location().latitude()).isEqualTo(37.5510324090502);
 
         assertThat(response.participants()).hasSize(2);
@@ -378,7 +378,7 @@ class MeetingRouteServiceTest {
 
     private void stubRecommendedPlace() {
         when(recommendedPlaceRepository.findById(CONFIRMED_PLACE_ID))
-                .thenReturn(Optional.of(RecommendedPlace.create(1L, GOOGLE_PLACE_ID, 2)));
+                .thenReturn(Optional.of(RecommendedPlace.create(1L, GOOGLE_PLACE_ID, "일식", 2)));
     }
 
     private void stubParticipants(
