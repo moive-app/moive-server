@@ -7,6 +7,6 @@ public record PlaceCandidate(
         double latitude,
         double longitude,
         int candidateOrder,
-        Set<String> preferenceTypes
+        String preferenceType
 ) {
 }
