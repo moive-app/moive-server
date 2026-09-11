@@ -8,6 +8,8 @@ import com.moive.MoiveBE.domain.meeting.repository.DateVoteRepository;
 import com.moive.MoiveBE.domain.meeting.repository.MeetingRepository;
 import com.moive.MoiveBE.domain.meeting.repository.ParticipantPreferenceRepository;
 import com.moive.MoiveBE.domain.meeting.repository.ParticipantRepository;
+import com.moive.MoiveBE.domain.notification.entity.NotificationType;
+import com.moive.MoiveBE.domain.notification.service.NotificationService;
 import com.moive.MoiveBE.domain.recommendation.client.GooglePlacesClient;
 import com.moive.MoiveBE.domain.recommendation.dto.GooglePlaceLocationResponse;
 import com.moive.MoiveBE.domain.recommendation.entity.RecommendationRun;
@@ -73,6 +75,7 @@ class VoteServiceTest {
     @Mock private RecommendedPlaceRepository recommendedPlaceRepository;
     @Mock private GooglePlacesClient googlePlacesClient;
     @Mock private AreaDistanceService areaDistanceService;
+    @Mock private NotificationService notificationService;
 
     @InjectMocks private VoteService voteService;
 
@@ -348,6 +351,8 @@ class VoteServiceTest {
         lenient().when(meeting.getParticipantCnt()).thenReturn(2);
         stubMeetingAndRecommendation(meeting, 101L, 102L);
         stubParticipant();
+        lenient().when(participantRepository.findAllByMeetingIdAndLeftAtIsNullOrderByJoinedAtAsc(MEETING_ID))
+                .thenReturn(List.of());
         when(placeVoteRepository.existsByMeetingIdAndParticipantId(MEETING_ID, MY_PARTICIPANT_ID)).thenReturn(false);
         when(placeVoteRepository.countDistinctVoters(MEETING_ID)).thenReturn(2L);
 
@@ -367,6 +372,43 @@ class VoteServiceTest {
 
         // then: 1위(101L)로 모임이 확정됨
         verify(meeting).confirmPlace(101L);
+    }
+
+    @Test
+    void 마지막_투표자가_투표하면_전체_참여자에게_MEETING_CONFIRMED_알림이_발송된다() {
+        // given: 참여자 2명 모임, 마지막 투표 상황
+        Meeting meeting = meetingWithStatus(MeetingStatus.VOTING);
+        lenient().when(meeting.getParticipantCnt()).thenReturn(2);
+        lenient().when(meeting.getName()).thenReturn("스터디 모임");
+        stubMeetingAndRecommendation(meeting, 101L, 102L);
+        stubParticipant();
+
+        Participant p1 = mock(Participant.class);
+        lenient().when(p1.getUserId()).thenReturn(10L);
+        Participant p2 = mock(Participant.class);
+        lenient().when(p2.getUserId()).thenReturn(20L);
+        when(participantRepository.findAllByMeetingIdAndLeftAtIsNullOrderByJoinedAtAsc(MEETING_ID))
+                .thenReturn(List.of(p1, p2));
+
+        when(placeVoteRepository.existsByMeetingIdAndParticipantId(MEETING_ID, MY_PARTICIPANT_ID)).thenReturn(false);
+        when(placeVoteRepository.countDistinctVoters(MEETING_ID)).thenReturn(2L);
+
+        when(placeVoteRepository.aggregateByPlace(MEETING_ID, MY_PARTICIPANT_ID)).thenReturn(List.of(
+                new PlaceVoteSummary(101L, 2L, 1L),
+                new PlaceVoteSummary(102L, 1L, 0L)
+        ));
+        RecommendedPlace place101 = recommendedPlaceWithId(101L, "gp-101", 1);
+        RecommendedPlace place102 = recommendedPlaceWithId(102L, "gp-102", 1);
+        when(recommendedPlaceRepository.findAllById(anyList())).thenReturn(List.of(place101, place102));
+        stubSingleActiveParticipantLocation(37.0, 127.0);
+        lenient().when(googlePlacesClient.getPlaceLocation(any())).thenThrow(new CustomException(PLACE_INFO_LOOKUP_FAILED));
+
+        // when
+        voteService.createPlaceVote(USER_ID, MEETING_ID, placeVoteRequest(101L));
+
+        // then: 전체 참여자(p1, p2) 각각에게 MEETING_CONFIRMED 알림 발송
+        verify(notificationService).sendNotification(eq(10L), eq(MEETING_ID), eq(NotificationType.MEETING_CONFIRMED), any());
+        verify(notificationService).sendNotification(eq(20L), eq(MEETING_ID), eq(NotificationType.MEETING_CONFIRMED), any());
     }
 
     /**
