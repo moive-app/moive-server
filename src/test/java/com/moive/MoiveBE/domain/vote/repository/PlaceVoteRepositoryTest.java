@@ -2,6 +2,7 @@ package com.moive.MoiveBE.domain.vote.repository;
 
 import com.moive.MoiveBE.domain.recommendation.entity.RecommendedArea;
 import com.moive.MoiveBE.domain.recommendation.entity.RecommendedPlace;
+import com.moive.MoiveBE.domain.vote.dto.PlaceVoteSummary;
 import com.moive.MoiveBE.domain.vote.entity.PlaceVote;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -10,7 +11,10 @@ import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 import org.springframework.test.context.TestPropertySource;
 
+import java.util.List;
+
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 
 @DataJpaTest
 @TestPropertySource(properties = {
@@ -115,6 +119,68 @@ class PlaceVoteRepositoryTest {
         vote(OTHER_MEETING_ID, C, PLACE_2);
 
         assertThat(placeVoteRepository.countDistinctVoters(MEETING_ID)).isEqualTo(1);
+    }
+
+    /**
+     * aggregateByPlace
+     */
+
+    @Test
+    void 장소별_득표수와_나의_투표_여부를_함께_집계한다() {
+        vote(MEETING_ID, A, PLACE_1);
+        vote(MEETING_ID, A, PLACE_2);
+        vote(MEETING_ID, B, PLACE_1);
+        vote(MEETING_ID, C, PLACE_1);
+
+        List<PlaceVoteSummary> result = placeVoteRepository.aggregateByPlace(MEETING_ID, A);
+
+        assertThat(result).extracting(PlaceVoteSummary::recommendedPlaceId, PlaceVoteSummary::voterCnt, PlaceVoteSummary::isVotedByMe)
+                .containsExactlyInAnyOrder(
+                        tuple(PLACE_1, 3L, true),
+                        tuple(PLACE_2, 1L, true)
+                );
+    }
+
+    @Test
+    void 유저가_투표하지_않은_장소는_votedByMe가_false다() {
+        vote(MEETING_ID, A, PLACE_1);
+        vote(MEETING_ID, B, PLACE_2);
+
+        List<PlaceVoteSummary> result = placeVoteRepository.aggregateByPlace(MEETING_ID, A);
+
+        PlaceVoteSummary place2Summary = result.stream()
+                .filter(s -> s.recommendedPlaceId().equals(PLACE_2))
+                .findFirst()
+                .orElseThrow();
+        assertThat(place2Summary.isVotedByMe()).isFalse();
+    }
+
+    @Test
+    void 투표_내역이_없는_장소는_집계_결과에_나타나지_않는다() {
+        vote(MEETING_ID, A, PLACE_1);
+
+        List<PlaceVoteSummary> result = placeVoteRepository.aggregateByPlace(MEETING_ID, A);
+
+        assertThat(result).extracting(PlaceVoteSummary::recommendedPlaceId).containsExactly(PLACE_1);
+    }
+
+    @Test
+    void 투표가_하나도_없으면_빈_리스트를_반환한다() {
+        List<PlaceVoteSummary> result = placeVoteRepository.aggregateByPlace(MEETING_ID, A);
+
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    void 다른_모임의_투표는_집계에_섞이지_않는다_aggregateByPlace() {
+        vote(MEETING_ID, A, PLACE_1);
+        vote(OTHER_MEETING_ID, B, PLACE_1);
+        vote(OTHER_MEETING_ID, C, PLACE_2);
+
+        List<PlaceVoteSummary> result = placeVoteRepository.aggregateByPlace(MEETING_ID, A);
+
+        assertThat(result).extracting(PlaceVoteSummary::recommendedPlaceId, PlaceVoteSummary::voterCnt)
+                .containsExactly(tuple(PLACE_1, 1L));
     }
 
     /**

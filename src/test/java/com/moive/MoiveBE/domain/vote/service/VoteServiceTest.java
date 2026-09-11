@@ -3,16 +3,24 @@ package com.moive.MoiveBE.domain.vote.service;
 import com.moive.MoiveBE.domain.meeting.entity.Meeting;
 import com.moive.MoiveBE.domain.meeting.entity.MeetingStatus;
 import com.moive.MoiveBE.domain.meeting.entity.Participant;
+import com.moive.MoiveBE.domain.meeting.entity.ParticipantPreference;
 import com.moive.MoiveBE.domain.meeting.repository.DateVoteRepository;
 import com.moive.MoiveBE.domain.meeting.repository.MeetingRepository;
+import com.moive.MoiveBE.domain.meeting.repository.ParticipantPreferenceRepository;
 import com.moive.MoiveBE.domain.meeting.repository.ParticipantRepository;
+import com.moive.MoiveBE.domain.recommendation.client.GooglePlacesClient;
+import com.moive.MoiveBE.domain.recommendation.dto.GooglePlaceLocationResponse;
 import com.moive.MoiveBE.domain.recommendation.entity.RecommendationRun;
 import com.moive.MoiveBE.domain.recommendation.entity.RecommendationStatus;
+import com.moive.MoiveBE.domain.recommendation.entity.RecommendedPlace;
 import com.moive.MoiveBE.domain.recommendation.repository.RecommendationRunRepository;
 import com.moive.MoiveBE.domain.recommendation.repository.RecommendedPlaceRepository;
+import com.moive.MoiveBE.domain.recommendation.service.AreaDistanceService;
 import com.moive.MoiveBE.domain.vote.dto.DateVoteSummary;
 import com.moive.MoiveBE.domain.vote.dto.DateVoteResultResponse;
 import com.moive.MoiveBE.domain.vote.dto.PlaceVoteRequest;
+import com.moive.MoiveBE.domain.vote.dto.PlaceVoteResultResponse;
+import com.moive.MoiveBE.domain.vote.dto.PlaceVoteSummary;
 import com.moive.MoiveBE.domain.vote.entity.PlaceVote;
 import com.moive.MoiveBE.domain.vote.repository.PlaceVoteRepository;
 import com.moive.MoiveBE.global.exception.CustomErrorCode;
@@ -26,6 +34,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Pageable;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.Arrays;
@@ -57,10 +66,13 @@ class VoteServiceTest {
 
     @Mock private MeetingRepository meetingRepository;
     @Mock private ParticipantRepository participantRepository;
+    @Mock private ParticipantPreferenceRepository participantPreferenceRepository;
     @Mock private DateVoteRepository dateVoteRepository;
     @Mock private PlaceVoteRepository placeVoteRepository;
     @Mock private RecommendationRunRepository recommendationRunRepository;
     @Mock private RecommendedPlaceRepository recommendedPlaceRepository;
+    @Mock private GooglePlacesClient googlePlacesClient;
+    @Mock private AreaDistanceService areaDistanceService;
 
     @InjectMocks private VoteService voteService;
 
@@ -330,6 +342,182 @@ class VoteServiceTest {
     }
 
     /**
+     * [장소 투표 현황 조회] 테스트
+     */
+
+    @Test
+    void 장소_투표_결과_조회하는_유저가_해당_모임_참여자가_아니면_VOTE_ACCESS_DENIED() {
+        // given
+        Meeting meeting = meetingWithStatus(MeetingStatus.VOTING);
+        when(meetingRepository.findById(MEETING_ID)).thenReturn(Optional.of(meeting));
+        when(participantRepository.findByMeetingIdAndUserIdAndLeftAtIsNull(MEETING_ID, USER_ID))
+                .thenReturn(Optional.empty());
+
+        // when & then
+        assertErrorCode(() -> voteService.getMeetingPlaceVoteResult(USER_ID, MEETING_ID), VOTE_ACCESS_DENIED);
+        verifyNoInteractions(placeVoteRepository, recommendedPlaceRepository, googlePlacesClient);
+    }
+
+    @Test
+    void 투표가_하나도_없으면_totalVoterCnt는_0이고_candidates는_빈_리스트다() {
+        // given
+        stubMeetingAndAccess(meetingWithStatus(MeetingStatus.VOTING));
+        when(placeVoteRepository.countDistinctVoters(MEETING_ID)).thenReturn(0L);
+        when(placeVoteRepository.aggregateByPlace(MEETING_ID, MY_PARTICIPANT_ID)).thenReturn(List.of());
+
+        // when
+        PlaceVoteResultResponse response = voteService.getMeetingPlaceVoteResult(USER_ID, MEETING_ID);
+
+        // then
+        assertThat(response.isFinished()).isFalse();
+        assertThat(response.totalVoterCnt()).isZero();
+        assertThat(response.candidates()).isEmpty();
+
+        // 투표 내역이 없을 경우 장소 상세 조회(구글맵 호출/추천 장소/참여자 위치) 진행 x
+        verifyNoInteractions(recommendedPlaceRepository, googlePlacesClient, participantPreferenceRepository);
+    }
+
+    @Test
+    void 모임_상태가_CONFIRMED면_isFinished는_true다() {
+        // given
+        stubMeetingAndAccess(meetingWithStatus(MeetingStatus.CONFIRMED));
+        when(placeVoteRepository.countDistinctVoters(MEETING_ID)).thenReturn(0L);
+        when(placeVoteRepository.aggregateByPlace(MEETING_ID, MY_PARTICIPANT_ID)).thenReturn(List.of());
+
+        // when
+        PlaceVoteResultResponse response = voteService.getMeetingPlaceVoteResult(USER_ID, MEETING_ID);
+
+        // then
+        assertThat(response.isFinished()).isTrue();
+    }
+
+    @Test
+    void 득표수가_많은_장소가_상위에_온다() {
+        // given
+        stubMeetingAndAccess(meetingWithStatus(MeetingStatus.VOTING));
+        when(placeVoteRepository.countDistinctVoters(MEETING_ID)).thenReturn(3L);
+        when(placeVoteRepository.aggregateByPlace(MEETING_ID, MY_PARTICIPANT_ID)).thenReturn(List.of(
+                new PlaceVoteSummary(101L, 1L, 0L),
+                new PlaceVoteSummary(102L, 3L, 1L)
+        ));
+        stubRecommendedPlaces(101L, "gp-101", 1, 102L, "gp-102", 1);
+        stubSingleActiveParticipantLocation(37.0, 127.0);
+        when(googlePlacesClient.getPlaceLocation("gp-101")).thenReturn(googlePlaceAt("A", 37.1, 127.1));
+        when(googlePlacesClient.getPlaceLocation("gp-102")).thenReturn(googlePlaceAt("B", 37.2, 127.2));
+
+        // when
+        PlaceVoteResultResponse response = voteService.getMeetingPlaceVoteResult(USER_ID, MEETING_ID);
+
+        // then: 득표수 3인 102L이 1위
+        assertThat(response.candidates()).extracting(PlaceVoteResultResponse.Candidate::placeId)
+                .containsExactly(102L, 101L);
+        assertThat(response.candidates().get(0).voterCnt()).isEqualTo(3);
+        assertThat(response.candidates().get(0).isVotedByMe()).isTrue();
+        assertThat(response.candidates().get(1).isVotedByMe()).isFalse();
+    }
+
+    @Test
+    void 득표수가_동률이면_참여자들의_출발지와_추천장소간_직선거리_평균값이_짧은_장소가_우선시된다() {
+        // given: 101L, 102L 둘 다 득표 2표로 동률
+        stubMeetingAndAccess(meetingWithStatus(MeetingStatus.VOTING));
+        when(placeVoteRepository.countDistinctVoters(MEETING_ID)).thenReturn(2L);
+        when(placeVoteRepository.aggregateByPlace(MEETING_ID, MY_PARTICIPANT_ID)).thenReturn(List.of(
+                new PlaceVoteSummary(101L, 2L, 0L),
+                new PlaceVoteSummary(102L, 2L, 0L)
+        ));
+        stubRecommendedPlaces(101L, "gp-101", 1, 102L, "gp-102", 1);
+        stubSingleActiveParticipantLocation(37.0, 127.0);
+        when(googlePlacesClient.getPlaceLocation("gp-101")).thenReturn(googlePlaceAt("먼_장소", 38.0, 128.0));
+        when(googlePlacesClient.getPlaceLocation("gp-102")).thenReturn(googlePlaceAt("가까운_장소", 37.01, 127.01));
+        when(areaDistanceService.calculateDistanceKm(37.0, 127.0, 38.0, 128.0)).thenReturn(130.0);
+        when(areaDistanceService.calculateDistanceKm(37.0, 127.0, 37.01, 127.01)).thenReturn(1.3);
+
+        // when
+        PlaceVoteResultResponse response = voteService.getMeetingPlaceVoteResult(USER_ID, MEETING_ID);
+
+        // then: 평균 거리가 더 짧은 102L이 우선
+        assertThat(response.candidates()).extracting(PlaceVoteResultResponse.Candidate::placeId)
+                .containsExactly(102L, 101L);
+    }
+
+    @Test
+    void 구글_장소_조회에_실패하면_평균거리_대신_취향_일치수가_많은_장소가_우선한다() {
+        // given: 101L, 102L 득표 동률(2표), 101L은 구글 조회 실패
+        stubMeetingAndAccess(meetingWithStatus(MeetingStatus.VOTING));
+        when(placeVoteRepository.countDistinctVoters(MEETING_ID)).thenReturn(2L);
+        when(placeVoteRepository.aggregateByPlace(MEETING_ID, MY_PARTICIPANT_ID)).thenReturn(List.of(
+                new PlaceVoteSummary(101L, 2L, 0L),
+                new PlaceVoteSummary(102L, 2L, 0L)
+        ));
+        stubRecommendedPlaces(101L, "gp-101", 5, 102L, "gp-102", 2);
+        stubSingleActiveParticipantLocation(37.0, 127.0);
+        when(googlePlacesClient.getPlaceLocation("gp-101")).thenThrow(new CustomException(PLACE_INFO_LOOKUP_FAILED));
+        when(googlePlacesClient.getPlaceLocation("gp-102")).thenReturn(googlePlaceAt("B", 37.01, 127.01));
+
+        // when
+        PlaceVoteResultResponse response = voteService.getMeetingPlaceVoteResult(USER_ID, MEETING_ID);
+
+        // then: 취향 일치수가 더 높은 101L(5)이 102L(2)보다 순위가 높음
+        assertThat(response.candidates()).extracting(PlaceVoteResultResponse.Candidate::placeId)
+                .containsExactly(101L, 102L);
+        // 구글 조회 실패한 장소 이름 => null 처리
+        assertThat(response.candidates().get(0).placeName()).isNull();
+    }
+
+    @Test
+    void 평균거리도_취향_일치수도_동률이면_recommendedPlaceId_오름차순으로_정렬한다() {
+        // given: 둘 다 구글 조회 실패 + 취향 일치수도 동일 -> 최종적으로 id 오름차순
+        stubMeetingAndAccess(meetingWithStatus(MeetingStatus.VOTING));
+        when(placeVoteRepository.countDistinctVoters(MEETING_ID)).thenReturn(2L);
+        when(placeVoteRepository.aggregateByPlace(MEETING_ID, MY_PARTICIPANT_ID)).thenReturn(List.of(
+                new PlaceVoteSummary(205L, 2L, 0L),
+                new PlaceVoteSummary(101L, 2L, 0L)
+        ));
+        stubRecommendedPlaces(205L, "gp-205", 3, 101L, "gp-101", 3);
+        stubSingleActiveParticipantLocation(37.0, 127.0);
+        when(googlePlacesClient.getPlaceLocation("gp-205")).thenThrow(new CustomException(PLACE_INFO_LOOKUP_FAILED));
+        when(googlePlacesClient.getPlaceLocation("gp-101")).thenThrow(new CustomException(PLACE_INFO_LOOKUP_FAILED));
+
+        // when
+        PlaceVoteResultResponse response = voteService.getMeetingPlaceVoteResult(USER_ID, MEETING_ID);
+
+        // then
+        assertThat(response.candidates()).extracting(PlaceVoteResultResponse.Candidate::placeId)
+                .containsExactly(101L, 205L);
+    }
+
+    @Test
+    void 후보가_3개를_초과하면_상위_3개만_반환한다() {
+        // given: 득표수가 서로 달라 순위가 명확한 후보 4개
+        stubMeetingAndAccess(meetingWithStatus(MeetingStatus.VOTING));
+        when(placeVoteRepository.countDistinctVoters(MEETING_ID)).thenReturn(4L);
+        when(placeVoteRepository.aggregateByPlace(MEETING_ID, MY_PARTICIPANT_ID)).thenReturn(List.of(
+                new PlaceVoteSummary(101L, 4L, 0L),
+                new PlaceVoteSummary(102L, 3L, 0L),
+                new PlaceVoteSummary(103L, 2L, 0L),
+                new PlaceVoteSummary(104L, 1L, 0L)
+        ));
+
+        RecommendedPlace place101 = recommendedPlaceWithId(101L, "gp-101", 1);
+        RecommendedPlace place102 = recommendedPlaceWithId(102L, "gp-102", 1);
+        RecommendedPlace place103 = recommendedPlaceWithId(103L, "gp-103", 1);
+        RecommendedPlace place104 = recommendedPlaceWithId(104L, "gp-104", 1);
+
+        when(recommendedPlaceRepository.findAllById(anyList()))
+                .thenReturn(List.of(place101, place102, place103, place104));
+        stubSingleActiveParticipantLocation(37.0, 127.0);
+        lenient().when(googlePlacesClient.getPlaceLocation(any())).thenThrow(new CustomException(PLACE_INFO_LOOKUP_FAILED));
+
+        // when
+        PlaceVoteResultResponse response = voteService.getMeetingPlaceVoteResult(USER_ID, MEETING_ID);
+
+        // then
+        assertThat(response.candidates()).hasSize(3);
+        assertThat(response.candidates()).extracting(PlaceVoteResultResponse.Candidate::placeId)
+                .containsExactly(101L, 102L, 103L);
+    }
+
+    /**
      * Fixtures
      */
 
@@ -378,5 +566,50 @@ class VoteServiceTest {
         lenient().when(participant.getId()).thenReturn(MY_PARTICIPANT_ID);
         when(participantRepository.findByMeetingIdAndUserIdAndLeftAtIsNull(MEETING_ID, USER_ID))
                 .thenReturn(Optional.of(participant));
+    }
+
+    private void stubMeetingAndAccess(Meeting meeting) {
+        when(meetingRepository.findById(MEETING_ID)).thenReturn(Optional.of(meeting));
+        stubParticipant();
+    }
+
+    private void stubRecommendedPlaces(
+            Long placeId1, String googlePlaceId1, int preferenceMatchCnt1,
+            Long placeId2, String googlePlaceId2, int preferenceMatchCnt2
+    ) {
+        RecommendedPlace place1 = recommendedPlaceWithId(placeId1, googlePlaceId1, preferenceMatchCnt1);
+        RecommendedPlace place2 = recommendedPlaceWithId(placeId2, googlePlaceId2, preferenceMatchCnt2);
+        when(recommendedPlaceRepository.findAllById(anyList())).thenReturn(List.of(place1, place2));
+    }
+
+    private RecommendedPlace recommendedPlaceWithId(Long id, String googlePlaceId, int preferenceMatchCnt) {
+        RecommendedPlace place = mock(RecommendedPlace.class);
+        lenient().when(place.getId()).thenReturn(id);
+        lenient().when(place.getGooglePlaceId()).thenReturn(googlePlaceId);
+        lenient().when(place.getPreferenceMatchCnt()).thenReturn(preferenceMatchCnt);
+        return place;
+    }
+
+    // 참여자 1명의 출발지 좌표를 고정해 평균 거리 계산 결과가 그 1명의 거리값과 동일하도록 단순화
+    private void stubSingleActiveParticipantLocation(double latitude, double longitude) {
+        Long participantId = 500L;
+        Participant participant = mock(Participant.class);
+        lenient().when(participant.getId()).thenReturn(participantId);
+        when(participantRepository.findAllByMeetingIdAndLeftAtIsNull(MEETING_ID)).thenReturn(List.of(participant));
+
+        ParticipantPreference preference = mock(ParticipantPreference.class);
+        lenient().when(preference.getDepartureLatitude()).thenReturn(BigDecimal.valueOf(latitude));
+        lenient().when(preference.getDepartureLongitude()).thenReturn(BigDecimal.valueOf(longitude));
+        when(participantPreferenceRepository.findAllByParticipantIdIn(List.of(participantId)))
+                .thenReturn(List.of(preference));
+    }
+
+    private GooglePlaceLocationResponse googlePlaceAt(String name, double latitude, double longitude) {
+        return new GooglePlaceLocationResponse(
+                new GooglePlaceLocationResponse.LocalizedText(name, "ko"),
+                null,
+                "테스트 주소",
+                new GooglePlaceLocationResponse.Location(latitude, longitude)
+        );
     }
 }
