@@ -1,12 +1,20 @@
 package com.moive.MoiveBE.domain.vote.service;
 
 import com.moive.MoiveBE.domain.meeting.entity.Meeting;
+import com.moive.MoiveBE.domain.meeting.entity.MeetingStatus;
 import com.moive.MoiveBE.domain.meeting.entity.Participant;
 import com.moive.MoiveBE.domain.meeting.repository.DateVoteRepository;
 import com.moive.MoiveBE.domain.meeting.repository.MeetingRepository;
 import com.moive.MoiveBE.domain.meeting.repository.ParticipantRepository;
+import com.moive.MoiveBE.domain.recommendation.entity.RecommendationRun;
+import com.moive.MoiveBE.domain.recommendation.entity.RecommendationStatus;
+import com.moive.MoiveBE.domain.recommendation.repository.RecommendationRunRepository;
+import com.moive.MoiveBE.domain.recommendation.repository.RecommendedPlaceRepository;
 import com.moive.MoiveBE.domain.vote.dto.DateVoteSummary;
 import com.moive.MoiveBE.domain.vote.dto.DateVoteResultResponse;
+import com.moive.MoiveBE.domain.vote.dto.PlaceVoteRequest;
+import com.moive.MoiveBE.domain.vote.entity.PlaceVote;
+import com.moive.MoiveBE.domain.vote.repository.PlaceVoteRepository;
 import com.moive.MoiveBE.global.exception.CustomErrorCode;
 import com.moive.MoiveBE.global.exception.CustomException;
 import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
@@ -20,17 +28,20 @@ import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
-import static com.moive.MoiveBE.global.exception.CustomErrorCode.VOTE_ACCESS_DENIED;
+import static com.moive.MoiveBE.global.exception.CustomErrorCode.*;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -42,11 +53,30 @@ class VoteServiceTest {
     private static final Long MEETING_ID = 10L;
     private static final Long MY_PARTICIPANT_ID = 100L;
 
+    private static final Long RECOMMENDATION_RUN_ID = 1000L;
+
     @Mock private MeetingRepository meetingRepository;
     @Mock private ParticipantRepository participantRepository;
     @Mock private DateVoteRepository dateVoteRepository;
+    @Mock private PlaceVoteRepository placeVoteRepository;
+    @Mock private RecommendationRunRepository recommendationRunRepository;
+    @Mock private RecommendedPlaceRepository recommendedPlaceRepository;
 
     @InjectMocks private VoteService voteService;
+
+    /**
+     * [일정 투표 현황 조회] 테스트
+     */
+
+    @Test
+    void 일정_투표_현황_조회시_존재하지_않는_모임이면_MEETING_NOT_FOUND() {
+        // given
+        when(meetingRepository.findById(MEETING_ID)).thenReturn(Optional.empty());
+
+        // when & then
+        assertErrorCode(() -> voteService.getMeetingScheduleVoteResult(USER_ID, MEETING_ID), MEETING_NOT_FOUND);
+        verifyNoInteractions(participantRepository, dateVoteRepository);
+    }
 
     @Test
     void 유저가_모임_참여자가_아니면_VOTE_ACCESS_DENIED() {
@@ -143,6 +173,163 @@ class VoteServiceTest {
     }
 
     /**
+     * [장소 투표] 테스트
+     */
+
+    @Test
+    void 이미_장소가_확정된_모임이면_PLACE_VOTE_CLOSED() {
+        // given
+        Meeting meeting = meetingWithStatus(MeetingStatus.CONFIRMED);
+        when(meetingRepository.findById(MEETING_ID)).thenReturn(Optional.of(meeting));
+
+        // when & then
+        assertErrorCode(
+                () -> voteService.createPlaceVote(USER_ID, MEETING_ID, placeVoteRequest(101L)),
+                PLACE_VOTE_CLOSED
+        );
+        verifyNoInteractions(participantRepository, placeVoteRepository,
+                recommendationRunRepository, recommendedPlaceRepository);
+    }
+
+    @Test
+    void 조건_입력_중인_모임이면_PLACE_VOTE_NOT_STARTED() {
+        // given
+        Meeting meeting = meetingWithStatus(MeetingStatus.CONDITION_INPUT);
+        when(meetingRepository.findById(MEETING_ID)).thenReturn(Optional.of(meeting));
+
+        // when & then
+        assertErrorCode(
+                () -> voteService.createPlaceVote(USER_ID, MEETING_ID, placeVoteRequest(101L)),
+                PLACE_VOTE_NOT_STARTED
+        );
+        verifyNoInteractions(participantRepository, placeVoteRepository,
+                recommendationRunRepository, recommendedPlaceRepository);
+    }
+
+    @Test
+    void 장소_추천이_실행되지_않았다면_PLACE_VOTE_NOT_STARTED() {
+        // given
+        Meeting meeting = meetingWithStatus(MeetingStatus.VOTING);
+        when(meetingRepository.findById(MEETING_ID)).thenReturn(Optional.of(meeting));
+        when(recommendationRunRepository.findTopByMeetingIdAndStatusOrderByCreatedAtDesc(MEETING_ID, RecommendationStatus.COMPLETED))
+                .thenReturn(Optional.empty());
+
+        // when & then
+        assertErrorCode(
+                () -> voteService.createPlaceVote(USER_ID, MEETING_ID, placeVoteRequest(101L)),
+                PLACE_VOTE_NOT_STARTED
+        );
+        verifyNoInteractions(participantRepository, placeVoteRepository);
+    }
+
+    @Test
+    void 장소_추천은_실행되었지만_추천_장소가_없으면_PLACE_VOTE_NOT_STARTED() {
+        // given
+        Meeting meeting = meetingWithStatus(MeetingStatus.VOTING);
+        stubMeetingAndRecommendation(meeting);
+        stubParticipant();
+        when(placeVoteRepository.existsByMeetingIdAndParticipantId(MEETING_ID, MY_PARTICIPANT_ID)).thenReturn(false);
+
+        // when & then
+        assertErrorCode(
+                () -> voteService.createPlaceVote(USER_ID, MEETING_ID, placeVoteRequest(101L)),
+                PLACE_VOTE_NOT_STARTED
+        );
+        verify(placeVoteRepository, never()).saveAll(anyList());
+    }
+
+    @Test
+    void 유저가_모임_참여자가_아니면_PLACE_VOTE_ACCESS_DENIED() {
+        // given
+        Meeting meeting = meetingWithStatus(MeetingStatus.VOTING);
+        stubMeetingAndRecommendation(meeting, 101L, 102L);
+        when(participantRepository.findByMeetingIdAndUserIdAndLeftAtIsNull(MEETING_ID, USER_ID))
+                .thenReturn(Optional.empty());
+
+        // when & then
+        assertErrorCode(
+                () -> voteService.createPlaceVote(USER_ID, MEETING_ID, placeVoteRequest(101L)),
+                PLACE_VOTE_ACCESS_DENIED
+        );
+        verifyNoInteractions(placeVoteRepository);
+    }
+
+    @Test
+    void 이미_투표한_참여자면_PLACE_VOTE_ALREADY_DONE() {
+        // given
+        Meeting meeting = meetingWithStatus(MeetingStatus.VOTING);
+        stubMeetingAndRecommendation(meeting, 101L, 102L);
+        stubParticipant();
+        when(placeVoteRepository.existsByMeetingIdAndParticipantId(MEETING_ID, MY_PARTICIPANT_ID)).thenReturn(true);
+
+        // when & then
+        assertErrorCode(
+                () -> voteService.createPlaceVote(USER_ID, MEETING_ID, placeVoteRequest(101L)),
+                PLACE_VOTE_ALREADY_DONE
+        );
+        verify(placeVoteRepository, never()).saveAll(anyList());
+    }
+
+    @Test
+    void 이_모임의_추천_장소가_아닌_id가_포함되면_PLACE_VOTE_INVALID_PLACE() {
+        // given
+        Meeting meeting = meetingWithStatus(MeetingStatus.VOTING);
+        stubMeetingAndRecommendation(meeting, 101L, 102L);
+        stubParticipant();
+        when(placeVoteRepository.existsByMeetingIdAndParticipantId(MEETING_ID, MY_PARTICIPANT_ID)).thenReturn(false);
+
+        // when & then: 999L은 이 모임의 추천 장소 목록(101L, 102L)에 없음
+        assertErrorCode(
+                () -> voteService.createPlaceVote(USER_ID, MEETING_ID, placeVoteRequest(101L, 999L)),
+                PLACE_VOTE_INVALID_PLACE
+        );
+        verify(placeVoteRepository, never()).saveAll(anyList());
+    }
+
+    @Test
+    void 장소_투표_요청에_null이_섞여있어도_NPE없이_PLACE_VOTE_INVALID_PLACE로_처리된다() {
+        // given
+        Meeting meeting = meetingWithStatus(MeetingStatus.VOTING);
+        stubMeetingAndRecommendation(meeting, 101L, 102L);
+        stubParticipant();
+        when(placeVoteRepository.existsByMeetingIdAndParticipantId(MEETING_ID, MY_PARTICIPANT_ID)).thenReturn(false);
+
+        PlaceVoteRequest request = new PlaceVoteRequest(Arrays.asList(101L, null));
+
+        // when & then
+        assertErrorCode(
+                () -> voteService.createPlaceVote(USER_ID, MEETING_ID, request),
+                PLACE_VOTE_INVALID_PLACE
+        );
+        verify(placeVoteRepository, never()).saveAll(anyList());
+    }
+
+    @Test
+    void 정상_투표시_선택한_장소는_전부_저장되고_중복되는_id가_있으면_한번만_저장된다() {
+        // given
+        Meeting meeting = meetingWithStatus(MeetingStatus.VOTING);
+        lenient().when(meeting.getParticipantCnt()).thenReturn(5);
+        stubMeetingAndRecommendation(meeting, 101L, 102L, 103L);
+        stubParticipant();
+        when(placeVoteRepository.existsByMeetingIdAndParticipantId(MEETING_ID, MY_PARTICIPANT_ID)).thenReturn(false);
+        when(placeVoteRepository.countDistinctVoters(MEETING_ID)).thenReturn(2L);
+
+        // when: 101L 중복 선택
+        voteService.createPlaceVote(USER_ID, MEETING_ID, placeVoteRequest(101L, 102L, 101L));
+
+        // then
+        ArgumentCaptor<List<PlaceVote>> captor = ArgumentCaptor.forClass(List.class);
+        verify(placeVoteRepository).saveAll(captor.capture());
+        assertThat(captor.getValue()).hasSize(2);
+        assertThat(captor.getValue()).extracting(PlaceVote::getRecommendedPlaceId)
+                .containsExactlyInAnyOrder(101L, 102L);
+        assertThat(captor.getValue()).allSatisfy(vote -> {
+            assertThat(vote.getMeetingId()).isEqualTo(MEETING_ID);
+            assertThat(vote.getParticipantId()).isEqualTo(MY_PARTICIPANT_ID);
+        });
+    }
+
+    /**
      * Fixtures
      */
 
@@ -161,6 +348,34 @@ class VoteServiceTest {
         Participant participant = mock(Participant.class);
         lenient().when(participant.getId()).thenReturn(participantId);
         when(meetingRepository.findById(MEETING_ID)).thenReturn(Optional.of(meeting));
+        when(participantRepository.findByMeetingIdAndUserIdAndLeftAtIsNull(MEETING_ID, USER_ID))
+                .thenReturn(Optional.of(participant));
+    }
+
+    private PlaceVoteRequest placeVoteRequest(Long... recommendedPlaceIds) {
+        return new PlaceVoteRequest(List.of(recommendedPlaceIds));
+    }
+
+    private Meeting meetingWithStatus(MeetingStatus status) {
+        Meeting meeting = mock(Meeting.class);
+        lenient().when(meeting.getStatus()).thenReturn(status);
+        return meeting;
+    }
+
+    private void stubMeetingAndRecommendation(Meeting meeting, Long... validRecommendedPlaceIds) {
+        when(meetingRepository.findById(MEETING_ID)).thenReturn(Optional.of(meeting));
+
+        RecommendationRun run = mock(RecommendationRun.class);
+        lenient().when(run.getId()).thenReturn(RECOMMENDATION_RUN_ID);
+        when(recommendationRunRepository.findTopByMeetingIdAndStatusOrderByCreatedAtDesc(MEETING_ID, RecommendationStatus.COMPLETED))
+                .thenReturn(Optional.of(run));
+        lenient().when(recommendedPlaceRepository.findIdsByRecommendationRunId(RECOMMENDATION_RUN_ID))
+                .thenReturn(List.of(validRecommendedPlaceIds));
+    }
+
+    private void stubParticipant() {
+        Participant participant = mock(Participant.class);
+        lenient().when(participant.getId()).thenReturn(MY_PARTICIPANT_ID);
         when(participantRepository.findByMeetingIdAndUserIdAndLeftAtIsNull(MEETING_ID, USER_ID))
                 .thenReturn(Optional.of(participant));
     }
