@@ -82,11 +82,20 @@ public class MeetingDetailService {
 
         HomeAction action = resolveHomeAction(status);
 
+        boolean hasSchedule = meeting.hasSchedule();
+        String scheduledDate = hasSchedule && meeting.getScheduledDate() != null
+                ? meeting.getScheduledDate().toString() : null;
+        String scheduledTime = hasSchedule && meeting.getScheduledTime() != null
+                ? meeting.getScheduledTime().toString() : null;
+
         return new MeetingHomeResponse(
                 meeting.getId(),
                 meeting.getName(),
                 purpose.getPurposeType().name(),
                 status.name(),
+                hasSchedule,
+                scheduledDate,
+                scheduledTime,
                 inviteCode,
                 inviteUrl,
                 participantDtos,
