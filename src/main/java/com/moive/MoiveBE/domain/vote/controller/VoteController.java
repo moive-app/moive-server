@@ -2,6 +2,7 @@ package com.moive.MoiveBE.domain.vote.controller;
 
 import com.moive.MoiveBE.domain.vote.dto.DateVoteResultResponse;
 import com.moive.MoiveBE.domain.vote.dto.PlaceVoteRequest;
+import com.moive.MoiveBE.domain.vote.dto.PlaceVoteResultResponse;
 import com.moive.MoiveBE.domain.vote.service.VoteService;
 import com.moive.MoiveBE.global.common.BaseResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -21,7 +22,7 @@ public class VoteController {
 
     @Operation(
             summary = "일정 투표 현황 조회",
-            description = "일정 투표 결과를 조회합니다."
+            description = "일정 투표 현황을 조회합니다."
     )
     @GetMapping("/date-votes/result")
     public BaseResponse<DateVoteResultResponse> getMeetingScheduleVoteResult (
@@ -48,6 +49,20 @@ public class VoteController {
     ) {
         voteService.createPlaceVote(userId, meetingId, request);
         return BaseResponse.success(null);
+    }
+
+    @Operation(
+            summary = "장소 투표 현황 조회",
+            description = "장소 투표 현황을 조회합니다."
+    )
+    @GetMapping("/place-votes/result")
+    public BaseResponse<PlaceVoteResultResponse> getMeetingPlaceVoteResult (
+            @AuthenticationPrincipal Long userId,
+            @PathVariable Long meetingId
+    ) {
+        return BaseResponse.success(
+                voteService.getMeetingPlaceVoteResult(userId, meetingId)
+        );
     }
 
 }

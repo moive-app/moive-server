@@ -3,16 +3,24 @@ package com.moive.MoiveBE.domain.vote.service;
 import com.moive.MoiveBE.domain.meeting.entity.Meeting;
 import com.moive.MoiveBE.domain.meeting.entity.MeetingStatus;
 import com.moive.MoiveBE.domain.meeting.entity.Participant;
+import com.moive.MoiveBE.domain.meeting.entity.ParticipantPreference;
 import com.moive.MoiveBE.domain.meeting.repository.DateVoteRepository;
 import com.moive.MoiveBE.domain.meeting.repository.MeetingRepository;
+import com.moive.MoiveBE.domain.meeting.repository.ParticipantPreferenceRepository;
 import com.moive.MoiveBE.domain.meeting.repository.ParticipantRepository;
+import com.moive.MoiveBE.domain.recommendation.client.GooglePlacesClient;
+import com.moive.MoiveBE.domain.recommendation.dto.GooglePlaceLocationResponse;
 import com.moive.MoiveBE.domain.recommendation.entity.RecommendationRun;
 import com.moive.MoiveBE.domain.recommendation.entity.RecommendationStatus;
+import com.moive.MoiveBE.domain.recommendation.entity.RecommendedPlace;
 import com.moive.MoiveBE.domain.recommendation.repository.RecommendationRunRepository;
 import com.moive.MoiveBE.domain.recommendation.repository.RecommendedPlaceRepository;
+import com.moive.MoiveBE.domain.recommendation.service.AreaDistanceService;
 import com.moive.MoiveBE.domain.vote.dto.DateVoteSummary;
 import com.moive.MoiveBE.domain.vote.dto.DateVoteResultResponse;
 import com.moive.MoiveBE.domain.vote.dto.PlaceVoteRequest;
+import com.moive.MoiveBE.domain.vote.dto.PlaceVoteResultResponse;
+import com.moive.MoiveBE.domain.vote.dto.PlaceVoteSummary;
 import com.moive.MoiveBE.domain.vote.entity.PlaceVote;
 import com.moive.MoiveBE.domain.vote.repository.PlaceVoteRepository;
 import com.moive.MoiveBE.global.exception.CustomException;
@@ -22,9 +30,13 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static com.moive.MoiveBE.global.exception.CustomErrorCode.*;
 
@@ -38,10 +50,13 @@ public class VoteService {
 
     private final MeetingRepository meetingRepository;
     private final ParticipantRepository participantRepository;
+    private final ParticipantPreferenceRepository participantPreferenceRepository;
     private final DateVoteRepository dateVoteRepository;
     private final PlaceVoteRepository placeVoteRepository;
     private final RecommendationRunRepository recommendationRunRepository;
     private final RecommendedPlaceRepository recommendedPlaceRepository;
+    private final GooglePlacesClient googlePlacesClient;
+    private final AreaDistanceService areaDistanceService;
 
     /**
      * 일정 투표 현황 조회
@@ -155,5 +170,120 @@ public class VoteService {
             log.info("[장소 투표] 마지막 투표자입니다. meetingId={}, participantId={}", meetingId, participant.getId());
         }
 
+    }
+
+    /**
+     * 장소 투표 현황 조회
+     * - 정렬 기준: (1) 득표수 desc -> (2) 참여자 출발지 <-> 장소 간 직선거리 평균값 asc
+     * - 구글 장소 조회 실패 시 (2)는 취향 일치 수 desc로 대체 -> (3) recommendedPlaceId asc
+     */
+    private static final Comparator<CandidateDetail> CANDIDATE_COMPARATOR = Comparator
+            .comparingInt(CandidateDetail::voterCnt).reversed()
+            .thenComparing(VoteService::compareByDistanceOrPreferenceMatch)
+            .thenComparing(CandidateDetail::recommendedPlaceId);
+
+    public PlaceVoteResultResponse getMeetingPlaceVoteResult(Long userId, Long meetingId) {
+        // 모임 조회
+        Meeting meeting = meetingRepository.findById(meetingId)
+                .orElseThrow(() -> new CustomException(MEETING_NOT_FOUND));
+
+        // 조회 권한 확인: 탈퇴하지 않은 모임 참여자인지 확인
+        Participant me = participantRepository.findByMeetingIdAndUserIdAndLeftAtIsNull(meetingId, userId)
+                .orElseThrow(() -> new CustomException(VOTE_ACCESS_DENIED));
+
+        // 투표 내역 집계
+        boolean isVoteFinished = meeting.getStatus() == MeetingStatus.CONFIRMED || meeting.getStatus() == MeetingStatus.COMPLETED;
+        int totalVoterCnt = (int) placeVoteRepository.countDistinctVoters(meetingId);
+
+        List<PlaceVoteSummary> placeVotes = placeVoteRepository.aggregateByPlace(meetingId, me.getId());
+        if(placeVotes.isEmpty()) {
+            return PlaceVoteResultResponse.of(isVoteFinished, totalVoterCnt, List.of());
+        }
+
+        // 추천 장소 정보 IN 배치 조회 -> Map<recommendedPlaceId, RecommendedPlace>
+        List<Long> placeIds = placeVotes.stream().map(PlaceVoteSummary::recommendedPlaceId).toList();
+        Map<Long, RecommendedPlace> placeById = recommendedPlaceRepository.findAllById(placeIds).stream()
+                .collect(Collectors.toMap(RecommendedPlace::getId, Function.identity()));
+
+        // 참여자 출발지 좌표 IN 배치 조회
+        List<double[]> departureCoordinates = getParticipantDepartureLocations(meetingId);
+
+        List<CandidateDetail> details = placeVotes.stream()
+                .map(summary -> toCandidateDetail(summary, placeById.get(summary.recommendedPlaceId()), departureCoordinates))
+                .toList();
+
+        List<PlaceVoteResultResponse.Candidate> candidates = details.stream()
+                .sorted(CANDIDATE_COMPARATOR)
+                .limit(TOP_N)
+                .map(CandidateDetail::toResponse)
+                .toList();
+
+        return PlaceVoteResultResponse.of(isVoteFinished, totalVoterCnt, candidates);
+    }
+
+    private List<double[]> getParticipantDepartureLocations(Long meetingId) {
+        List<Participant> participants = participantRepository.findAllByMeetingIdAndLeftAtIsNull(meetingId);
+        List<Long> participantIds = participants.stream().map(Participant::getId).toList();
+        return participantPreferenceRepository.findAllByParticipantIdIn(participantIds).stream()
+                .map(p -> new double[]{p.getDepartureLatitude().doubleValue(), p.getDepartureLongitude().doubleValue()})
+                .toList();
+    }
+
+    private CandidateDetail toCandidateDetail(
+            PlaceVoteSummary summary,
+            RecommendedPlace recommendedPlace,
+            List<double[]> departureCoordinates
+    ) {
+        String placeName = null;
+        Double avgDistance = null;
+
+        try {
+            GooglePlaceLocationResponse googlePlace = googlePlacesClient.getPlaceLocation(recommendedPlace.getGooglePlaceId());
+            if (googlePlace != null && googlePlace.location() != null) {
+                placeName = googlePlace.displayName() != null ? googlePlace.displayName().text() : null;
+                avgDistance = averageDistanceKm(
+                        departureCoordinates, googlePlace.location().latitude(), googlePlace.location().longitude()
+                );
+            }
+        } catch (CustomException e) {
+            log.warn("[장소 투표 결과] 구글 장소 조회 실패 => 정렬 기준 취향 일치 수로 대체, recommendedPlaceId={}, errorCode={}",
+                    summary.recommendedPlaceId(), e.getCustomErrorCode());
+        }
+
+        return new CandidateDetail(
+                summary.recommendedPlaceId(),
+                placeName,
+                summary.voterCnt().intValue(),
+                summary.isVotedByMe(),
+                avgDistance,
+                recommendedPlace.getPreferenceMatchCnt()
+        );
+    }
+
+    private Double averageDistanceKm(List<double[]> departureCoordinates, double placeLat, double placeLng) {
+        return departureCoordinates.stream()
+                .mapToDouble(c -> areaDistanceService.calculateDistanceKm(c[0], c[1], placeLat, placeLng))
+                .average()
+                .orElse(0.0);
+    }
+
+    private static int compareByDistanceOrPreferenceMatch(CandidateDetail a, CandidateDetail b) {
+        if (a.avgDistanceKm() != null && b.avgDistanceKm() != null) {
+            return Double.compare(a.avgDistanceKm(), b.avgDistanceKm());
+        }
+        return Integer.compare(b.preferenceMatchCnt(), a.preferenceMatchCnt());
+    }
+
+    private record CandidateDetail(
+            Long recommendedPlaceId,
+            String placeName,
+            int voterCnt,
+            boolean isVotedByMe,
+            Double avgDistanceKm,
+            int preferenceMatchCnt
+    ) {
+        PlaceVoteResultResponse.Candidate toResponse() {
+            return PlaceVoteResultResponse.Candidate.of(recommendedPlaceId, placeName, voterCnt, isVotedByMe);
+        }
     }
 }
