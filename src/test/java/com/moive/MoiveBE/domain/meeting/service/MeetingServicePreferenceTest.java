@@ -5,6 +5,7 @@ import com.moive.MoiveBE.domain.meeting.dto.SubmitPreferenceResponse;
 import com.moive.MoiveBE.domain.meeting.entity.*;
 import com.moive.MoiveBE.domain.meeting.repository.*;
 import com.moive.MoiveBE.domain.notification.service.NotificationService;
+import com.moive.MoiveBE.domain.recommendation.service.AreaRecommendationService;
 import com.moive.MoiveBE.global.exception.CustomErrorCode;
 import com.moive.MoiveBE.global.exception.CustomException;
 import org.junit.jupiter.api.AfterEach;
@@ -37,6 +38,7 @@ class MeetingServicePreferenceTest {
     @Mock private ActivityRepository activityRepository;
     @Mock private DateVoteRepository dateVoteRepository;
     @Mock private NotificationService notificationService;
+    @Mock private AreaRecommendationService areaRecommendationService;
 
     private MeetingService meetingService;
 
@@ -51,6 +53,7 @@ class MeetingServicePreferenceTest {
                 activityRepository,
                 dateVoteRepository,
                 notificationService,
+                areaRecommendationService,
                 "https://moiveserver.store/invite"
         );
         SecurityContextHolder.getContext().setAuthentication(
