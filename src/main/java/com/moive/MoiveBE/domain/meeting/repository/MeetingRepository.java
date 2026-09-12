@@ -4,6 +4,7 @@ import com.moive.MoiveBE.domain.meeting.entity.Meeting;
 import com.moive.MoiveBE.domain.meeting.entity.MeetingStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -15,4 +16,5 @@ public interface MeetingRepository extends JpaRepository<Meeting, Long> {
 
     List<Meeting> findAllByStatus(MeetingStatus status);
 
+    List<Meeting> findAllByStatusAndScheduledDateBefore(MeetingStatus status, LocalDate date);
 }

@@ -9,6 +9,7 @@ import com.moive.MoiveBE.domain.meeting.entity.*;
 import com.moive.MoiveBE.domain.meeting.repository.*;
 import com.moive.MoiveBE.global.exception.CustomErrorCode;
 import com.moive.MoiveBE.global.exception.CustomException;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -22,6 +23,7 @@ import java.util.Optional;
 
 @Service
 @Transactional
+@Slf4j
 public class MeetingService {
 
     private static final int MAX_PARTICIPANTS = 10;
@@ -250,6 +252,21 @@ public class MeetingService {
                 meeting.getStatus(),
                 triggered
         );
+    }
+
+    /**
+     * 모임 일정이 지난 확정된 모임을 종료 처리 (CONFIRMED -> COMPLETED)
+     * - 날짜 단위로 판단 (scheduledDate < 오늘)
+     * - 매일 MeetingLifecycleScheduler에서 호출됨
+     */
+    public void completeElapsedMeetings() {
+        List<Meeting> elapsedMeetings = meetingRepository
+                .findAllByStatusAndScheduledDateBefore(MeetingStatus.CONFIRMED, LocalDate.now());
+
+        for (Meeting meeting : elapsedMeetings) {
+            meeting.complete();
+            log.info("[모임 종료 처리] 모임 일정 경과로 자동 종료 (meetingId={})", meeting.getId());
+        }
     }
 
     private Long getCurrentUserId() {

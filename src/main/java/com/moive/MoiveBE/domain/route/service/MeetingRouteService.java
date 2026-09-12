@@ -21,7 +21,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -57,10 +56,8 @@ public class MeetingRouteService {
         validateConfirmed(meeting);
         validateParticipant(meetingId, userId);
 
-        // 모임 종료 여부 확인 (모임 일시가 현재 시각을 지났으면 종료)
-        LocalDateTime meetingDateTime =
-                LocalDateTime.of(meeting.getScheduledDate(), meeting.getScheduledTime());
-        boolean isEnded = !meetingDateTime.isAfter(LocalDateTime.now());
+        // 모임 종료 여부 확인 (매일 자정 배치가 일정 경과 시 COMPLETED로 전환함)
+        boolean isEnded = meeting.getStatus() == MeetingStatus.COMPLETED;
 
         // 확정된 장소 존재 여부 확인, 있다면 장소 정보 조회
         Long confirmedPlaceId = meeting.getConfirmedPlaceId();
