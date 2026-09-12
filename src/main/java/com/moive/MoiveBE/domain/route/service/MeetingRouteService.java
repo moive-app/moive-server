@@ -118,7 +118,12 @@ public class MeetingRouteService {
             log.warn("[모임 상세] 구글 장소 조회 응답이 비어있음 => isFetchFailed=true, confirmedPlaceId={}", confirmedPlaceId);
             return MeetingDetailResponse.Place.fetchFailed(confirmedPlaceId);
         }
-        return MeetingDetailResponse.Place.of(confirmedPlaceId, googlePlace, recommendedPlace.getCategory());
+        return MeetingDetailResponse.Place.of(
+                confirmedPlaceId,
+                recommendedPlace.getRecommendedAreaId(),
+                googlePlace,
+                recommendedPlace.getCategory()
+        );
     }
 
     /**
