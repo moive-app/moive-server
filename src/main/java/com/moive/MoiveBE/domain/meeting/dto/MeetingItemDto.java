@@ -11,5 +11,6 @@ public record MeetingItemDto(
         String scheduledDate,
         String scheduledTime,
         int participantCnt,
-        List<String> participantImages
+        List<String> participantImages,
+        List<String> participantNicknames
 ) {}
