@@ -1,6 +1,7 @@
 package com.moive.MoiveBE.domain.route.dto;
 
 import com.moive.MoiveBE.domain.meeting.entity.Meeting;
+import com.moive.MoiveBE.domain.meeting.entity.MeetingStatus;
 import com.moive.MoiveBE.domain.meeting.entity.ParticipantPreference;
 import com.moive.MoiveBE.domain.recommendation.dto.GooglePlaceLocationResponse;
 import com.moive.MoiveBE.domain.user.entity.User;
@@ -14,15 +15,12 @@ import java.util.List;
 
 @Builder(access = AccessLevel.PRIVATE)
 public record MeetingDetailResponse(
-        String status,               // CONFIRMED | ENDED
+        String status,               // CONFIRMED | COMPLETED
         Place place,                 // 전원 미투표 => null
         LocalDate meetingDate,       // yyyy-MM-dd
         LocalTime meetingTime,       // HH:mm
         List<ParticipantInfo> participants
 ) {
-
-    private static final String STATUS_CONFIRMED = "CONFIRMED";
-    private static final String STATUS_ENDED = "ENDED";
 
     public static MeetingDetailResponse of(
             boolean isEnded,
@@ -31,7 +29,7 @@ public record MeetingDetailResponse(
             List<ParticipantInfo> participants
     ) {
         return MeetingDetailResponse.builder()
-                .status(isEnded ? STATUS_ENDED : STATUS_CONFIRMED)
+                .status(isEnded ? MeetingStatus.COMPLETED.name() : MeetingStatus.CONFIRMED.name())
                 .place(place)
                 .meetingDate(meeting.getScheduledDate())
                 .meetingTime(meeting.getScheduledTime())
@@ -82,8 +80,8 @@ public record MeetingDetailResponse(
             String profileImageUrl,
             String nickname,
             String address,
-            Integer transferCnt,     // ENDED or 이동 경로 조회 실패 => null
-            Integer totalTime        // ENDED or 이동 경로 조회 실패 => null
+            Integer transferCnt,     // COMPLETED or 이동 경로 조회 실패 => null
+            Integer totalTime        // COMPLETED or 이동 경로 조회 실패 => null
     ) {
         public static ParticipantInfo of(User user, ParticipantPreference preference, RouteDetail route) {
             return ParticipantInfo.builder()

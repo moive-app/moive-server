@@ -235,6 +235,9 @@ class RecommendationServiceTest {
         given(recommendedArea.getRecommendationRunId())
                 .willReturn(recommendationRunId);
 
+        given(recommendedArea.getAreaName())
+                .willReturn("역삼동");
+
         given(recommendationRunRepository.findById(recommendationRunId))
                 .willReturn(Optional.of(recommendationRun));
 
@@ -352,6 +355,9 @@ class RecommendationServiceTest {
 
         assertThat(response.category())
                 .isEqualTo("한식");
+
+        assertThat(response.areaName())
+                .isEqualTo("역삼동");
 
         assertThat(response.address())
                 .isEqualTo("서울특별시 강남구 테헤란로 123");

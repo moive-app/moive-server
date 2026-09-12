@@ -261,11 +261,7 @@ public class AuthService {
         String refreshToken = request.refreshToken();
 
         // 1. Refresh Token 자체 유효성 검증
-        if (!jwtTokenProvider.validateRefreshToken(refreshToken)) {
-            throw new CustomException(
-                    CustomErrorCode.INVALID_REFRESH_TOKEN
-            );
-        }
+        jwtTokenProvider.validateRefreshToken(refreshToken);
 
         // 2. Refresh Token에서 userId 추출
         Long userId = jwtTokenProvider.getUserId(refreshToken);
@@ -316,11 +312,7 @@ public class AuthService {
         String refreshToken = request.refreshToken();
 
         // 1. Refresh Token 유효성 검증
-        if (!jwtTokenProvider.validateRefreshToken(refreshToken)) {
-            throw new CustomException(
-                    CustomErrorCode.INVALID_REFRESH_TOKEN
-            );
-        }
+        jwtTokenProvider.validateRefreshToken(refreshToken);
 
         // 2. Refresh Token에서 userId 추출
         Long userId = jwtTokenProvider.getUserId(refreshToken);
