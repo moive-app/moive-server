@@ -30,3 +30,6 @@ aws:
 openai:
   api-key: ${OPENAI_API_KEY}
   model: gpt-5-mini
+
+firebase:
+  service-account-path: ${FIREBASE_SERVICE_ACCOUNT_PATH}

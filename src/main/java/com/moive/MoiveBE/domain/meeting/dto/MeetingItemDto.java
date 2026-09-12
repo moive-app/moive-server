@@ -1,5 +1,7 @@
 package com.moive.MoiveBE.domain.meeting.dto;
 
+import java.util.List;
+
 public record MeetingItemDto(
         Long meetingId,
         String name,
@@ -9,5 +11,6 @@ public record MeetingItemDto(
         String scheduledDate,
         String scheduledTime,
         int participantCnt,
-        int submittedCnt
+        List<String> participantImages,
+        List<String> participantNicknames
 ) {}

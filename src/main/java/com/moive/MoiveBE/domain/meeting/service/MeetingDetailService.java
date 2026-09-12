@@ -75,7 +75,8 @@ public class MeetingDetailService {
                             user != null ? user.getNickname() : "",
                             user != null ? user.getProfileImageUrl() : null,
                             p.getState().name(),
-                            p.getState().getLabel()
+                            p.getState().getLabel(),
+                            p.getUserId().equals(currentUserId)
                     );
                 })
                 .toList();

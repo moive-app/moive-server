@@ -12,4 +12,5 @@ public interface ParticipantPreferenceRepository extends JpaRepository<Participa
 
     List<ParticipantPreference> findAllByParticipantIdIn(List<Long> participantIds);
 
+    void deleteByParticipantId(Long participantId);
 }

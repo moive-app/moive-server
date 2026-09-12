@@ -25,6 +25,7 @@ RUN ./gradlew bootJar -x test
 FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app
 COPY --from=builder /app/build/libs/*.jar app.jar
+COPY firebase-service-account.json firebase-service-account.json
 EXPOSE 8080
 
 # /dev/./urandom: SecureRandom 초기화 지연 방지 (Spring Boot 기동 속도 개선)
