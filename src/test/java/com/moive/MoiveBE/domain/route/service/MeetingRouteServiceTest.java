@@ -51,8 +51,7 @@ class MeetingRouteServiceTest {
     private static final Long CONFIRMED_PLACE_ID = 100L;
     private static final String GOOGLE_PLACE_ID = "google-place-id";
 
-    private static final LocalDate PAST_DATE = LocalDate.of(2025, 1, 1);    // 모임 일시 경과 => ENDED
-    private static final LocalDate FUTURE_DATE = LocalDate.of(2027, 1, 1);  // 모임 일시 이전 => CONFIRMED
+    private static final LocalDate SCHEDULED_DATE = LocalDate.of(2026, 10, 10);
     private static final LocalTime SCHEDULED_TIME = LocalTime.of(18, 0);
 
     @Mock private MeetingRepository meetingRepository;
@@ -82,7 +81,7 @@ class MeetingRouteServiceTest {
     @Test
     void 확정_전_모임이면_MEETING_NOT_CONFIRMED() {
         // given
-        Meeting meeting = meeting(MeetingStatus.VOTING, CONFIRMED_PLACE_ID, false);
+        Meeting meeting = meeting(MeetingStatus.VOTING, CONFIRMED_PLACE_ID);
         when(meetingRepository.findById(MEETING_ID)).thenReturn(Optional.of(meeting));
 
         // when & then
@@ -94,7 +93,7 @@ class MeetingRouteServiceTest {
     @Test
     void 유저가_모임_참여자가_아니면_MEETING_ACCESS_DENIED() {
         // given
-        Meeting meeting = meeting(MeetingStatus.CONFIRMED, CONFIRMED_PLACE_ID, false);
+        Meeting meeting = meeting(MeetingStatus.CONFIRMED, CONFIRMED_PLACE_ID);
         when(meetingRepository.findById(MEETING_ID)).thenReturn(Optional.of(meeting));
         when(participantRepository.findByMeetingIdAndUserIdAndLeftAtIsNull(MEETING_ID, USER_ID))
                 .thenReturn(Optional.empty());
@@ -105,21 +104,21 @@ class MeetingRouteServiceTest {
     }
 
     /**
-     * status(응답) = 모임 종료 여부(모임 일시 vs 현재 시각) x 최종 장소 확정 여부 조합
+     * status(응답) = 모임 종료 여부(= meeting.status가 COMPLETED인지) x 최종 장소 확정 여부 조합
      *
-     * 1. CONFIRMED (모임 일시 이전)
+     * 1. CONFIRMED (status=CONFIRMED)
      *   - 장소 확정 (confirmedPlaceId != null) : 장소 정보 + 참여자 이동 정보 반환
      *   - 장소 미확정 (confirmedPlaceId == null) : place null, participants 빈 배열([])
      *
-     * 2. ENDED (모임 일시 경과)
+     * 2. ENDED (status=COMPLETED, 자정 배치가 일정 경과 시 전환)
      *   - 장소 확정 (confirmedPlaceId != null) : 장소 정보 반환, 이동 정보는 null
      *   - 장소 미확정 (confirmedPlaceId == null) : place null, 이동 정보는 null
      */
 
     @Test
-    void 모임_일시가_지나지_않았으면_status는_CONFIRMED이다() {
-        // given: 모임 일시가 미래 (전원 미투표 케이스 가정)
-        stubMeetingAndAccess(meeting(MeetingStatus.CONFIRMED, null, false));
+    void 모임_상태가_CONFIRMED면_status는_CONFIRMED이다() {
+        // given: status=CONFIRMED (전원 미투표 케이스 가정)
+        stubMeetingAndAccess(meeting(MeetingStatus.CONFIRMED, null));
 
         // when
         MeetingDetailResponse response = meetingRouteService.getMeetingDetail(MEETING_ID, USER_ID);
@@ -128,7 +127,7 @@ class MeetingRouteServiceTest {
         assertThat(response.status()).isEqualTo("CONFIRMED");
         assertThat(response.place()).isNull();
         assertThat(response.participants()).isEmpty();
-        assertThat(response.meetingDate()).isEqualTo(FUTURE_DATE.toString());
+        assertThat(response.meetingDate()).isEqualTo(SCHEDULED_DATE.toString());
         assertThat(response.meetingTime()).isEqualTo("18:00");
 
         // 장소/참여자/이동 조회 진행 x
@@ -137,9 +136,9 @@ class MeetingRouteServiceTest {
     }
 
     @Test
-    void 모임_일시가_지났으면_status가_COMPLETED가_아니어도_ENDED이다() {
-        // given: CONFIRMED + 모임 진행 후
-        stubMeetingAndAccess(meeting(MeetingStatus.CONFIRMED, null, true));
+    void 모임_상태가_COMPLETED면_status는_ENDED이다() {
+        // given: status=COMPLETED (배치가 이미 전환해준 상태)
+        stubMeetingAndAccess(meeting(MeetingStatus.COMPLETED, null));
         stubParticipants(
                 List.of(participant(1L, 11L)),
                 List.of(user(11L, "lee", "img-url-1")),
@@ -158,9 +157,26 @@ class MeetingRouteServiceTest {
     }
 
     @Test
+    void 모임_상태가_CONFIRMED면_일정이_지난_날짜여도_ENDED로_바뀌지_않는다() {
+        // given: scheduledDate가 과거여도 status가 CONFIRMED면 그대로 CONFIRMED
+        Meeting meeting = mock(Meeting.class);
+        lenient().when(meeting.getStatus()).thenReturn(MeetingStatus.CONFIRMED);
+        lenient().when(meeting.getConfirmedPlaceId()).thenReturn(null);
+        lenient().when(meeting.getScheduledDate()).thenReturn(LocalDate.of(2020, 1, 1)); // 이미 지난 날짜
+        lenient().when(meeting.getScheduledTime()).thenReturn(SCHEDULED_TIME);
+        stubMeetingAndAccess(meeting);
+
+        // when
+        MeetingDetailResponse response = meetingRouteService.getMeetingDetail(MEETING_ID, USER_ID);
+
+        // then
+        assertThat(response.status()).isEqualTo("CONFIRMED");
+    }
+
+    @Test
     void CONFIRMED_전원미투표면_place는_null이고_participants는_빈_배열이다() {
-        // given: 모임 진행 전 + confirmedPlaceId 없음(전원 미투표)
-        stubMeetingAndAccess(meeting(MeetingStatus.CONFIRMED, null, false));
+        // given: status=CONFIRMED + confirmedPlaceId 없음(전원 미투표)
+        stubMeetingAndAccess(meeting(MeetingStatus.CONFIRMED, null));
 
         // when
         MeetingDetailResponse response = meetingRouteService.getMeetingDetail(MEETING_ID, USER_ID);
@@ -177,8 +193,8 @@ class MeetingRouteServiceTest {
 
     @Test
     void CONFIRMED_장소확정_구글맵조회가_성공이면_place와_참여자별_이동정보가_모두_채워진다() {
-        // given: 모임 진행 전 + 장소 확정 + 구글 조회 성공 + 참여자 2명
-        stubMeetingAndAccess(meeting(MeetingStatus.CONFIRMED, CONFIRMED_PLACE_ID, false));
+        // given: status=CONFIRMED + 장소 확정 + 구글 조회 성공 + 참여자 2명
+        stubMeetingAndAccess(meeting(MeetingStatus.CONFIRMED, CONFIRMED_PLACE_ID));
         stubRecommendedPlace();
         when(googlePlacesClient.getPlaceLocation(GOOGLE_PLACE_ID)).thenReturn(googlePlace());
 
@@ -221,8 +237,8 @@ class MeetingRouteServiceTest {
 
     @Test
     void CONFIRMED_장소확정_구글맵조회가_예외로_실패하면_place는_isFetchFailed이고_이동정보는_null이다() {
-        // given: 모임 진행 전 + 장소 확정 + 구글 조회 실패
-        stubMeetingAndAccess(meeting(MeetingStatus.CONFIRMED, CONFIRMED_PLACE_ID, false));
+        // given: status=CONFIRMED + 장소 확정 + 구글 조회 실패
+        stubMeetingAndAccess(meeting(MeetingStatus.CONFIRMED, CONFIRMED_PLACE_ID));
         stubRecommendedPlace();
         when(googlePlacesClient.getPlaceLocation(GOOGLE_PLACE_ID))
                 .thenThrow(new CustomException(PLACE_INFO_LOOKUP_FAILED));
@@ -253,8 +269,8 @@ class MeetingRouteServiceTest {
 
     @Test
     void CONFIRMED_장소확정_구글맵조회_응답이_비어있으면_place는_isFetchFailed이다() {
-        // given: 모임 진행 전 + 장소 확정, 구글 응답 null(빈 응답)
-        stubMeetingAndAccess(meeting(MeetingStatus.CONFIRMED, CONFIRMED_PLACE_ID, false));
+        // given: status=CONFIRMED + 장소 확정, 구글 응답 null(빈 응답)
+        stubMeetingAndAccess(meeting(MeetingStatus.CONFIRMED, CONFIRMED_PLACE_ID));
         stubRecommendedPlace();
         when(googlePlacesClient.getPlaceLocation(GOOGLE_PLACE_ID)).thenReturn(null);
 
@@ -275,8 +291,8 @@ class MeetingRouteServiceTest {
 
     @Test
     void ENDED_장소확정이면_status는_ENDED이고_이동정보는_null이며_카카오맵을_호출하지_않는다() {
-        // given: 모임 진행 후 + 장소 확정 + 구글 조회 성공
-        stubMeetingAndAccess(meeting(MeetingStatus.CONFIRMED, CONFIRMED_PLACE_ID, true));
+        // given: status=COMPLETED + 장소 확정 + 구글 조회 성공
+        stubMeetingAndAccess(meeting(MeetingStatus.COMPLETED, CONFIRMED_PLACE_ID));
         stubRecommendedPlace();
         when(googlePlacesClient.getPlaceLocation(GOOGLE_PLACE_ID)).thenReturn(googlePlace());
 
@@ -302,8 +318,8 @@ class MeetingRouteServiceTest {
 
     @Test
     void ENDED_전원미투표면_place는_null이지만_participants는_목록을_반환한다() {
-        // given: 모임 진행 후 + confirmedPlaceId 없음(전원 미투표)
-        stubMeetingAndAccess(meeting(MeetingStatus.CONFIRMED, null, true));
+        // given: status=COMPLETED + confirmedPlaceId 없음(전원 미투표)
+        stubMeetingAndAccess(meeting(MeetingStatus.COMPLETED, null));
         stubParticipants(
                 List.of(participant(1L, 11L), participant(2L, 12L)),
                 List.of(user(11L, "lee", "img-url-1"), user(12L, "kim", "img-url-2")),
@@ -329,8 +345,8 @@ class MeetingRouteServiceTest {
 
     @Test
     void 일부_참여자만_카카오맵_조회에_실패하면_그_참여자만_이동정보가_null이고_나머지는_유지된다() {
-        // given: 모임 진행 전 + 장소 확정, 2번 참여자의 카카오맵 API 조회만 예외 발생
-        stubMeetingAndAccess(meeting(MeetingStatus.CONFIRMED, CONFIRMED_PLACE_ID, false));
+        // given: status=CONFIRMED + 장소 확정, 2번 참여자의 카카오맵 API 조회만 예외 발생
+        stubMeetingAndAccess(meeting(MeetingStatus.CONFIRMED, CONFIRMED_PLACE_ID));
         stubRecommendedPlace();
         when(googlePlacesClient.getPlaceLocation(GOOGLE_PLACE_ID)).thenReturn(googlePlace());
 
@@ -390,12 +406,11 @@ class MeetingRouteServiceTest {
         when(participantPreferenceRepository.findAllByParticipantIdIn(anyList())).thenReturn(preferences);
     }
 
-    // isEnded=true면 모임 일시를 과거로(=> ENDED), false면 미래로(=> CONFIRMED) 설정
-    private Meeting meeting(MeetingStatus status, Long confirmedPlaceId, boolean ended) {
+    private Meeting meeting(MeetingStatus status, Long confirmedPlaceId) {
         Meeting meeting = mock(Meeting.class);
         lenient().when(meeting.getStatus()).thenReturn(status);
         lenient().when(meeting.getConfirmedPlaceId()).thenReturn(confirmedPlaceId);
-        lenient().when(meeting.getScheduledDate()).thenReturn(ended ? PAST_DATE : FUTURE_DATE);
+        lenient().when(meeting.getScheduledDate()).thenReturn(SCHEDULED_DATE);
         lenient().when(meeting.getScheduledTime()).thenReturn(SCHEDULED_TIME);
         return meeting;
     }
