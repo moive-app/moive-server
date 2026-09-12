@@ -87,7 +87,7 @@ public record MeetingDetailResponse(
             return ParticipantInfo.builder()
                     .profileImageUrl(user.getProfileImageUrl())
                     .nickname(user.getNickname())
-                    .address(preference.getDepartureName())
+                    .address(preference != null ? preference.getDepartureName() : null)
                     .transferCnt(route != null ? route.transferCnt() : null)
                     .totalTime(route != null ? route.totalTime() : null)
                     .build();

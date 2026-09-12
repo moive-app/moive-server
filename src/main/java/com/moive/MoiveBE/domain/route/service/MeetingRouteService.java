@@ -188,6 +188,10 @@ public class MeetingRouteService {
         Map<Long, RouteDetail> routeByParticipantId = new LinkedHashMap<>();
         for (ParticipantDetail detail : participantDetails) {
             ParticipantPreference preference = detail.preference();
+            if (preference == null) {
+                continue;
+            }
+
             Location departure = new Location(
                     preference.getDepartureLatitude().doubleValue(),
                     preference.getDepartureLongitude().doubleValue()
