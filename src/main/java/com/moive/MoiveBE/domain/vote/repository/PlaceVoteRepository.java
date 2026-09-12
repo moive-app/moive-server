@@ -36,4 +36,6 @@ public interface PlaceVoteRepository extends JpaRepository<PlaceVote, Long> {
             @Param("meetingId") Long meetingId,
             @Param("participantId") Long participantId
     );
+
+    void deleteAllByParticipantId(Long participantId);
 }
