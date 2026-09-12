@@ -51,7 +51,7 @@ class MeetingRouteServiceTest {
     private static final Long CONFIRMED_PLACE_ID = 100L;
     private static final String GOOGLE_PLACE_ID = "google-place-id";
 
-    private static final LocalDate PAST_DATE = LocalDate.of(2025, 1, 1);    // 모임 일시 경과 => ENDED
+    private static final LocalDate PAST_DATE = LocalDate.of(2025, 1, 1);    // 모임 일시 경과 => COMPLETED
     private static final LocalDate FUTURE_DATE = LocalDate.of(2027, 1, 1);  // 모임 일시 이전 => CONFIRMED
     private static final LocalTime SCHEDULED_TIME = LocalTime.of(18, 0);
 
@@ -111,7 +111,7 @@ class MeetingRouteServiceTest {
      *   - 장소 확정 (confirmedPlaceId != null) : 장소 정보 + 참여자 이동 정보 반환
      *   - 장소 미확정 (confirmedPlaceId == null) : place null, participants 빈 배열([])
      *
-     * 2. ENDED (모임 일시 경과)
+     * 2. COMPLETED (모임 일시 경과)
      *   - 장소 확정 (confirmedPlaceId != null) : 장소 정보 반환, 이동 정보는 null
      *   - 장소 미확정 (confirmedPlaceId == null) : place null, 이동 정보는 null
      */
@@ -137,8 +137,8 @@ class MeetingRouteServiceTest {
     }
 
     @Test
-    void 모임_일시가_지났으면_status가_COMPLETED가_아니어도_ENDED이다() {
-        // given: CONFIRMED + 모임 진행 후
+    void 모임_일시가_지났으면_엔티티_status가_COMPLETED가_아니어도_응답_status는_COMPLETED이다() {
+        // given: CONFIRMED + 모임 진행 후 (엔티티 status는 아직 CONFIRMED)
         stubMeetingAndAccess(meeting(MeetingStatus.CONFIRMED, null, true));
         stubParticipants(
                 List.of(participant(1L, 11L)),
@@ -150,7 +150,7 @@ class MeetingRouteServiceTest {
         MeetingDetailResponse response = meetingRouteService.getMeetingDetail(MEETING_ID, USER_ID);
 
         // then
-        assertThat(response.status()).isEqualTo("ENDED");
+        assertThat(response.status()).isEqualTo("COMPLETED");
         assertThat(response.participants()).hasSize(1);
         assertThat(response.participants().get(0).transferCnt()).isNull(); // 종료 => 이동 정보 없음
 
@@ -274,7 +274,7 @@ class MeetingRouteServiceTest {
     }
 
     @Test
-    void ENDED_장소확정이면_status는_ENDED이고_이동정보는_null이며_카카오맵을_호출하지_않는다() {
+    void COMPLETED_장소확정이면_status는_COMPLETED이고_이동정보는_null이며_카카오맵을_호출하지_않는다() {
         // given: 모임 진행 후 + 장소 확정 + 구글 조회 성공
         stubMeetingAndAccess(meeting(MeetingStatus.CONFIRMED, CONFIRMED_PLACE_ID, true));
         stubRecommendedPlace();
@@ -290,7 +290,7 @@ class MeetingRouteServiceTest {
         MeetingDetailResponse response = meetingRouteService.getMeetingDetail(MEETING_ID, USER_ID);
 
         // then
-        assertThat(response.status()).isEqualTo("ENDED");
+        assertThat(response.status()).isEqualTo("COMPLETED");
         assertThat(response.place()).isNotNull();
         assertThat(response.place().location()).isNotNull(); // 종료돼도 장소 정보 자체는 제공
         assertThat(response.participants()).hasSize(1);
@@ -301,7 +301,7 @@ class MeetingRouteServiceTest {
     }
 
     @Test
-    void ENDED_전원미투표면_place는_null이지만_participants는_목록을_반환한다() {
+    void COMPLETED_전원미투표면_place는_null이지만_participants는_목록을_반환한다() {
         // given: 모임 진행 후 + confirmedPlaceId 없음(전원 미투표)
         stubMeetingAndAccess(meeting(MeetingStatus.CONFIRMED, null, true));
         stubParticipants(
@@ -314,7 +314,7 @@ class MeetingRouteServiceTest {
         MeetingDetailResponse response = meetingRouteService.getMeetingDetail(MEETING_ID, USER_ID);
 
         // then
-        assertThat(response.status()).isEqualTo("ENDED");
+        assertThat(response.status()).isEqualTo("COMPLETED");
         assertThat(response.place()).isNull();
         assertThat(response.participants()).hasSize(2); // 빈 배열 아님
         assertThat(response.participants().get(0).transferCnt()).isNull();
@@ -390,7 +390,7 @@ class MeetingRouteServiceTest {
         when(participantPreferenceRepository.findAllByParticipantIdIn(anyList())).thenReturn(preferences);
     }
 
-    // isEnded=true면 모임 일시를 과거로(=> ENDED), false면 미래로(=> CONFIRMED) 설정
+    // ended=true면 모임 일시를 과거로(=> COMPLETED), false면 미래로(=> CONFIRMED) 설정
     private Meeting meeting(MeetingStatus status, Long confirmedPlaceId, boolean ended) {
         Meeting meeting = mock(Meeting.class);
         lenient().when(meeting.getStatus()).thenReturn(status);
