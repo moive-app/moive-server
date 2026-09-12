@@ -22,4 +22,6 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     boolean existsByUserIdAndIsReadFalseAndCreatedAtAfter(Long userId, LocalDateTime from);
 
     List<Notification> findByUserIdAndMeetingIdAndTypeAndIsReadFalse(Long userId, Long meetingId, NotificationType type);
+
+    void deleteAllByUserId(Long userId);
 }
