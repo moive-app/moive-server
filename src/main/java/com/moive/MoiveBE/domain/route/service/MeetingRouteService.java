@@ -21,7 +21,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -57,20 +56,18 @@ public class MeetingRouteService {
         validateConfirmed(meeting);
         validateParticipant(meetingId, userId);
 
-        // 모임 종료 여부 확인 (모임 일시가 현재 시각을 지났으면 종료)
-        LocalDateTime meetingDateTime =
-                LocalDateTime.of(meeting.getScheduledDate(), meeting.getScheduledTime());
-        boolean isEnded = !meetingDateTime.isAfter(LocalDateTime.now());
+        // 모임 종료 여부 확인 (매일 자정 배치가 일정 경과 시 COMPLETED로 전환함)
+        boolean isCompleted = meeting.getStatus() == MeetingStatus.COMPLETED;
 
         // 확정된 장소 존재 여부 확인, 있다면 장소 정보 조회
         Long confirmedPlaceId = meeting.getConfirmedPlaceId();
         MeetingDetailResponse.Place placeInfo = fetchPlaceInfo(confirmedPlaceId);
 
-        // 참여자 목록 조회 & 이동 정보 조회(조건: 모임 진행 전(!isEnded) + 확정된 장소 있음 + 구글맵 장소 조회 성공)
+        // 참여자 목록 조회 & 이동 정보 조회(조건: 모임 진행 전(!isCompleted) + 확정된 장소 있음 + 구글맵 장소 조회 성공)
         List<MeetingDetailResponse.ParticipantInfo> participants =
-                getParticipantsInfo(meetingId, confirmedPlaceId, isEnded, placeInfo);
+                getParticipantsInfo(meetingId, confirmedPlaceId, isCompleted, placeInfo);
 
-        return MeetingDetailResponse.of(isEnded, meeting, placeInfo, participants);
+        return MeetingDetailResponse.of(meeting, placeInfo, participants);
     }
 
     /**
@@ -128,20 +125,20 @@ public class MeetingRouteService {
     private List<MeetingDetailResponse.ParticipantInfo> getParticipantsInfo(
             Long meetingId,
             Long confirmedPlaceId,
-            boolean isEnded,
+            boolean isCompleted,
             MeetingDetailResponse.Place placeInfo
     ) {
         // 모임 진행 전 + 확정된 장소 없음(전원 미투표) => 빈 리스트 반환
-        if (!isEnded && confirmedPlaceId == null) {
+        if (!isCompleted && confirmedPlaceId == null) {
             return List.of();
         }
 
         // 모임 참여자 정보 조회
         List<ParticipantDetail> participantDetails = getParticipantDetails(meetingId);
 
-        // 이동 정보 조회 (모임 진행 전(!isEnded) + 확정된 장소 있음 + 구글맵 장소 조회 성공)
+        // 이동 정보 조회 (모임 진행 전(!isCompleted) + 확정된 장소 있음 + 구글맵 장소 조회 성공)
         Map<Long, RouteDetail> routeByParticipantId = Map.of();
-        if (!isEnded && placeInfo != null && !placeInfo.isFetchFailed()) {
+        if (!isCompleted && placeInfo != null && !placeInfo.isFetchFailed()) {
             routeByParticipantId = fetchRouteInfo(participantDetails, placeInfo);
         }
 
