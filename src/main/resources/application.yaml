@@ -33,3 +33,6 @@ openai:
 
 place-vote:
   deadline-days: ${PLACE_VOTE_DEADLINE_DAYS:1}
+
+meeting:
+  daily-batch-cron: ${MEETING_DAILY_BATCH_CRON:0 0 0 * * *} # 매일 자정 (장소 투표 마감 + 일정 경과 모임 종료 처리)
