@@ -61,9 +61,6 @@ class AuthServiceLogoutTest {
 
         User user = mock(User.class);
 
-        when(jwtTokenProvider.validateRefreshToken(refreshToken))
-                .thenReturn(true);
-
         when(jwtTokenProvider.getUserId(refreshToken))
                 .thenReturn(userId);
 
@@ -91,8 +88,11 @@ class AuthServiceLogoutTest {
         LogoutRequest request =
                 new LogoutRequest(refreshToken);
 
-        when(jwtTokenProvider.validateRefreshToken(refreshToken))
-                .thenReturn(false);
+        doThrow(new CustomException(
+                CustomErrorCode.INVALID_REFRESH_TOKEN
+        ))
+                .when(jwtTokenProvider)
+                .validateRefreshToken(refreshToken);
 
         // when & then
         assertThatThrownBy(() ->
@@ -122,9 +122,6 @@ class AuthServiceLogoutTest {
                 new LogoutRequest(refreshToken);
 
         User user = mock(User.class);
-
-        when(jwtTokenProvider.validateRefreshToken(refreshToken))
-                .thenReturn(true);
 
         when(jwtTokenProvider.getUserId(refreshToken))
                 .thenReturn(userId);
@@ -161,8 +158,11 @@ class AuthServiceLogoutTest {
         LogoutRequest request =
                 new LogoutRequest(accessToken);
 
-        when(jwtTokenProvider.validateRefreshToken(accessToken))
-                .thenReturn(false);
+        doThrow(new CustomException(
+                CustomErrorCode.INVALID_REFRESH_TOKEN
+        ))
+                .when(jwtTokenProvider)
+                .validateRefreshToken(accessToken);
 
         // when & then
         assertThatThrownBy(() ->

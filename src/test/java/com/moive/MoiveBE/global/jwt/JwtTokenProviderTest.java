@@ -1,9 +1,13 @@
 package com.moive.MoiveBE.global.jwt;
 
+import com.moive.MoiveBE.global.exception.CustomErrorCode;
+import com.moive.MoiveBE.global.exception.CustomException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class JwtTokenProviderTest {
 
@@ -69,12 +73,10 @@ class JwtTokenProviderTest {
         String accessToken =
                 jwtTokenProvider.createAccessToken(1L);
 
-        // when
-        boolean result =
-                jwtTokenProvider.validateAccessToken(accessToken);
-
-        // then
-        assertThat(result).isTrue();
+        // when & then
+        assertThatCode(() ->
+                jwtTokenProvider.validateAccessToken(accessToken)
+        ).doesNotThrowAnyException();
     }
 
     @Test
@@ -83,12 +85,10 @@ class JwtTokenProviderTest {
         String refreshToken =
                 jwtTokenProvider.createRefreshToken(1L);
 
-        // when
-        boolean result =
-                jwtTokenProvider.validateRefreshToken(refreshToken);
-
-        // then
-        assertThat(result).isTrue();
+        // when & then
+        assertThatCode(() ->
+                jwtTokenProvider.validateRefreshToken(refreshToken)
+        ).doesNotThrowAnyException();
     }
 
     @Test
@@ -97,12 +97,18 @@ class JwtTokenProviderTest {
         String refreshToken =
                 jwtTokenProvider.createRefreshToken(1L);
 
-        // when
-        boolean result =
-                jwtTokenProvider.validateAccessToken(refreshToken);
+        // when & then
+        assertThatThrownBy(() ->
+                jwtTokenProvider.validateAccessToken(refreshToken)
+        )
+                .isInstanceOf(CustomException.class)
+                .satisfies(exception -> {
+                    CustomException customException =
+                            (CustomException) exception;
 
-        // then
-        assertThat(result).isFalse();
+                    assertThat(customException.getCustomErrorCode())
+                            .isEqualTo(CustomErrorCode.INVALID_ACCESS_TOKEN);
+                });
     }
 
     @Test
@@ -111,12 +117,18 @@ class JwtTokenProviderTest {
         String accessToken =
                 jwtTokenProvider.createAccessToken(1L);
 
-        // when
-        boolean result =
-                jwtTokenProvider.validateRefreshToken(accessToken);
+        // when & then
+        assertThatThrownBy(() ->
+                jwtTokenProvider.validateRefreshToken(accessToken)
+        )
+                .isInstanceOf(CustomException.class)
+                .satisfies(exception -> {
+                    CustomException customException =
+                            (CustomException) exception;
 
-        // then
-        assertThat(result).isFalse();
+                    assertThat(customException.getCustomErrorCode())
+                            .isEqualTo(CustomErrorCode.INVALID_REFRESH_TOKEN);
+                });
     }
 
     @Test
@@ -124,12 +136,18 @@ class JwtTokenProviderTest {
         // given
         String invalidToken = "invalid-token";
 
-        // when
-        boolean result =
-                jwtTokenProvider.validateAccessToken(invalidToken);
+        // when & then
+        assertThatThrownBy(() ->
+                jwtTokenProvider.validateAccessToken(invalidToken)
+        )
+                .isInstanceOf(CustomException.class)
+                .satisfies(exception -> {
+                    CustomException customException =
+                            (CustomException) exception;
 
-        // then
-        assertThat(result).isFalse();
+                    assertThat(customException.getCustomErrorCode())
+                            .isEqualTo(CustomErrorCode.INVALID_ACCESS_TOKEN);
+                });
     }
 
     @Test
@@ -137,11 +155,72 @@ class JwtTokenProviderTest {
         // given
         String invalidToken = "invalid-token";
 
-        // when
-        boolean result =
-                jwtTokenProvider.validateRefreshToken(invalidToken);
+        // when & then
+        assertThatThrownBy(() ->
+                jwtTokenProvider.validateRefreshToken(invalidToken)
+        )
+                .isInstanceOf(CustomException.class)
+                .satisfies(exception -> {
+                    CustomException customException =
+                            (CustomException) exception;
 
-        // then
-        assertThat(result).isFalse();
+                    assertThat(customException.getCustomErrorCode())
+                            .isEqualTo(CustomErrorCode.INVALID_REFRESH_TOKEN);
+                });
     }
+
+    @Test
+    void 만료된_Access_Token은_ACCESS_TOKEN_EXPIRED_예외가_발생한다() {
+        // given
+        JwtTokenProvider expiredTokenProvider =
+                new JwtTokenProvider(
+                        "12345678901234567890123456789012",
+                        -1000,
+                        1209600000
+                );
+
+        String expiredAccessToken =
+                expiredTokenProvider.createAccessToken(1L);
+
+        // when & then
+        assertThatThrownBy(() ->
+                expiredTokenProvider.validateAccessToken(expiredAccessToken)
+        )
+                .isInstanceOf(CustomException.class)
+                .satisfies(exception -> {
+                    CustomException customException =
+                            (CustomException) exception;
+
+                    assertThat(customException.getCustomErrorCode())
+                            .isEqualTo(CustomErrorCode.ACCESS_TOKEN_EXPIRED);
+                });
+    }
+
+    @Test
+    void 만료된_Refresh_Token은_REFRESH_TOKEN_EXPIRED_예외가_발생한다() {
+        // given
+        JwtTokenProvider expiredTokenProvider =
+                new JwtTokenProvider(
+                        "12345678901234567890123456789012",
+                        3600000,
+                        -1000
+                );
+
+        String expiredRefreshToken =
+                expiredTokenProvider.createRefreshToken(1L);
+
+        // when & then
+        assertThatThrownBy(() ->
+                expiredTokenProvider.validateRefreshToken(expiredRefreshToken)
+        )
+                .isInstanceOf(CustomException.class)
+                .satisfies(exception -> {
+                    CustomException customException =
+                            (CustomException) exception;
+
+                    assertThat(customException.getCustomErrorCode())
+                            .isEqualTo(CustomErrorCode.REFRESH_TOKEN_EXPIRED);
+                });
+    }
+
 }

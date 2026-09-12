@@ -1,6 +1,10 @@
 package com.moive.MoiveBE.global.jwt;
 
+import com.moive.MoiveBE.global.exception.CustomErrorCode;
+import com.moive.MoiveBE.global.exception.CustomException;
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
@@ -70,23 +74,29 @@ public class JwtTokenProvider {
         );
     }
 
-    public boolean validateAccessToken(String token) {
-        return validateTokenType(
+    public void validateAccessToken(String token) {
+        validateTokenType(
                 token,
-                ACCESS
+                ACCESS,
+                CustomErrorCode.ACCESS_TOKEN_EXPIRED,
+                CustomErrorCode.INVALID_ACCESS_TOKEN
         );
     }
 
-    public boolean validateRefreshToken(String token) {
-        return validateTokenType(
+    public void validateRefreshToken(String token) {
+        validateTokenType(
                 token,
-                REFRESH
+                REFRESH,
+                CustomErrorCode.REFRESH_TOKEN_EXPIRED,
+                CustomErrorCode.INVALID_REFRESH_TOKEN
         );
     }
 
-    private boolean validateTokenType(
+    private void validateTokenType(
             String token,
-            String expectedType
+            String expectedType,
+            CustomErrorCode expiredErrorCode,
+            CustomErrorCode invalidErrorCode
     ) {
         try {
             Claims claims = getClaims(token);
@@ -94,10 +104,18 @@ public class JwtTokenProvider {
             String tokenType =
                     claims.get(TOKEN_TYPE, String.class);
 
-            return expectedType.equals(tokenType);
+            if (!expectedType.equals(tokenType)) {
+                throw new CustomException(invalidErrorCode);
+            }
 
-        } catch (Exception e) {
-            return false;
+        } catch (ExpiredJwtException e) {
+            throw new CustomException(expiredErrorCode);
+
+        } catch (CustomException e) {
+            throw e;
+
+        } catch (JwtException | IllegalArgumentException e) {
+            throw new CustomException(invalidErrorCode);
         }
     }
 
