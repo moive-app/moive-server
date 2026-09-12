@@ -30,3 +30,6 @@ aws:
 openai:
   api-key: ${OPENAI_API_KEY}
   model: gpt-5-mini
+
+place-vote:
+  deadline-days: ${PLACE_VOTE_DEADLINE_DAYS:1}
