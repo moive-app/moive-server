@@ -402,10 +402,11 @@ class VoteServiceTest {
         when(placeVoteRepository.existsByMeetingIdAndParticipantId(MEETING_ID, MY_PARTICIPANT_ID)).thenReturn(false);
         when(placeVoteRepository.countDistinctVoters(MEETING_ID)).thenReturn(2L);
 
-        when(placeVoteRepository.aggregateByPlace(MEETING_ID, MY_PARTICIPANT_ID)).thenReturn(List.of(
+        when(placeVoteRepository.aggregateByPlace(eq(MEETING_ID), any())).thenReturn(List.of(
                 new PlaceVoteSummary(101L, 2L, 1L),
                 new PlaceVoteSummary(102L, 1L, 0L)
         ));
+
         RecommendedPlace place101 = recommendedPlaceWithId(101L, "gp-101", 1);
         RecommendedPlace place102 = recommendedPlaceWithId(102L, "gp-102", 1);
         when(recommendedPlaceRepository.findAllById(anyList())).thenReturn(List.of(place101, place102));
