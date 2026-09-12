@@ -40,8 +40,8 @@
 | 파일 | 설명 |
 |------|------|
 | `MeetingDetailResponse` | 모임 상세 응답 (ConfirmedPlaceDto, TravelSummaryDto 포함) |
-| `MeetingHomeResponse` | 모임 홈 화면 응답 (homeMessage, CTA 포함) |
-| `MeetingItemDto` | 홈/전체보기 공용 모임 목록 아이템 |
+| `MeetingHomeResponse` | 모임 홈 화면 응답 (homeMessage, CTA 포함) / `ParticipantDto`에 `isMe` 추가 |
+| `MeetingItemDto` | 홈/전체보기 공용 모임 목록 아이템 / `submittedCnt` 제거, `participantImages`, `participantNicknames` 추가 |
 | `HomeResponse` | 홈 메인화면 응답 (confirmedMeetings, myMeetings) |
 | `MeetingListResponse` | 모임 전체보기 응답 (cursor 페이지네이션) |
 
@@ -91,6 +91,8 @@ NEW_RESTRICTED 제외한 전체 참여자 수 == COND_DONE 참여자 수
 ```
 
 ### 모임 홈 화면 (`MeetingDetailService.getMeetingHome`)
+
+- `participants[].isMe`: 현재 로그인 유저와 `userId` 일치 여부로 판단
 
 서버가 status에 따라 배너 문구와 CTA를 조립해서 반환
 

@@ -22,6 +22,7 @@ public record MeetingHomeResponse(
             String nickname,
             String profileImageUrl,
             String participantState,
-            String participantStateLabel
+            String participantStateLabel,
+            boolean isMe
     ) {}
 }
