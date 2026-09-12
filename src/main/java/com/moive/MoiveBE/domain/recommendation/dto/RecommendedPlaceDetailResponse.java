@@ -6,6 +6,7 @@ public record RecommendedPlaceDetailResponse(
         Long recommendedPlaceId,
         String name,
         String category,
+        String areaName,
         String address,
         Integer preferenceMatchCnt,
         Integer averageTravelTime,
