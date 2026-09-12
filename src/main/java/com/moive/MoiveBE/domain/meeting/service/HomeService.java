@@ -195,12 +195,20 @@ public class HomeService {
     ) {
         if (m == null) return null;
         MeetingPurpose purpose = purposeMap.get(m.getId());
-        List<String> participantImages = participantsByMeeting
+        List<Participant> meetingParticipants = participantsByMeeting
                 .getOrDefault(m.getId(), List.of()).stream()
                 .limit(3)
+                .toList();
+        List<String> participantImages = meetingParticipants.stream()
                 .map(p -> {
                     User u = userMap.get(p.getUserId());
                     return u != null ? u.getProfileImageUrl() : null;
+                })
+                .toList();
+        List<String> participantNicknames = meetingParticipants.stream()
+                .map(p -> {
+                    User u = userMap.get(p.getUserId());
+                    return u != null ? u.getNickname() : null;
                 })
                 .toList();
         return new MeetingItemDto(
@@ -212,7 +220,8 @@ public class HomeService {
                 m.getScheduledDate() != null ? m.getScheduledDate().toString() : null,
                 m.getScheduledTime() != null ? m.getScheduledTime().toString() : null,
                 m.getParticipantCnt(),
-                participantImages
+                participantImages,
+                participantNicknames
         );
     }
 
