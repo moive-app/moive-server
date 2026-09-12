@@ -110,7 +110,7 @@ class MeetingRouteServiceTest {
      *   - 장소 확정 (confirmedPlaceId != null) : 장소 정보 + 참여자 이동 정보 반환
      *   - 장소 미확정 (confirmedPlaceId == null) : place null, participants 빈 배열([])
      *
-     * 2. ENDED (status=COMPLETED, 자정 배치가 일정 경과 시 전환)
+     * 2. COMPLETED (status=COMPLETED, 자정 배치가 일정 경과 시 전환)
      *   - 장소 확정 (confirmedPlaceId != null) : 장소 정보 반환, 이동 정보는 null
      *   - 장소 미확정 (confirmedPlaceId == null) : place null, 이동 정보는 null
      */
@@ -136,7 +136,7 @@ class MeetingRouteServiceTest {
     }
 
     @Test
-    void 모임_상태가_COMPLETED면_status는_ENDED이다() {
+    void 모임_상태가_COMPLETED면_status는_COMPLETED이다() {
         // given: status=COMPLETED (배치가 이미 전환해준 상태)
         stubMeetingAndAccess(meeting(MeetingStatus.COMPLETED, null));
         stubParticipants(
@@ -149,7 +149,7 @@ class MeetingRouteServiceTest {
         MeetingDetailResponse response = meetingRouteService.getMeetingDetail(MEETING_ID, USER_ID);
 
         // then
-        assertThat(response.status()).isEqualTo("ENDED");
+        assertThat(response.status()).isEqualTo("COMPLETED");
         assertThat(response.participants()).hasSize(1);
         assertThat(response.participants().get(0).transferCnt()).isNull(); // 종료 => 이동 정보 없음
 
@@ -157,7 +157,7 @@ class MeetingRouteServiceTest {
     }
 
     @Test
-    void 모임_상태가_CONFIRMED면_일정이_지난_날짜여도_ENDED로_바뀌지_않는다() {
+    void 모임_상태가_CONFIRMED면_일정이_지난_날짜여도_COMPLETED로_바뀌지_않는다() {
         // given: scheduledDate가 과거여도 status가 CONFIRMED면 그대로 CONFIRMED
         Meeting meeting = mock(Meeting.class);
         lenient().when(meeting.getStatus()).thenReturn(MeetingStatus.CONFIRMED);
@@ -290,7 +290,7 @@ class MeetingRouteServiceTest {
     }
 
     @Test
-    void ENDED_장소확정이면_status는_ENDED이고_이동정보는_null이며_카카오맵을_호출하지_않는다() {
+    void COMPLETED_장소확정이면_status는_COMPLETED이고_이동정보는_null이며_카카오맵을_호출하지_않는다() {
         // given: status=COMPLETED + 장소 확정 + 구글 조회 성공
         stubMeetingAndAccess(meeting(MeetingStatus.COMPLETED, CONFIRMED_PLACE_ID));
         stubRecommendedPlace();
@@ -306,7 +306,7 @@ class MeetingRouteServiceTest {
         MeetingDetailResponse response = meetingRouteService.getMeetingDetail(MEETING_ID, USER_ID);
 
         // then
-        assertThat(response.status()).isEqualTo("ENDED");
+        assertThat(response.status()).isEqualTo("COMPLETED");
         assertThat(response.place()).isNotNull();
         assertThat(response.place().location()).isNotNull(); // 종료돼도 장소 정보 자체는 제공
         assertThat(response.participants()).hasSize(1);
@@ -317,7 +317,7 @@ class MeetingRouteServiceTest {
     }
 
     @Test
-    void ENDED_전원미투표면_place는_null이지만_participants는_목록을_반환한다() {
+    void COMPLETED_전원미투표면_place는_null이지만_participants는_목록을_반환한다() {
         // given: status=COMPLETED + confirmedPlaceId 없음(전원 미투표)
         stubMeetingAndAccess(meeting(MeetingStatus.COMPLETED, null));
         stubParticipants(
@@ -330,7 +330,7 @@ class MeetingRouteServiceTest {
         MeetingDetailResponse response = meetingRouteService.getMeetingDetail(MEETING_ID, USER_ID);
 
         // then
-        assertThat(response.status()).isEqualTo("ENDED");
+        assertThat(response.status()).isEqualTo("COMPLETED");
         assertThat(response.place()).isNull();
         assertThat(response.participants()).hasSize(2); // 빈 배열 아님
         assertThat(response.participants().get(0).transferCnt()).isNull();
