@@ -5,6 +5,11 @@ import com.moive.MoiveBE.domain.recommendation.dto.AreaScoreResult;
 import com.moive.MoiveBE.domain.recommendation.entity.RecommendationRun;
 import com.moive.MoiveBE.domain.recommendation.entity.RecommendationStatus;
 import com.moive.MoiveBE.domain.recommendation.entity.RecommendedArea;
+import com.moive.MoiveBE.domain.meeting.entity.Participant;
+import com.moive.MoiveBE.domain.meeting.repository.MeetingRepository;
+import com.moive.MoiveBE.domain.meeting.repository.ParticipantRepository;
+import com.moive.MoiveBE.domain.meeting.entity.Meeting;
+import com.moive.MoiveBE.domain.notification.service.NotificationService;
 import com.moive.MoiveBE.domain.recommendation.repository.RecommendationRunRepository;
 import com.moive.MoiveBE.domain.recommendation.repository.RecommendedAreaRepository;
 import org.junit.jupiter.api.Test;
@@ -27,10 +32,23 @@ class AreaRecommendationSaveServiceTest {
         RecommendedAreaRepository recommendedAreaRepository =
                 mock(RecommendedAreaRepository.class);
 
+        MeetingRepository meetingRepository = mock(MeetingRepository.class);
+        ParticipantRepository participantRepository = mock(ParticipantRepository.class);
+        NotificationService notificationService = mock(NotificationService.class);
+
+        Meeting meeting = mock(Meeting.class);
+        when(meeting.getName()).thenReturn("테스트 모임");
+        when(meetingRepository.findById(1L)).thenReturn(java.util.Optional.of(meeting));
+        when(participantRepository.findAllByMeetingIdAndLeftAtIsNullOrderByJoinedAtAsc(1L))
+                .thenReturn(List.of());
+
         AreaRecommendationSaveService service =
                 new AreaRecommendationSaveService(
                         recommendationRunRepository,
-                        recommendedAreaRepository
+                        recommendedAreaRepository,
+                        meetingRepository,
+                        participantRepository,
+                        notificationService
                 );
 
         RecommendationRun run =

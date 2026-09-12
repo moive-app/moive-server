@@ -74,6 +74,12 @@ public enum CustomErrorCode {
     AREA_INFO_LOOKUP_FAILED(HttpStatus.BAD_GATEWAY, 6007, "추천 지역 정보 조회에 실패했습니다."),
     INSUFFICIENT_AREA_CANDIDATES(HttpStatus.INTERNAL_SERVER_ERROR, 6008, "추천 가능한 지역 후보가 부족합니다."),
 
+    // Notification (5xxx)
+    NOTIFICATION_NOT_FOUND(HttpStatus.NOT_FOUND, 5001, "존재하지 않는 알림입니다."),
+    NOTIFICATION_FORBIDDEN(HttpStatus.FORBIDDEN, 5002, "본인의 알림이 아닙니다."),
+    DEVICE_TOKEN_MISSING(HttpStatus.BAD_REQUEST, 5003, "기기 토큰을 입력해주세요."),
+    DEVICE_TOKEN_NOT_FOUND(HttpStatus.NOT_FOUND, 5004, "등록되지 않은 기기입니다."),
+
     // Vote (7xxx)
     PLACE_VOTE_ACCESS_DENIED(HttpStatus.FORBIDDEN, 7001, "이 모임의 참여자만 투표할 수 있습니다."),
     VOTE_ACCESS_DENIED(HttpStatus.FORBIDDEN, 7002, "이 모임의 참여자만 조회할 수 있습니다."),

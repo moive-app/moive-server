@@ -7,6 +7,8 @@ import com.moive.MoiveBE.domain.meeting.repository.DateVoteRepository;
 import com.moive.MoiveBE.domain.meeting.repository.MeetingRepository;
 import com.moive.MoiveBE.domain.meeting.repository.ParticipantPreferenceRepository;
 import com.moive.MoiveBE.domain.meeting.repository.ParticipantRepository;
+import com.moive.MoiveBE.domain.notification.entity.NotificationType;
+import com.moive.MoiveBE.domain.notification.service.NotificationService;
 import com.moive.MoiveBE.domain.recommendation.client.GooglePlacesClient;
 import com.moive.MoiveBE.domain.recommendation.dto.GooglePlaceLocationResponse;
 import com.moive.MoiveBE.domain.recommendation.entity.RecommendationRun;
@@ -61,6 +63,7 @@ public class VoteService {
     private final RecommendedPlaceRepository recommendedPlaceRepository;
     private final GooglePlacesClient googlePlacesClient;
     private final AreaDistanceService areaDistanceService;
+    private final NotificationService notificationService;
 
     @Value("${place-vote.deadline-days}")
     private int placeVoteDeadlineDays;
@@ -219,7 +222,15 @@ public class VoteService {
         List<CandidateDetail> ranked = rankCandidates(meeting.getId(), NO_VIEWER_PARTICIPANT_ID);
         Long confirmedPlaceId = ranked.isEmpty() ? null : ranked.get(0).recommendedPlaceId();
         meeting.confirmPlace(confirmedPlaceId);
-        log.info("[장소 투표] 장소 투표 마감 (meetingId={}, confirmedPlaceId={})", meeting.getId(), confirmedPlaceId);
+        log.info("[장소 투표] 마지막 투표자 완료 => 장소 확정 (meetingId={}, confirmedPlaceId={})", meeting.getConfirmedPlaceId(), confirmedPlaceId);
+
+        // NOTI-004: 장소 확정 알림 (전체 참여자)
+        List<Participant> allParticipants = participantRepository
+                .findAllByMeetingIdAndLeftAtIsNullOrderByJoinedAtAsc(meeting.getId());
+        for (Participant p : allParticipants) {
+            notificationService.sendNotification(p.getUserId(), meeting.getId(), NotificationType.MEETING_CONFIRMED,
+                    "'" + meeting.getName() + "'의 장소가 확정됐어요! 모임 정보를 확인해보세요.");
+        }
     }
 
     /**
