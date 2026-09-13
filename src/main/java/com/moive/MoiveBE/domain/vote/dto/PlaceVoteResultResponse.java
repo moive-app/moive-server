@@ -13,12 +13,19 @@ public record PlaceVoteResultResponse(
 
     public record Candidate(
             Long placeId,
+            Long placeAreaId,
             String placeName,
             int voterCnt,
             boolean isVotedByMe
     ) {
-        public static Candidate of(Long placeId, String placeName, int voterCnt, boolean isVotedByMe) {
-            return new Candidate(placeId, placeName, voterCnt, isVotedByMe);
+        public static Candidate of(
+                Long placeId,
+                Long placeAreaId,
+                String placeName,
+                int voterCnt,
+                boolean isVotedByMe
+        ) {
+            return new Candidate(placeId, placeAreaId, placeName, voterCnt, isVotedByMe);
         }
     }
 }

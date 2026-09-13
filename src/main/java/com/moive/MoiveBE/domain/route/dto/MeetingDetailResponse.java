@@ -40,6 +40,7 @@ public record MeetingDetailResponse(
     @Builder(access = AccessLevel.PRIVATE)
     public record Place(
             Long id,
+            Long areaId,
             boolean isFetchFailed,   // 구글맵 장소 조회 실패 => true
             String name,
             String address,
@@ -48,9 +49,10 @@ public record MeetingDetailResponse(
     ) {
 
         // 구글맵 장소 조회 성공
-        public static Place of(Long placeId, GooglePlaceLocationResponse googlePlace, String category) {
+        public static Place of(Long placeId, Long placeAreaId, GooglePlaceLocationResponse googlePlace, String category) {
             return Place.builder()
                     .id(placeId)
+                    .areaId(placeAreaId)
                     .isFetchFailed(false)
                     .name(textOrNull(googlePlace.displayName()))
                     .address(googlePlace.formattedAddress())
@@ -87,7 +89,7 @@ public record MeetingDetailResponse(
             return ParticipantInfo.builder()
                     .profileImageUrl(user.getProfileImageUrl())
                     .nickname(user.getNickname())
-                    .address(preference.getDepartureName())
+                    .address(preference != null ? preference.getDepartureName() : null)
                     .transferCnt(route != null ? route.transferCnt() : null)
                     .totalTime(route != null ? route.totalTime() : null)
                     .build();
