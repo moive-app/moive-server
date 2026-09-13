@@ -273,6 +273,7 @@ public class VoteService {
 
         return new CandidateDetail(
                 summary.recommendedPlaceId(),
+                recommendedPlace.getRecommendedAreaId(),
                 placeName,
                 summary.voterCnt().intValue(),
                 summary.isVotedByMe(),
@@ -298,6 +299,7 @@ public class VoteService {
 
     private record CandidateDetail(
             Long recommendedPlaceId,
+            Long placeAreaId,
             String placeName,
             int voterCnt,
             boolean isVotedByMe,
@@ -305,7 +307,13 @@ public class VoteService {
             int preferenceMatchCnt
     ) {
         PlaceVoteResultResponse.Candidate toResponse() {
-            return PlaceVoteResultResponse.Candidate.of(recommendedPlaceId, placeName, voterCnt, isVotedByMe);
+            return PlaceVoteResultResponse.Candidate.of(
+                    recommendedPlaceId,
+                    placeAreaId,
+                    placeName,
+                    voterCnt,
+                    isVotedByMe
+            );
         }
     }
 }

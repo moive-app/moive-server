@@ -359,6 +359,9 @@ class RecommendationServiceTest {
         assertThat(response.areaName())
                 .isEqualTo("역삼동");
 
+        assertThat(response.participantCnt())
+                .isEqualTo(2);
+
         assertThat(response.address())
                 .isEqualTo("서울특별시 강남구 테헤란로 123");
 
