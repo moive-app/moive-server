@@ -342,8 +342,9 @@ public class RecommendationService {
                 recommendedPlace.getId(),
                 extractKoreanPlaceName(details.displayName().text()),
                 recommendedPlace.getCategory(),
-                recommendedArea.getAreaName(),
                 details.formattedAddress(),
+                recommendedArea.getAreaName(),
+                participants.size(),
                 recommendedPlace.getPreferenceMatchCnt(),
                 averageTravelTime,
                 imageUrls
