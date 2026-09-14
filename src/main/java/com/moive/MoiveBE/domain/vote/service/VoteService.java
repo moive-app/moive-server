@@ -65,10 +65,16 @@ public class VoteService {
     /**
      * 일정 투표 현황 조회
      */
+    @Transactional
     public DateVoteResultResponse getMeetingScheduleVoteResult(Long userId, Long meetingId) {
         // 모임 조회
         Meeting meeting = meetingRepository.findById(meetingId)
                 .orElseThrow(() -> new CustomException(MEETING_NOT_FOUND));
+
+        // 모임 진행 상황 검증: 조건 입력 중에는 일정 투표 현황 조회 불가
+        if (meeting.getStatus() == MeetingStatus.CONDITION_INPUT) {
+            throw new CustomException(SCHEDULE_VOTE_NOT_STARTED);
+        }
 
         // 조회 권한 확인: 탈퇴하지 않은 모임 참여자인지 확인
         Participant participant = participantRepository.findByMeetingIdAndUserIdAndLeftAtIsNull(meetingId, userId)
@@ -98,6 +104,16 @@ public class VoteService {
                 .stream()
                 .map(this::toCandidate)
                 .toList();
+
+        // - 집계 결과 1위 일정을 모임 일정으로 확정
+        // 일정 투표는 조건 입력 단계에서 전원 완료되어야 VOTING으로 전환되므로,
+        // 별도 투표 인원 비교 없이 scheduledDate/scheduledTime이 둘 다 비어있는 경우 확정
+        if (!candidates.isEmpty() && meeting.getScheduledDate() == null && meeting.getScheduledTime() == null) {
+            DateVoteResultResponse.Candidate top = candidates.get(0);
+            meeting.confirmSchedule(top.meetingDate(), top.meetingTime());
+            log.info("[일정 투표 현황 조회] 일정 확정 (meetingId={}, scheduledDate={}, scheduledTime={})",
+                    meetingId, top.meetingDate(), top.meetingTime());
+        }
 
         return DateVoteResultResponse.of(false, totalVoterCnt, candidates);
     }
