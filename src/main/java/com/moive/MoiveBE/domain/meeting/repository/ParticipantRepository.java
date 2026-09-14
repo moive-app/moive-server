@@ -1,6 +1,7 @@
 package com.moive.MoiveBE.domain.meeting.repository;
 
 import com.moive.MoiveBE.domain.meeting.entity.Participant;
+import com.moive.MoiveBE.domain.meeting.entity.ParticipantState;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
@@ -19,4 +20,6 @@ public interface ParticipantRepository extends JpaRepository<Participant, Long> 
     Optional<Participant> findByMeetingIdAndUserId(Long meetingId, Long userId);
 
     List<Participant> findAllByMeetingIdAndLeftAtIsNull(Long meetingId);
+
+    long countByMeetingIdAndLeftAtIsNullAndStateNot(Long meetingId, ParticipantState state);
 }

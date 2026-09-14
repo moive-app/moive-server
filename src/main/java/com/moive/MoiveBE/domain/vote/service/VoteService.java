@@ -4,6 +4,7 @@ import com.moive.MoiveBE.domain.meeting.entity.Meeting;
 import com.moive.MoiveBE.domain.meeting.entity.MeetingStatus;
 import com.moive.MoiveBE.domain.meeting.entity.Participant;
 import com.moive.MoiveBE.domain.meeting.entity.ParticipantPreference;
+import com.moive.MoiveBE.domain.meeting.entity.ParticipantState;
 import com.moive.MoiveBE.domain.meeting.repository.DateVoteRepository;
 import com.moive.MoiveBE.domain.meeting.repository.MeetingRepository;
 import com.moive.MoiveBE.domain.meeting.repository.ParticipantPreferenceRepository;
@@ -136,9 +137,14 @@ public class VoteService {
                 .orElseThrow(() -> new CustomException(PLACE_VOTE_NOT_STARTED));
 
         // 유저의 투표 권한 검증
-        // - 모임 내 유효한 참여자이지
+        // - 모임 내 유효한 참여자인지
         Participant participant = participantRepository.findByMeetingIdAndUserIdAndLeftAtIsNull(meetingId, userId)
                 .orElseThrow(() -> new CustomException(PLACE_VOTE_ACCESS_DENIED));
+
+        // - 신규 참여자(투표 시작 이후 입장)는 투표 불가
+        if (participant.getState() == ParticipantState.NEW_RESTRICTED) {
+            throw new CustomException(PLACE_VOTE_RESTRICTED);
+        }
 
         // - 기투표 여부 확인
         if(placeVoteRepository.existsByMeetingIdAndParticipantId(meetingId, participant.getId())) {
@@ -167,8 +173,11 @@ public class VoteService {
         placeVoteRepository.saveAll(placeVotes);
 
         // 마지막 투표자인 경우 => 득표 집계 결과 1위 장소를 모임 장소로 확정
+        // NEW_RESTRICTED(투표 불가 신규 참여자) 제외한 투표 가능 인원과 비교
         long voterCnt = placeVoteRepository.countDistinctVoters(meetingId);
-        if(voterCnt == meeting.getParticipantCnt()) {
+        long eligibleCnt = participantRepository.countByMeetingIdAndLeftAtIsNullAndStateNot(
+                meetingId, ParticipantState.NEW_RESTRICTED);
+        if (voterCnt == eligibleCnt) {
             confirmMeetingPlace(meeting, participant.getId());
         }
     }

@@ -88,6 +88,7 @@ public enum CustomErrorCode {
     PLACE_VOTE_NOT_STARTED(HttpStatus.CONFLICT, 7005, "아직 장소 투표를 시작할 수 없습니다."),
     //PLACE_VOTE_SELECTION_EMPTY(HttpStatus.BAD_REQUEST, 7006, "최소 1개의 장소를 선택해야 합니다."),
     PLACE_VOTE_INVALID_PLACE(HttpStatus.NOT_FOUND, 7007, "이 모임의 추천 장소가 아닌 곳이 포함되어 있습니다."),
+    PLACE_VOTE_RESTRICTED(HttpStatus.FORBIDDEN, 7008, "투표 시작 이후 참여한 신규 참여자는 투표할 수 없습니다."),
 
     ;
     private final HttpStatus httpStatus;
