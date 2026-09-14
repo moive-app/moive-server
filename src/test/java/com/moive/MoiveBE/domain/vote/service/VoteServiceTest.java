@@ -4,6 +4,7 @@ import com.moive.MoiveBE.domain.meeting.entity.Meeting;
 import com.moive.MoiveBE.domain.meeting.entity.MeetingStatus;
 import com.moive.MoiveBE.domain.meeting.entity.Participant;
 import com.moive.MoiveBE.domain.meeting.entity.ParticipantPreference;
+import com.moive.MoiveBE.domain.meeting.entity.ParticipantState;
 import com.moive.MoiveBE.domain.meeting.repository.DateVoteRepository;
 import com.moive.MoiveBE.domain.meeting.repository.MeetingRepository;
 import com.moive.MoiveBE.domain.meeting.repository.ParticipantPreferenceRepository;
@@ -355,6 +356,7 @@ class VoteServiceTest {
                 .thenReturn(List.of());
         when(placeVoteRepository.existsByMeetingIdAndParticipantId(MEETING_ID, MY_PARTICIPANT_ID)).thenReturn(false);
         when(placeVoteRepository.countDistinctVoters(MEETING_ID)).thenReturn(2L);
+        when(participantRepository.countByMeetingIdAndLeftAtIsNullAndStateNot(MEETING_ID, ParticipantState.NEW_RESTRICTED)).thenReturn(2L);
 
         // 투표 집계: 101L=2표 (1위), 102L=1표
         when(placeVoteRepository.aggregateByPlace(MEETING_ID, MY_PARTICIPANT_ID)).thenReturn(List.of(
@@ -392,6 +394,7 @@ class VoteServiceTest {
 
         when(placeVoteRepository.existsByMeetingIdAndParticipantId(MEETING_ID, MY_PARTICIPANT_ID)).thenReturn(false);
         when(placeVoteRepository.countDistinctVoters(MEETING_ID)).thenReturn(2L);
+        when(participantRepository.countByMeetingIdAndLeftAtIsNullAndStateNot(MEETING_ID, ParticipantState.NEW_RESTRICTED)).thenReturn(2L);
 
         when(placeVoteRepository.aggregateByPlace(MEETING_ID, MY_PARTICIPANT_ID)).thenReturn(List.of(
                 new PlaceVoteSummary(101L, 2L, 1L),
