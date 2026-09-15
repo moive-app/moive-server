@@ -4,6 +4,7 @@ import com.moive.MoiveBE.domain.meeting.entity.Meeting;
 import com.moive.MoiveBE.domain.meeting.entity.MeetingStatus;
 import com.moive.MoiveBE.domain.meeting.entity.Participant;
 import com.moive.MoiveBE.domain.meeting.entity.ParticipantPreference;
+import com.moive.MoiveBE.domain.meeting.entity.ParticipantState;
 import com.moive.MoiveBE.domain.meeting.repository.DateVoteRepository;
 import com.moive.MoiveBE.domain.meeting.repository.MeetingRepository;
 import com.moive.MoiveBE.domain.meeting.repository.ParticipantPreferenceRepository;
@@ -96,13 +97,28 @@ class VoteServiceTest {
     @Test
     void 유저가_모임_참여자가_아니면_VOTE_ACCESS_DENIED() {
         // given
-        when(meetingRepository.findById(MEETING_ID)).thenReturn(Optional.of(mock(Meeting.class)));
+        Meeting meeting = meetingWithStatus(MeetingStatus.VOTING);
+        when(meetingRepository.findById(MEETING_ID)).thenReturn(Optional.of(meeting));
         when(participantRepository.findByMeetingIdAndUserIdAndLeftAtIsNull(MEETING_ID, USER_ID))
                 .thenReturn(Optional.empty());
 
         // when & then
         assertErrorCode(() -> voteService.getMeetingScheduleVoteResult(USER_ID, MEETING_ID), VOTE_ACCESS_DENIED);
         verifyNoInteractions(dateVoteRepository);
+    }
+
+    @Test
+    void 조건_입력_중인_모임이면_일정_투표_현황_조회시_SCHEDULE_VOTE_NOT_STARTED() {
+        // given
+        Meeting meeting = meetingWithStatus(MeetingStatus.CONDITION_INPUT);
+        when(meetingRepository.findById(MEETING_ID)).thenReturn(Optional.of(meeting));
+
+        // when & then
+        assertErrorCode(
+                () -> voteService.getMeetingScheduleVoteResult(USER_ID, MEETING_ID),
+                SCHEDULE_VOTE_NOT_STARTED
+        );
+        verifyNoInteractions(participantRepository, dateVoteRepository);
     }
 
     @Test
@@ -168,6 +184,26 @@ class VoteServiceTest {
         verify(dateVoteRepository).aggregateTopDates(eq(MEETING_ID), eq(MY_PARTICIPANT_ID), pageable.capture());
         assertThat(pageable.getValue().getPageNumber()).isZero();
         assertThat(pageable.getValue().getPageSize()).isEqualTo(3);
+    }
+
+    @Test
+    void 일정_미확정이고_후보가_있으면_1위_일정으로_모임_일정이_확정된다() {
+        // given: scheduledDate/scheduledTime 모두 null
+        Meeting meeting = mock(Meeting.class);
+        stubMeetingAndParticipant(meeting, MY_PARTICIPANT_ID);
+
+        when(dateVoteRepository.countDistinctVoters(MEETING_ID)).thenReturn(2L);
+        when(dateVoteRepository.aggregateTopDates(eq(MEETING_ID), eq(MY_PARTICIPANT_ID), any()))
+                .thenReturn(List.of(
+                        new DateVoteSummary(LocalDate.of(2026, 9, 15), LocalTime.of(18, 0), 2L, 1L),
+                        new DateVoteSummary(LocalDate.of(2026, 9, 12), LocalTime.of(15, 0), 1L, 0L)
+                ));
+
+        // when
+        voteService.getMeetingScheduleVoteResult(USER_ID, MEETING_ID);
+
+        // then: 1위(9/15 18:00)로 모임 일정이 확정됨
+        verify(meeting).confirmSchedule(LocalDate.of(2026, 9, 15), LocalTime.of(18, 0));
     }
 
     @Test
@@ -355,6 +391,7 @@ class VoteServiceTest {
                 .thenReturn(List.of());
         when(placeVoteRepository.existsByMeetingIdAndParticipantId(MEETING_ID, MY_PARTICIPANT_ID)).thenReturn(false);
         when(placeVoteRepository.countDistinctVoters(MEETING_ID)).thenReturn(2L);
+        when(participantRepository.countByMeetingIdAndLeftAtIsNullAndStateNot(MEETING_ID, ParticipantState.NEW_RESTRICTED)).thenReturn(2L);
 
         // 투표 집계: 101L=2표 (1위), 102L=1표
         when(placeVoteRepository.aggregateByPlace(MEETING_ID, MY_PARTICIPANT_ID)).thenReturn(List.of(
@@ -392,6 +429,7 @@ class VoteServiceTest {
 
         when(placeVoteRepository.existsByMeetingIdAndParticipantId(MEETING_ID, MY_PARTICIPANT_ID)).thenReturn(false);
         when(placeVoteRepository.countDistinctVoters(MEETING_ID)).thenReturn(2L);
+        when(participantRepository.countByMeetingIdAndLeftAtIsNullAndStateNot(MEETING_ID, ParticipantState.NEW_RESTRICTED)).thenReturn(2L);
 
         when(placeVoteRepository.aggregateByPlace(MEETING_ID, MY_PARTICIPANT_ID)).thenReturn(List.of(
                 new PlaceVoteSummary(101L, 2L, 1L),
