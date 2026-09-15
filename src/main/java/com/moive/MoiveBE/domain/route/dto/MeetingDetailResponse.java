@@ -19,14 +19,18 @@ public record MeetingDetailResponse(
         Place place,                 // 전원 미투표 => null
         LocalDate meetingDate,       // yyyy-MM-dd
         LocalTime meetingTime,       // HH:mm
-        List<ParticipantInfo> participants
+        List<ParticipantInfo> participants,
+        String inviteCode,
+        String inviteUrl
 ) {
 
     public static MeetingDetailResponse of(
             boolean isEnded,
             Meeting meeting,
             Place place,
-            List<ParticipantInfo> participants
+            List<ParticipantInfo> participants,
+            String inviteCode,
+            String inviteUrl
     ) {
         return MeetingDetailResponse.builder()
                 .status(isEnded ? MeetingStatus.COMPLETED.name() : MeetingStatus.CONFIRMED.name())
@@ -34,6 +38,8 @@ public record MeetingDetailResponse(
                 .meetingDate(meeting.getScheduledDate())
                 .meetingTime(meeting.getScheduledTime())
                 .participants(participants)
+                .inviteCode(inviteCode)
+                .inviteUrl(inviteUrl)
                 .build();
     }
 
