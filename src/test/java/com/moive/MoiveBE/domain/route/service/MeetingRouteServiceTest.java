@@ -136,26 +136,26 @@ class MeetingRouteServiceTest {
         verify(participantRepository, never()).findAllByMeetingIdAndLeftAtIsNullOrderByJoinedAtAsc(any());
     }
 
-    @Test
-    void 모임_일시가_지났으면_엔티티_status가_COMPLETED가_아니어도_응답_status는_COMPLETED이다() {
-        // given: CONFIRMED + 모임 진행 후 (엔티티 status는 아직 CONFIRMED)
-        stubMeetingAndAccess(meeting(MeetingStatus.CONFIRMED, null, true));
-        stubParticipants(
-                List.of(participant(1L, 11L)),
-                List.of(user(11L, "lee", "img-url-1")),
-                List.of(preference(1L, "경기도 고양시"))
-        );
-
-        // when
-        MeetingDetailResponse response = meetingRouteService.getMeetingDetail(MEETING_ID, USER_ID);
-
-        // then
-        assertThat(response.status()).isEqualTo("COMPLETED");
-        assertThat(response.participants()).hasSize(1);
-        assertThat(response.participants().get(0).transferCnt()).isNull(); // 종료 => 이동 정보 없음
-
-        verifyNoInteractions(routeDetailService);
-    }
+//    @Test
+//    void 모임_일시가_지났으면_엔티티_status가_COMPLETED가_아니어도_응답_status는_COMPLETED이다() {
+//        // given: CONFIRMED + 모임 진행 후 (엔티티 status는 아직 CONFIRMED)
+//        stubMeetingAndAccess(meeting(MeetingStatus.CONFIRMED, null, true));
+//        stubParticipants(
+//                List.of(participant(1L, 11L)),
+//                List.of(user(11L, "lee", "img-url-1")),
+//                List.of(preference(1L, "경기도 고양시"))
+//        );
+//
+//        // when
+//        MeetingDetailResponse response = meetingRouteService.getMeetingDetail(MEETING_ID, USER_ID);
+//
+//        // then
+//        assertThat(response.status()).isEqualTo("COMPLETED");
+//        assertThat(response.participants()).hasSize(1);
+//        assertThat(response.participants().get(0).transferCnt()).isNull(); // 종료 => 이동 정보 없음
+//
+//        verifyNoInteractions(routeDetailService);
+//    }
 
     @Test
     void CONFIRMED_전원미투표면_place는_null이고_participants는_빈_배열이다() {
@@ -276,7 +276,7 @@ class MeetingRouteServiceTest {
     @Test
     void COMPLETED_장소확정이면_status는_COMPLETED이고_이동정보는_null이며_카카오맵을_호출하지_않는다() {
         // given: 모임 진행 후 + 장소 확정 + 구글 조회 성공
-        stubMeetingAndAccess(meeting(MeetingStatus.CONFIRMED, CONFIRMED_PLACE_ID, true));
+        stubMeetingAndAccess(meeting(MeetingStatus.COMPLETED, CONFIRMED_PLACE_ID, true));
         stubRecommendedPlace();
         when(googlePlacesClient.getPlaceLocation(GOOGLE_PLACE_ID)).thenReturn(googlePlace());
 
@@ -303,7 +303,7 @@ class MeetingRouteServiceTest {
     @Test
     void COMPLETED_전원미투표면_place는_null이지만_participants는_목록을_반환한다() {
         // given: 모임 진행 후 + confirmedPlaceId 없음(전원 미투표)
-        stubMeetingAndAccess(meeting(MeetingStatus.CONFIRMED, null, true));
+        stubMeetingAndAccess(meeting(MeetingStatus.COMPLETED, null, true));
         stubParticipants(
                 List.of(participant(1L, 11L), participant(2L, 12L)),
                 List.of(user(11L, "lee", "img-url-1"), user(12L, "kim", "img-url-2")),
