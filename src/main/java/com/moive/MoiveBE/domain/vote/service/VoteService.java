@@ -4,6 +4,7 @@ import com.moive.MoiveBE.domain.meeting.entity.Meeting;
 import com.moive.MoiveBE.domain.meeting.entity.MeetingStatus;
 import com.moive.MoiveBE.domain.meeting.entity.Participant;
 import com.moive.MoiveBE.domain.meeting.entity.ParticipantPreference;
+import com.moive.MoiveBE.domain.meeting.entity.ParticipantState;
 import com.moive.MoiveBE.domain.meeting.repository.DateVoteRepository;
 import com.moive.MoiveBE.domain.meeting.repository.MeetingRepository;
 import com.moive.MoiveBE.domain.meeting.repository.ParticipantPreferenceRepository;
@@ -64,10 +65,16 @@ public class VoteService {
     /**
      * 일정 투표 현황 조회
      */
+    @Transactional
     public DateVoteResultResponse getMeetingScheduleVoteResult(Long userId, Long meetingId) {
         // 모임 조회
         Meeting meeting = meetingRepository.findById(meetingId)
                 .orElseThrow(() -> new CustomException(MEETING_NOT_FOUND));
+
+        // 모임 진행 상황 검증: 조건 입력 중에는 일정 투표 현황 조회 불가
+        if (meeting.getStatus() == MeetingStatus.CONDITION_INPUT) {
+            throw new CustomException(SCHEDULE_VOTE_NOT_STARTED);
+        }
 
         // 조회 권한 확인: 탈퇴하지 않은 모임 참여자인지 확인
         Participant participant = participantRepository.findByMeetingIdAndUserIdAndLeftAtIsNull(meetingId, userId)
@@ -97,6 +104,16 @@ public class VoteService {
                 .stream()
                 .map(this::toCandidate)
                 .toList();
+
+        // - 집계 결과 1위 일정을 모임 일정으로 확정
+        // 일정 투표는 조건 입력 단계에서 전원 완료되어야 VOTING으로 전환되므로,
+        // 별도 투표 인원 비교 없이 scheduledDate/scheduledTime이 둘 다 비어있는 경우 확정
+        if (!candidates.isEmpty() && meeting.getScheduledDate() == null && meeting.getScheduledTime() == null) {
+            DateVoteResultResponse.Candidate top = candidates.get(0);
+            meeting.confirmSchedule(top.meetingDate(), top.meetingTime());
+            log.info("[일정 투표 현황 조회] 일정 확정 (meetingId={}, scheduledDate={}, scheduledTime={})",
+                    meetingId, top.meetingDate(), top.meetingTime());
+        }
 
         return DateVoteResultResponse.of(false, totalVoterCnt, candidates);
     }
@@ -136,9 +153,14 @@ public class VoteService {
                 .orElseThrow(() -> new CustomException(PLACE_VOTE_NOT_STARTED));
 
         // 유저의 투표 권한 검증
-        // - 모임 내 유효한 참여자이지
+        // - 모임 내 유효한 참여자인지
         Participant participant = participantRepository.findByMeetingIdAndUserIdAndLeftAtIsNull(meetingId, userId)
                 .orElseThrow(() -> new CustomException(PLACE_VOTE_ACCESS_DENIED));
+
+        // - 신규 참여자(투표 시작 이후 입장)는 투표 불가
+        if (participant.getState() == ParticipantState.NEW_RESTRICTED) {
+            throw new CustomException(PLACE_VOTE_RESTRICTED);
+        }
 
         // - 기투표 여부 확인
         if(placeVoteRepository.existsByMeetingIdAndParticipantId(meetingId, participant.getId())) {
@@ -167,8 +189,11 @@ public class VoteService {
         placeVoteRepository.saveAll(placeVotes);
 
         // 마지막 투표자인 경우 => 득표 집계 결과 1위 장소를 모임 장소로 확정
+        // NEW_RESTRICTED(투표 불가 신규 참여자) 제외한 투표 가능 인원과 비교
         long voterCnt = placeVoteRepository.countDistinctVoters(meetingId);
-        if(voterCnt == meeting.getParticipantCnt()) {
+        long eligibleCnt = participantRepository.countByMeetingIdAndLeftAtIsNullAndStateNot(
+                meetingId, ParticipantState.NEW_RESTRICTED);
+        if (voterCnt == eligibleCnt) {
             confirmMeetingPlace(meeting, participant.getId());
         }
     }

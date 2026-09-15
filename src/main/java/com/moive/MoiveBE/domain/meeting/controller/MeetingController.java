@@ -99,7 +99,7 @@ public class MeetingController {
     @Operation(
             summary = "모임 상세 조회",
             description = "확정된 모임의 상세 정보를 조회합니다. "
-                    + "모임 일시 경과 여부에 따라 status가 CONFIRMED(확정된 모임 진행 전)/ENDED(확정된 모임 종료)으로 구분됩니다."
+                    + "모임 일시 경과 여부에 따라 status가 CONFIRMED(확정된 모임 진행 전)/COMPLETED(확정된 모임 종료)으로 구분됩니다."
     )
     @GetMapping("/{meetingId}")
     public BaseResponse<MeetingDetailResponse> getMeetingDetail(
