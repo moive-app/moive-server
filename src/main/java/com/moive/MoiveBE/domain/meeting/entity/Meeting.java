@@ -120,4 +120,9 @@ public class Meeting {
         this.confirmedPlaceId = placeId;
         this.status = MeetingStatus.CONFIRMED;
     }
+
+    public void confirmSchedule(LocalDate scheduledDate, LocalTime scheduledTime) {
+        this.scheduledDate = scheduledDate;
+        this.scheduledTime = scheduledTime;
+    }
 }
