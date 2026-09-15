@@ -19,7 +19,7 @@ kakao:
 
 app:
   invite:
-    base-url: https://moiveserver.store/invite
+    base-url: https://movieterms.site/invite
 
 aws:
   s3:
