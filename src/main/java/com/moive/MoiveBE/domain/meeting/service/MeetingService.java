@@ -9,13 +9,14 @@ import com.moive.MoiveBE.domain.meeting.entity.*;
 import com.moive.MoiveBE.domain.meeting.repository.*;
 import com.moive.MoiveBE.domain.notification.entity.NotificationType;
 import com.moive.MoiveBE.domain.notification.service.NotificationService;
-import com.moive.MoiveBE.domain.recommendation.service.AreaRecommendationService;
 import com.moive.MoiveBE.global.exception.CustomErrorCode;
 import com.moive.MoiveBE.global.exception.CustomException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.moive.MoiveBE.domain.recommendation.event.AreaRecommendationRequestedEvent;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.security.SecureRandom;
 import java.time.LocalDate;
@@ -41,7 +42,7 @@ public class MeetingService {
     private final ActivityRepository activityRepository;
     private final DateVoteRepository dateVoteRepository;
     private final NotificationService notificationService;
-    private final AreaRecommendationService areaRecommendationService;
+    private final ApplicationEventPublisher eventPublisher;
     private final String inviteBaseUrl;
     private final SecureRandom secureRandom = new SecureRandom();
 
@@ -54,7 +55,7 @@ public class MeetingService {
             ActivityRepository activityRepository,
             DateVoteRepository dateVoteRepository,
             NotificationService notificationService,
-            AreaRecommendationService areaRecommendationService,
+            ApplicationEventPublisher eventPublisher,
             @Value("${app.invite.base-url}") String inviteBaseUrl
     ) {
         this.meetingRepository = meetingRepository;
@@ -65,7 +66,7 @@ public class MeetingService {
         this.activityRepository = activityRepository;
         this.dateVoteRepository = dateVoteRepository;
         this.notificationService = notificationService;
-        this.areaRecommendationService = areaRecommendationService;
+        this.eventPublisher = eventPublisher;
         this.inviteBaseUrl = inviteBaseUrl;
     }
 
@@ -262,7 +263,9 @@ public class MeetingService {
         if (isFirstSubmit && meeting.getSubmittedCnt() >= meeting.getParticipantCnt()) {
             meeting.transitionToVoting();
             triggered = true;
-            areaRecommendationService.recommend(meetingId);
+            eventPublisher.publishEvent(
+                    new AreaRecommendationRequestedEvent(meetingId)
+            );
 
             // NOTI-003: 장소 투표 완료 요청 (전체 참여자)
             List<Participant> allParticipants = participantRepository

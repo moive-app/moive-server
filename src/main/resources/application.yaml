@@ -33,3 +33,6 @@ openai:
 
 firebase:
   service-account-path: ${FIREBASE_SERVICE_ACCOUNT_PATH}
+
+vworld:
+  api-key: ${VWORLD_API_KEY}

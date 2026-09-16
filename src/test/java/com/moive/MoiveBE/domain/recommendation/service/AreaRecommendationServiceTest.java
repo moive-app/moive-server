@@ -13,8 +13,6 @@ import org.junit.jupiter.api.Test;
 import java.math.BigDecimal;
 import java.util.List;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.*;
 
@@ -32,8 +30,8 @@ class AreaRecommendationServiceTest {
         AreaCenterService areaCenterService =
                 mock(AreaCenterService.class);
 
-        AreaCandidateGenerationService areaCandidateGenerationService =
-                mock(AreaCandidateGenerationService.class);
+        LegalDongCandidateService legalDongCandidateService =
+                mock(LegalDongCandidateService.class);
 
         AreaRouteService areaRouteService =
                 mock(AreaRouteService.class);
@@ -52,7 +50,7 @@ class AreaRecommendationServiceTest {
                         participantRepository,
                         participantPreferenceRepository,
                         areaCenterService,
-                        areaCandidateGenerationService,
+                        legalDongCandidateService,
                         areaRouteService,
                         routeMatrixService,
                         areaScoreService,
@@ -99,19 +97,16 @@ class AreaRecommendationServiceTest {
         List<AreaCandidate> candidates = List.of(
                 new AreaCandidate(
                         "역삼동",
-                        "place-1",
                         37.5006,
                         127.0363
                 ),
                 new AreaCandidate(
                         "논현동",
-                        "place-2",
                         37.5112,
                         127.0285
                 ),
                 new AreaCandidate(
                         "신사동",
-                        "place-3",
                         37.5160,
                         127.0200
                 )
@@ -187,7 +182,7 @@ class AreaRecommendationServiceTest {
         when(areaCenterService.calculate(preferences))
                 .thenReturn(center);
 
-        when(areaCandidateGenerationService.generate(center))
+        when(legalDongCandidateService.generate(center))
                 .thenReturn(candidates);
 
         when(areaRouteService.calculate(
@@ -218,7 +213,7 @@ class AreaRecommendationServiceTest {
         verify(areaCenterService)
                 .calculate(preferences);
 
-        verify(areaCandidateGenerationService)
+        verify(legalDongCandidateService)
                 .generate(center);
 
         verify(areaRouteService)
@@ -249,7 +244,7 @@ class AreaRecommendationServiceTest {
     }
 
     @Test
-    void 이동_가능한_추천_후보가_3개_미만이면_예외가_발생한다() {
+    void 이동_가능한_추천_후보가_3개_미만이면_점수계산과_저장을_하지_않는다() {
 
         ParticipantRepository participantRepository =
                 mock(ParticipantRepository.class);
@@ -260,8 +255,8 @@ class AreaRecommendationServiceTest {
         AreaCenterService areaCenterService =
                 mock(AreaCenterService.class);
 
-        AreaCandidateGenerationService areaCandidateGenerationService =
-                mock(AreaCandidateGenerationService.class);
+        LegalDongCandidateService legalDongCandidateService =
+                mock(LegalDongCandidateService.class);
 
         AreaRouteService areaRouteService =
                 mock(AreaRouteService.class);
@@ -280,7 +275,7 @@ class AreaRecommendationServiceTest {
                         participantRepository,
                         participantPreferenceRepository,
                         areaCenterService,
-                        areaCandidateGenerationService,
+                        legalDongCandidateService,
                         areaRouteService,
                         routeMatrixService,
                         areaScoreService,
@@ -327,19 +322,16 @@ class AreaRecommendationServiceTest {
         List<AreaCandidate> candidates = List.of(
                 new AreaCandidate(
                         "역삼동",
-                        "place-1",
                         37.5006,
                         127.0363
                 ),
                 new AreaCandidate(
                         "논현동",
-                        "place-2",
                         37.5112,
                         127.0285
                 ),
                 new AreaCandidate(
                         "신사동",
-                        "place-3",
                         37.5160,
                         127.0200
                 )
@@ -379,7 +371,7 @@ class AreaRecommendationServiceTest {
         when(areaCenterService.calculate(preferences))
                 .thenReturn(center);
 
-        when(areaCandidateGenerationService.generate(center))
+        when(legalDongCandidateService.generate(center))
                 .thenReturn(candidates);
 
         when(areaRouteService.calculate(
@@ -393,9 +385,7 @@ class AreaRecommendationServiceTest {
                 preferences.size()
         )).thenReturn(routeResults);
 
-        assertThatThrownBy(
-                () -> service.recommend(1L)
-        ).isInstanceOf(CustomException.class);
+        service.recommend(1L);
 
         verifyNoInteractions(
                 areaScoreService,

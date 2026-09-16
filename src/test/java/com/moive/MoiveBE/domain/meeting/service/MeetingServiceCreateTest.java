@@ -5,7 +5,7 @@ import com.moive.MoiveBE.domain.meeting.dto.CreateMeetingResponse;
 import com.moive.MoiveBE.domain.meeting.entity.*;
 import com.moive.MoiveBE.domain.meeting.repository.*;
 import com.moive.MoiveBE.domain.notification.service.NotificationService;
-import com.moive.MoiveBE.domain.recommendation.service.AreaRecommendationService;
+import org.springframework.context.ApplicationEventPublisher;
 
 import com.moive.MoiveBE.global.exception.CustomErrorCode;
 import com.moive.MoiveBE.global.exception.CustomException;
@@ -40,7 +40,7 @@ class MeetingServiceCreateTest {
     @Mock private ActivityRepository activityRepository;
     @Mock private DateVoteRepository dateVoteRepository;
     @Mock private NotificationService notificationService;
-    @Mock private AreaRecommendationService areaRecommendationService;
+    @Mock private ApplicationEventPublisher eventPublisher;
 
     private MeetingService meetingService;
 
@@ -55,7 +55,7 @@ class MeetingServiceCreateTest {
                 activityRepository,
                 dateVoteRepository,
                 notificationService,
-                areaRecommendationService,
+                eventPublisher,
                 "https://moive.app/invite"
         );
         SecurityContextHolder.getContext().setAuthentication(
