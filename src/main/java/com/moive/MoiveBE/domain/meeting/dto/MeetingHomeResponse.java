@@ -12,6 +12,7 @@ public record MeetingHomeResponse(
         String scheduledTime,
         String inviteCode,
         String inviteUrl,
+        int thumbnailType,
         List<ParticipantDto> participants,
         String homeMessage,
         String primaryActionLabel,
