@@ -99,6 +99,7 @@ public class MeetingDetailService {
                 scheduledTime,
                 inviteCode,
                 inviteUrl,
+                meeting.getThumbnailType(),
                 participantDtos,
                 action.message(),
                 action.actionLabel(),

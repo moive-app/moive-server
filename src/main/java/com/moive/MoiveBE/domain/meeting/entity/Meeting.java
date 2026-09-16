@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.concurrent.ThreadLocalRandom;
 
 @Entity
 @Table(name = "meetings")
@@ -53,6 +54,9 @@ public class Meeting {
     @Column(length = 255)
     private String inviteCodeExpiresAt;
 
+    @Column(nullable = false)
+    private int thumbnailType;
+
     @PrePersist
     protected void onCreate() {
         LocalDateTime now = LocalDateTime.now();
@@ -81,6 +85,7 @@ public class Meeting {
         meeting.participantCnt = 1;
         meeting.submittedCnt = 0;
         meeting.inviteCode = inviteCode;
+        meeting.thumbnailType = ThreadLocalRandom.current().nextInt(1, 5);
         return meeting;
     }
 
