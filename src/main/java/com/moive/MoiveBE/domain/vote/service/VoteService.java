@@ -204,10 +204,11 @@ public class VoteService {
         meeting.confirmPlace(confirmedPlaceId);
         log.info("[장소 투표] 마지막 투표자 완료 => 장소 확정 (meetingId={}, confirmedPlaceId={})", meeting.getConfirmedPlaceId(), confirmedPlaceId);
 
-        // NOTI-004: 장소 확정 알림 (전체 참여자)
+        // NOTI-004: 장소 확정 알림 (전체 참여자) + 참여자 상태 CONFIRMED 업데이트
         List<Participant> allParticipants = participantRepository
                 .findAllByMeetingIdAndLeftAtIsNullOrderByJoinedAtAsc(meeting.getId());
         for (Participant p : allParticipants) {
+            p.confirm();
             notificationService.sendNotification(p.getUserId(), meeting.getId(), NotificationType.MEETING_CONFIRMED,
                     "'" + meeting.getName() + "'의 장소가 확정됐어요! 모임 정보를 확인해보세요.");
         }
