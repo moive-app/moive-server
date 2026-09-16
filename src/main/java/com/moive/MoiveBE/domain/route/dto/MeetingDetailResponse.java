@@ -1,7 +1,6 @@
 package com.moive.MoiveBE.domain.route.dto;
 
 import com.moive.MoiveBE.domain.meeting.entity.Meeting;
-import com.moive.MoiveBE.domain.meeting.entity.MeetingStatus;
 import com.moive.MoiveBE.domain.meeting.entity.ParticipantPreference;
 import com.moive.MoiveBE.domain.recommendation.dto.GooglePlaceLocationResponse;
 import com.moive.MoiveBE.domain.user.entity.User;
@@ -10,7 +9,6 @@ import lombok.Builder;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 @Builder(access = AccessLevel.PRIVATE)
@@ -25,7 +23,6 @@ public record MeetingDetailResponse(
 ) {
 
     public static MeetingDetailResponse of(
-            boolean isEnded,
             Meeting meeting,
             Place place,
             List<ParticipantInfo> participants,
@@ -33,7 +30,7 @@ public record MeetingDetailResponse(
             String inviteUrl
     ) {
         return MeetingDetailResponse.builder()
-                .status(isEnded ? MeetingStatus.COMPLETED.name() : MeetingStatus.CONFIRMED.name())
+                .status(meeting.getStatus().name())
                 .place(place)
                 .meetingDate(meeting.getScheduledDate())
                 .meetingTime(meeting.getScheduledTime())
