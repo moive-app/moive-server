@@ -19,6 +19,7 @@ import com.moive.MoiveBE.domain.user.repository.UserRepository;
 import com.moive.MoiveBE.global.exception.CustomException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -44,6 +45,9 @@ public class MeetingRouteService {
     private final GooglePlacesClient googlePlacesClient;
     private final RouteDetailService routeDetailService;
 
+    @Value("${app.invite.base-url}")
+    private String inviteBaseUrl;
+
     /**
      * 확정된 모임 상세 정보 조회
      * - 기준 1: 모임 종료 여부 (종료, 진행 전)
@@ -57,10 +61,8 @@ public class MeetingRouteService {
         validateConfirmed(meeting);
         validateParticipant(meetingId, userId);
 
-        // 모임 종료 여부 확인 (모임 일시가 현재 시각을 지났으면 종료)
-        LocalDateTime meetingDateTime =
-                LocalDateTime.of(meeting.getScheduledDate(), meeting.getScheduledTime());
-        boolean isEnded = !meetingDateTime.isAfter(LocalDateTime.now());
+        // 모임 종료 여부 확인
+        boolean isCompleted = meeting.getStatus() == MeetingStatus.COMPLETED;
 
         // 확정된 장소 존재 여부 확인, 있다면 장소 정보 조회
         Long confirmedPlaceId = meeting.getConfirmedPlaceId();
@@ -68,9 +70,13 @@ public class MeetingRouteService {
 
         // 참여자 목록 조회 & 이동 정보 조회(조건: 모임 진행 전(!isEnded) + 확정된 장소 있음 + 구글맵 장소 조회 성공)
         List<MeetingDetailResponse.ParticipantInfo> participants =
-                getParticipantsInfo(meetingId, confirmedPlaceId, isEnded, placeInfo);
+                getParticipantsInfo(meetingId, confirmedPlaceId, isCompleted, placeInfo);
 
-        return MeetingDetailResponse.of(isEnded, meeting, placeInfo, participants);
+        // 초대 코드 및 초대 링크 (모임 종료 시 null)
+        String inviteCode = isCompleted ? null : meeting.getInviteCode();
+        String inviteUrl = inviteCode != null ? inviteBaseUrl + "/" + inviteCode : null;
+
+        return MeetingDetailResponse.of(isCompleted, meeting, placeInfo, participants, inviteCode, inviteUrl);
     }
 
     /**
