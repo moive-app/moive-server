@@ -11,6 +11,9 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import com.moive.MoiveBE.global.exception.CustomErrorCode;
+import com.moive.MoiveBE.global.exception.CustomException;
+import org.springframework.web.servlet.HandlerExceptionResolver;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
@@ -30,12 +33,18 @@ class JwtAuthenticationFilterTest {
     @Mock
     private FilterChain filterChain;
 
+    @Mock
+    private HandlerExceptionResolver handlerExceptionResolver;
+
     private JwtAuthenticationFilter jwtAuthenticationFilter;
 
     @BeforeEach
     void setUp() {
         jwtAuthenticationFilter =
-                new JwtAuthenticationFilter(jwtTokenProvider);
+                new JwtAuthenticationFilter(
+                        jwtTokenProvider,
+                        handlerExceptionResolver
+                );
     }
 
     @AfterEach
@@ -79,9 +88,6 @@ class JwtAuthenticationFilterTest {
         when(request.getHeader("Authorization"))
                 .thenReturn("Bearer " + token);
 
-        when(jwtTokenProvider.validateAccessToken(token))
-                .thenReturn(true);
-
         when(jwtTokenProvider.getUserId(token))
                 .thenReturn(1L);
 
@@ -117,8 +123,14 @@ class JwtAuthenticationFilterTest {
         when(request.getHeader("Authorization"))
                 .thenReturn("Bearer " + token);
 
-        when(jwtTokenProvider.validateAccessToken(token))
-                .thenReturn(false);
+        CustomException exception =
+                new CustomException(
+                        CustomErrorCode.INVALID_ACCESS_TOKEN
+                );
+
+        doThrow(exception)
+                .when(jwtTokenProvider)
+                .validateAccessToken(token);
 
         // when
         jwtAuthenticationFilter.doFilterInternal(
@@ -137,7 +149,16 @@ class JwtAuthenticationFilterTest {
         verify(jwtTokenProvider, never())
                 .getUserId(anyString());
 
-        verify(filterChain).doFilter(request, response);
+        verify(handlerExceptionResolver)
+                .resolveException(
+                        request,
+                        response,
+                        null,
+                        exception
+                );
+
+        verify(filterChain, never())
+                .doFilter(request, response);
     }
 
     @Test
@@ -150,8 +171,14 @@ class JwtAuthenticationFilterTest {
         when(request.getHeader("Authorization"))
                 .thenReturn("Bearer " + refreshToken);
 
-        when(jwtTokenProvider.validateAccessToken(refreshToken))
-                .thenReturn(false);
+        CustomException exception =
+                new CustomException(
+                        CustomErrorCode.INVALID_ACCESS_TOKEN
+                );
+
+        doThrow(exception)
+                .when(jwtTokenProvider)
+                .validateAccessToken(refreshToken);
 
         // when
         jwtAuthenticationFilter.doFilterInternal(
@@ -170,7 +197,55 @@ class JwtAuthenticationFilterTest {
         verify(jwtTokenProvider, never())
                 .getUserId(anyString());
 
-        verify(filterChain)
+        verify(handlerExceptionResolver)
+                .resolveException(
+                        request,
+                        response,
+                        null,
+                        exception
+                );
+
+        verify(filterChain, never())
                 .doFilter(request, response);
     }
+
+    @Test
+    void 만료된_Access_Token은_ACCESS_TOKEN_EXPIRED로_처리된다()
+            throws Exception {
+
+        // given
+        String token = "expired-access-token";
+
+        when(request.getHeader("Authorization"))
+                .thenReturn("Bearer " + token);
+
+        CustomException exception =
+                new CustomException(
+                        CustomErrorCode.ACCESS_TOKEN_EXPIRED
+                );
+
+        doThrow(exception)
+                .when(jwtTokenProvider)
+                .validateAccessToken(token);
+
+        // when
+        jwtAuthenticationFilter.doFilterInternal(
+                request,
+                response,
+                filterChain
+        );
+
+        // then
+        verify(handlerExceptionResolver)
+                .resolveException(
+                        request,
+                        response,
+                        null,
+                        exception
+                );
+
+        verify(filterChain, never())
+                .doFilter(request, response);
+    }
+
 }

@@ -8,6 +8,7 @@ import com.moive.MoiveBE.domain.meeting.repository.MeetingRepository;
 import com.moive.MoiveBE.domain.meeting.repository.ParticipantRepository;
 import com.moive.MoiveBE.domain.recommendation.client.GooglePlacesClient;
 import com.moive.MoiveBE.domain.recommendation.repository.RecommendedPlaceRepository;
+import com.moive.MoiveBE.domain.user.entity.User;
 import com.moive.MoiveBE.domain.user.repository.UserRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -21,6 +22,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
@@ -49,6 +51,9 @@ class HomeServiceTest {
                         CURRENT_USER_ID, null, List.of(new SimpleGrantedAuthority("ROLE_USER"))
                 )
         );
+        User mockUser = mock(User.class);
+        lenient().when(mockUser.getNickname()).thenReturn("테스트유저");
+        lenient().when(userRepository.findById(CURRENT_USER_ID)).thenReturn(Optional.of(mockUser));
     }
 
     @AfterEach

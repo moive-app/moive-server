@@ -14,6 +14,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 import tools.jackson.databind.ObjectMapper;
 
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 
 import static com.moive.MoiveBE.global.exception.CustomErrorCode.*;
 
@@ -85,6 +86,7 @@ public class KakaoTransitClientImpl implements KakaoTransitClient {
                 .queryParam("end_y", end.latitude())
                 .queryParam("s_name", userAddress)
                 .queryParam("e_name", placeAddress)
+                .encode(StandardCharsets.UTF_8)
                 .build()
                 .toUri();
     }

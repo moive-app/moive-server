@@ -213,11 +213,7 @@ class AreaRecommendationServiceTest {
                 top3
         )).thenReturn(savedRun);
 
-        RecommendationRun result =
-                service.recommend(1L);
-
-        assertThat(result)
-                .isSameAs(savedRun);
+        service.recommend(1L);
 
         verify(areaCenterService)
                 .calculate(preferences);

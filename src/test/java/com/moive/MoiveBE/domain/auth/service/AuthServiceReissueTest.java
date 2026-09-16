@@ -64,9 +64,6 @@ class AuthServiceReissueTest {
 
         User user = mock(User.class);
 
-        when(jwtTokenProvider.validateRefreshToken(refreshToken))
-                .thenReturn(true);
-
         when(jwtTokenProvider.getUserId(refreshToken))
                 .thenReturn(userId);
 
@@ -113,8 +110,11 @@ class AuthServiceReissueTest {
         ReissueRequest request =
                 new ReissueRequest(refreshToken);
 
-        when(jwtTokenProvider.validateRefreshToken(refreshToken))
-                .thenReturn(false);
+        doThrow(new CustomException(
+                CustomErrorCode.INVALID_REFRESH_TOKEN
+        ))
+                .when(jwtTokenProvider)
+                .validateRefreshToken(refreshToken);
 
         // when & then
         assertThatThrownBy(() ->
@@ -144,9 +144,6 @@ class AuthServiceReissueTest {
                 new ReissueRequest(refreshToken);
 
         User user = mock(User.class);
-
-        when(jwtTokenProvider.validateRefreshToken(refreshToken))
-                .thenReturn(true);
 
         when(jwtTokenProvider.getUserId(refreshToken))
                 .thenReturn(userId);
@@ -187,8 +184,11 @@ class AuthServiceReissueTest {
         ReissueRequest request =
                 new ReissueRequest(accessToken);
 
-        when(jwtTokenProvider.validateRefreshToken(accessToken))
-                .thenReturn(false);
+        doThrow(new CustomException(
+                CustomErrorCode.INVALID_REFRESH_TOKEN
+        ))
+                .when(jwtTokenProvider)
+                .validateRefreshToken(accessToken);
 
         // when & then
         assertThatThrownBy(() ->

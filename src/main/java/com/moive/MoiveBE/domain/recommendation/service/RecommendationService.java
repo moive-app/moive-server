@@ -208,6 +208,17 @@ public class RecommendationService {
         );
 
         /*
+         * 추천 지역 조회
+         */
+        RecommendedArea recommendedArea =
+                recommendedAreaRepository.findById(recommendedAreaId)
+                        .orElseThrow(() ->
+                                new CustomException(
+                                        CustomErrorCode.RECOMMENDED_AREA_NOT_FOUND
+                                )
+                        );
+
+        /*
          * 추천 장소 조회
          */
         RecommendedPlace recommendedPlace =
@@ -332,6 +343,8 @@ public class RecommendationService {
                 extractKoreanPlaceName(details.displayName().text()),
                 recommendedPlace.getCategory(),
                 details.formattedAddress(),
+                recommendedArea.getAreaName(),
+                participants.size(),
                 recommendedPlace.getPreferenceMatchCnt(),
                 averageTravelTime,
                 imageUrls

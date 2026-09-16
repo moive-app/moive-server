@@ -1,15 +1,18 @@
 package com.moive.MoiveBE.global.jwt;
 
+import com.moive.MoiveBE.global.exception.CustomException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.web.servlet.HandlerExceptionResolver;
 
 import java.io.IOException;
 import java.util.List;
@@ -20,6 +23,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider jwtTokenProvider;
 
+    @Qualifier("handlerExceptionResolver")
+    private final HandlerExceptionResolver handlerExceptionResolver;
+
     @Override
     protected void doFilterInternal(
             HttpServletRequest request,
@@ -27,16 +33,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             FilterChain filterChain
     ) throws ServletException, IOException {
 
-        String authorizationHeader =
-                request.getHeader("Authorization");
+        try {
+            String authorizationHeader =
+                    request.getHeader("Authorization");
 
-        if (authorizationHeader != null
-                && authorizationHeader.startsWith("Bearer ")) {
+            if (authorizationHeader != null
+                    && authorizationHeader.startsWith("Bearer ")) {
 
-            String token =
-                    authorizationHeader.substring(7);
+                String token =
+                        authorizationHeader.substring(7);
 
-            if (jwtTokenProvider.validateAccessToken(token)) {
+                jwtTokenProvider.validateAccessToken(token);
 
                 Long userId =
                         jwtTokenProvider.getUserId(token);
@@ -53,8 +60,20 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 SecurityContextHolder.getContext()
                         .setAuthentication(authentication);
             }
-        }
 
-        filterChain.doFilter(request, response);
+            filterChain.doFilter(request, response);
+
+        } catch (CustomException e) {
+            SecurityContextHolder.clearContext();
+
+            handlerExceptionResolver.resolveException(
+                    request,
+                    response,
+                    null,
+                    e
+            );
+
+            return;
+        }
     }
 }

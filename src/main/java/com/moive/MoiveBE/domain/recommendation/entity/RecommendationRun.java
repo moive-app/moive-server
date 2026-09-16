@@ -18,7 +18,7 @@ public class RecommendationRun {
     @Column(name = "recommendation_run_id")
     private Long id;
 
-    @Column(name = "meeting_id", nullable = false)
+    @Column(name = "meeting_id", nullable = false, unique = true)
     private Long meetingId;
 
     @Enumerated(EnumType.STRING)

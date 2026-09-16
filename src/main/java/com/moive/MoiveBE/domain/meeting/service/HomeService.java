@@ -41,8 +41,12 @@ public class HomeService {
         List<Participant> myParticipations = participantRepository
                 .findAllByUserIdAndLeftAtIsNullOrderByIdAsc(currentUserId);
 
+        User currentUser = userRepository.findById(currentUserId)
+                .orElseThrow(() -> new IllegalStateException("User not found"));
+        String nickname = currentUser.getNickname();
+
         if (myParticipations.isEmpty()) {
-            return new HomeResponse(List.of(), List.of());
+            return new HomeResponse(nickname, List.of(), List.of());
         }
 
         List<Long> myMeetingIds = myParticipations.stream().map(Participant::getMeetingId).toList();
@@ -80,7 +84,7 @@ public class HomeService {
 
         List<HomeResponse.ConfirmedMeetingDto> confirmedDtos = buildConfirmedDtos(confirmed);
 
-        return new HomeResponse(confirmedDtos, myMeetings);
+        return new HomeResponse(nickname, confirmedDtos, myMeetings);
     }
 
     public MeetingListResponse getMeetings(String filterStr, Long cursor, int size) {
@@ -205,12 +209,6 @@ public class HomeService {
                     return u != null ? u.getProfileImageUrl() : null;
                 })
                 .toList();
-        List<String> participantNicknames = meetingParticipants.stream()
-                .map(p -> {
-                    User u = userMap.get(p.getUserId());
-                    return u != null ? u.getNickname() : null;
-                })
-                .toList();
         return new MeetingItemDto(
                 m.getId(),
                 m.getName(),
@@ -220,8 +218,7 @@ public class HomeService {
                 m.getScheduledDate() != null ? m.getScheduledDate().toString() : null,
                 m.getScheduledTime() != null ? m.getScheduledTime().toString() : null,
                 m.getParticipantCnt(),
-                participantImages,
-                participantNicknames
+                participantImages
         );
     }
 

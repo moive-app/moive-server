@@ -3,6 +3,7 @@ package com.moive.MoiveBE.domain.meeting.dto;
 import java.util.List;
 
 public record HomeResponse(
+        String nickname,
         List<ConfirmedMeetingDto> confirmedMeetings,
         List<MeetingItemDto> myMeetings
 ) {

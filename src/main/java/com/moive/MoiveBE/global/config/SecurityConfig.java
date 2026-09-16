@@ -1,6 +1,7 @@
 package com.moive.MoiveBE.global.config;
 
 import com.moive.MoiveBE.global.jwt.JwtAuthenticationFilter;
+import com.moive.MoiveBE.global.config.CustomAuthenticationEntryPoint;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -14,6 +15,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final CustomAuthenticationEntryPoint customAuthenticationEntryPoint;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -23,6 +25,12 @@ public class SecurityConfig {
 
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                )
+
+                .exceptionHandling(exception ->
+                        exception.authenticationEntryPoint(
+                                customAuthenticationEntryPoint
+                        )
                 )
 
                 .authorizeHttpRequests(auth -> auth

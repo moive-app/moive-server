@@ -9,10 +9,10 @@ import com.moive.MoiveBE.domain.recommendation.dto.AreaCenter;
 import com.moive.MoiveBE.domain.recommendation.dto.AreaRouteResult;
 import com.moive.MoiveBE.domain.recommendation.dto.AreaScoreResult;
 import com.moive.MoiveBE.domain.recommendation.dto.GoogleRouteMatrixResponse;
-import com.moive.MoiveBE.domain.recommendation.entity.RecommendationRun;
 import com.moive.MoiveBE.global.exception.CustomErrorCode;
 import com.moive.MoiveBE.global.exception.CustomException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -50,7 +50,8 @@ public class AreaRecommendationService {
         );
     }
 
-    public RecommendationRun recommend(
+    @Async("recommendationExecutor")
+    public void recommend(
             Long meetingId
     ) {
 
@@ -96,7 +97,7 @@ public class AreaRecommendationService {
                         scoreResults
                 );
 
-        return areaRecommendationSaveService.save(
+        areaRecommendationSaveService.save(
                 meetingId,
                 candidates,
                 top3

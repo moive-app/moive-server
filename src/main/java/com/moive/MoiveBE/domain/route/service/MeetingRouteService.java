@@ -19,6 +19,7 @@ import com.moive.MoiveBE.domain.user.repository.UserRepository;
 import com.moive.MoiveBE.global.exception.CustomException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.LinkedHashMap;
@@ -42,6 +43,9 @@ public class MeetingRouteService {
 
     private final GooglePlacesClient googlePlacesClient;
     private final RouteDetailService routeDetailService;
+
+    @Value("${app.invite.base-url}")
+    private String inviteBaseUrl;
 
     /**
      * 확정된 모임 상세 정보 조회
@@ -67,7 +71,16 @@ public class MeetingRouteService {
         List<MeetingDetailResponse.ParticipantInfo> participants =
                 getParticipantsInfo(meetingId, confirmedPlaceId, isCompleted, placeInfo);
 
-        return MeetingDetailResponse.of(meeting, placeInfo, participants);
+        // 초대 코드 및 초대 링크 (모임 종료 시 null)
+        String inviteCode = isCompleted ? null : meeting.getInviteCode();
+        String inviteUrl = inviteCode != null ? inviteBaseUrl + "/" + inviteCode : null;
+
+        return MeetingDetailResponse.of(
+                meeting,
+                placeInfo,
+                participants,
+                inviteCode, inviteUrl
+        );
     }
 
     /**
@@ -115,7 +128,12 @@ public class MeetingRouteService {
             log.warn("[모임 상세] 구글 장소 조회 응답이 비어있음 => isFetchFailed=true, confirmedPlaceId={}", confirmedPlaceId);
             return MeetingDetailResponse.Place.fetchFailed(confirmedPlaceId);
         }
-        return MeetingDetailResponse.Place.of(confirmedPlaceId, googlePlace, recommendedPlace.getCategory());
+        return MeetingDetailResponse.Place.of(
+                confirmedPlaceId,
+                recommendedPlace.getRecommendedAreaId(),
+                googlePlace,
+                recommendedPlace.getCategory()
+        );
     }
 
     /**
@@ -185,6 +203,10 @@ public class MeetingRouteService {
         Map<Long, RouteDetail> routeByParticipantId = new LinkedHashMap<>();
         for (ParticipantDetail detail : participantDetails) {
             ParticipantPreference preference = detail.preference();
+            if (preference == null) {
+                continue;
+            }
+
             Location departure = new Location(
                     preference.getDepartureLatitude().doubleValue(),
                     preference.getDepartureLongitude().doubleValue()

@@ -7,6 +7,8 @@ public record RecommendedPlaceDetailResponse(
         String name,
         String category,
         String address,
+        String areaName,
+        Integer participantCnt,
         Integer preferenceMatchCnt,
         Integer averageTravelTime,
         List<String> imageUrls
