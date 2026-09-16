@@ -78,7 +78,7 @@ class MeetingDetailServiceTest {
     void CONFIRMED이면_배너_문구와_CTA가_올바르게_조립된다() {
         MeetingHomeResponse response = setupAndCallGetMeetingHome(MeetingStatus.CONFIRMED);
 
-        assertThat(response.homeMessage()).isEqualTo("모임이 확정됐어요, 모임 정보를 확인해보세요!");
+        assertThat(response.homeMessage()).isEqualTo("모임이 확정됐어요. 모임 정보를 확인해보세요!");
         assertThat(response.primaryActionLabel()).isEqualTo("확정된 모임 보러 가기");
         assertThat(response.primaryActionEnabled()).isTrue();
     }
