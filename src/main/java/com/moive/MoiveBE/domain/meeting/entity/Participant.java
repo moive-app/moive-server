@@ -57,4 +57,8 @@ public class Participant {
         this.state = ParticipantState.COND_DONE;
         this.conditionCompleted = true;
     }
+
+    public void confirm() {
+        this.state = ParticipantState.CONFIRMED;
+    }
 }
