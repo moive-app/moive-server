@@ -99,6 +99,7 @@ public class MeetingDetailService {
                 scheduledTime,
                 inviteCode,
                 inviteUrl,
+                meeting.getThumbnailType(),
                 participantDtos,
                 action.message(),
                 action.actionLabel(),
@@ -110,7 +111,7 @@ public class MeetingDetailService {
         return switch (status) {
             case CONDITION_INPUT -> new HomeAction("아직 조건 입력 중이에요!", "추천 장소 확인", false);
             case VOTING -> new HomeAction("이미 조건 입력이 완료된 모임이에요!", "추천 장소 확인 및 투표", true);
-            case CONFIRMED -> new HomeAction("모임이 확정됐어요, 모임 정보를 확인해보세요!", "확정된 모임 보러 가기", true);
+            case CONFIRMED -> new HomeAction("모임이 확정됐어요. 모임 정보를 확인해보세요!", "확정된 모임 보러 가기", true);
             case COMPLETED -> new HomeAction(null, null, false);
         };
     }
