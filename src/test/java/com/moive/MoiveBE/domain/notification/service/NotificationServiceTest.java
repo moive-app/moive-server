@@ -146,7 +146,7 @@ class NotificationServiceTest {
         notificationService.sendNotification(USER_ID, 10L, NotificationType.COND_INPUT, "조건을 입력해주세요.");
 
         verify(notificationRepository).save(any(Notification.class));
-        verify(fcmService).sendToTokens(List.of("fcm-token-123"), NotificationType.COND_INPUT.getDefaultTitle(), "조건을 입력해주세요.");
+        verify(fcmService).sendToTokens(eq(List.of("fcm-token-123")), eq(NotificationType.COND_INPUT.getDefaultTitle()), eq("조건을 입력해주세요."), any(), any());
     }
 
     @Test
@@ -156,7 +156,7 @@ class NotificationServiceTest {
 
         notificationService.sendNotification(USER_ID, 10L, NotificationType.COND_INPUT, "조건을 입력해주세요.");
 
-        verify(fcmService, never()).sendToTokens(any(), any(), any());
+        verify(fcmService, never()).sendToTokens(any(), any(), any(), any(), any());
     }
 
     private Notification mockNotification(Long id, Long userId, NotificationType type, Long meetingId, boolean isRead) {

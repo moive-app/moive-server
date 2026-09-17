@@ -13,7 +13,7 @@ import java.util.List;
 @Service
 public class FcmService {
 
-    public void sendToTokens(List<String> fcmTokens, String title, String body) {
+    public void sendToTokens(List<String> fcmTokens, String title, String body, Long meetingId, Long notificationId) {
         for (String token : fcmTokens) {
             try {
                 Message message = Message.builder()
@@ -22,6 +22,8 @@ public class FcmService {
                                 .setTitle(title)
                                 .setBody(body)
                                 .build())
+                        .putData("meetingId", String.valueOf(meetingId))
+                        .putData("notificationId", String.valueOf(notificationId))
                         .build();
                 FirebaseMessaging.getInstance().send(message);
             } catch (FirebaseMessagingException e) {

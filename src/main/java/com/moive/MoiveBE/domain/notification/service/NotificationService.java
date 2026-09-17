@@ -97,7 +97,7 @@ public class NotificationService {
                 .toList();
 
         if (!tokens.isEmpty()) {
-            fcmService.sendToTokens(tokens, title, content);
+            fcmService.sendToTokens(tokens, title, content, meetingId, notification.getId());
         }
     }
 
