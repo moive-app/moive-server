@@ -1,5 +1,7 @@
 package com.moive.MoiveBE.domain.notification.service;
 
+import com.moive.MoiveBE.domain.meeting.entity.MeetingStatus;
+import com.moive.MoiveBE.domain.meeting.repository.MeetingRepository;
 import com.moive.MoiveBE.domain.notification.dto.*;
 import com.moive.MoiveBE.domain.notification.entity.DeviceToken;
 import com.moive.MoiveBE.domain.notification.entity.Notification;
@@ -15,6 +17,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -23,6 +28,7 @@ public class NotificationService {
 
     private final NotificationRepository notificationRepository;
     private final DeviceTokenRepository deviceTokenRepository;
+    private final MeetingRepository meetingRepository;
     private final FcmService fcmService;
 
     private static final int RETENTION_DAYS = 30;
@@ -38,6 +44,16 @@ public class NotificationService {
 
         Long nextCursor = hasNext ? notifications.get(notifications.size() - 1).getId() : null;
 
+        Set<Long> meetingIds = notifications.stream()
+                .map(Notification::getMeetingId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        Set<Long> completedMeetingIds = meetingRepository.findAllById(meetingIds).stream()
+                .filter(m -> m.getStatus() == MeetingStatus.COMPLETED)
+                .map(m -> m.getId())
+                .collect(Collectors.toSet());
+
         List<NotificationListResponse.NotificationDto> dtos = notifications.stream()
                 .map(n -> new NotificationListResponse.NotificationDto(
                         n.getId(),
@@ -46,7 +62,8 @@ public class NotificationService {
                         n.getContent(),
                         n.getMeetingId(),
                         n.isRead(),
-                        n.getCreatedAt()
+                        n.getCreatedAt(),
+                        n.getMeetingId() != null && completedMeetingIds.contains(n.getMeetingId())
                 ))
                 .toList();
 

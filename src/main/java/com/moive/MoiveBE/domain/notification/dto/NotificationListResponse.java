@@ -15,6 +15,7 @@ public record NotificationListResponse(
             String content,
             Long meetingId,
             boolean isRead,
-            LocalDateTime createdAt
+            LocalDateTime createdAt,
+            boolean isMeetingCompleted
     ) {}
 }
