@@ -410,13 +410,11 @@ class RouteMatrixServiceTest {
         List<AreaCandidate> candidates = List.of(
                 new AreaCandidate(
                         "역삼동",
-                        "place-1",
                         37.500643,
                         127.036377
                 ),
                 new AreaCandidate(
                         "논현동",
-                        "place-2",
                         37.5112,
                         127.0285
                 )

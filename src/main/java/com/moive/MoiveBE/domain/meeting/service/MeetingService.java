@@ -9,13 +9,15 @@ import com.moive.MoiveBE.domain.meeting.entity.*;
 import com.moive.MoiveBE.domain.meeting.repository.*;
 import com.moive.MoiveBE.domain.notification.entity.NotificationType;
 import com.moive.MoiveBE.domain.notification.service.NotificationService;
-import com.moive.MoiveBE.domain.recommendation.service.AreaRecommendationService;
 import com.moive.MoiveBE.global.exception.CustomErrorCode;
 import com.moive.MoiveBE.global.exception.CustomException;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.moive.MoiveBE.domain.recommendation.event.AreaRecommendationRequestedEvent;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.security.SecureRandom;
 import java.time.LocalDate;
@@ -25,6 +27,7 @@ import java.util.Optional;
 
 @Service
 @Transactional
+@Slf4j
 public class MeetingService {
 
     private static final int MAX_PARTICIPANTS = 10;
@@ -41,7 +44,7 @@ public class MeetingService {
     private final ActivityRepository activityRepository;
     private final DateVoteRepository dateVoteRepository;
     private final NotificationService notificationService;
-    private final AreaRecommendationService areaRecommendationService;
+    private final ApplicationEventPublisher eventPublisher;
     private final String inviteBaseUrl;
     private final SecureRandom secureRandom = new SecureRandom();
 
@@ -54,7 +57,7 @@ public class MeetingService {
             ActivityRepository activityRepository,
             DateVoteRepository dateVoteRepository,
             NotificationService notificationService,
-            AreaRecommendationService areaRecommendationService,
+            ApplicationEventPublisher eventPublisher,
             @Value("${app.invite.base-url}") String inviteBaseUrl
     ) {
         this.meetingRepository = meetingRepository;
@@ -65,7 +68,7 @@ public class MeetingService {
         this.activityRepository = activityRepository;
         this.dateVoteRepository = dateVoteRepository;
         this.notificationService = notificationService;
-        this.areaRecommendationService = areaRecommendationService;
+        this.eventPublisher = eventPublisher;
         this.inviteBaseUrl = inviteBaseUrl;
     }
 
@@ -262,7 +265,9 @@ public class MeetingService {
         if (isFirstSubmit && meeting.getSubmittedCnt() >= meeting.getParticipantCnt()) {
             meeting.transitionToVoting();
             triggered = true;
-            areaRecommendationService.recommend(meetingId);
+            eventPublisher.publishEvent(
+                    new AreaRecommendationRequestedEvent(meetingId)
+            );
 
             // NOTI-003: 장소 투표 완료 요청 (전체 참여자)
             List<Participant> allParticipants = participantRepository
@@ -280,6 +285,21 @@ public class MeetingService {
                 meeting.getStatus(),
                 triggered
         );
+    }
+
+    /**
+     * 모임 일정이 지난 확정된 모임을 종료 처리 (CONFIRMED -> COMPLETED)
+     * - 날짜 단위로 판단 (scheduledDate < 오늘)
+     * - 매일 MeetingLifecycleScheduler에서 호출됨
+     */
+    public void completeElapsedMeetings() {
+        List<Meeting> elapsedMeetings = meetingRepository
+                .findAllByStatusAndScheduledDateBefore(MeetingStatus.CONFIRMED, LocalDate.now());
+
+        for (Meeting meeting : elapsedMeetings) {
+            meeting.complete();
+            log.info("[모임 종료 처리] 모임 일정 경과로 자동 종료 (meetingId={})", meeting.getId());
+        }
     }
 
     private Long getCurrentUserId() {
