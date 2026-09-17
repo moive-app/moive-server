@@ -195,6 +195,7 @@ public class VoteService {
                 .map(placeId -> PlaceVote.create(meetingId, participant.getId(), placeId))
                 .toList();
         placeVoteRepository.saveAll(placeVotes);
+        participant.completeVote();
 
         // 마지막 투표자인 경우 => 득표 집계 결과 1위 장소를 모임 장소로 확정
         // NEW_RESTRICTED(투표 불가 신규 참여자) 제외한 투표 가능 인원과 비교

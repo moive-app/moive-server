@@ -58,6 +58,10 @@ public class Participant {
         this.conditionCompleted = true;
     }
 
+    public void completeVote() {
+        this.state = ParticipantState.VOTE_DONE;
+    }
+
     public void confirm() {
         this.state = ParticipantState.CONFIRMED;
     }
