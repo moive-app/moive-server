@@ -1,5 +1,8 @@
 package com.moive.MoiveBE.domain.notification.service;
 
+import com.moive.MoiveBE.domain.meeting.entity.Meeting;
+import com.moive.MoiveBE.domain.meeting.entity.MeetingStatus;
+import com.moive.MoiveBE.domain.meeting.repository.MeetingRepository;
 import com.moive.MoiveBE.domain.notification.dto.NotificationListResponse;
 import com.moive.MoiveBE.domain.notification.dto.ReadNotificationResponse;
 import com.moive.MoiveBE.domain.notification.dto.UnreadStatusResponse;
@@ -35,6 +38,7 @@ class NotificationServiceTest {
 
     @Mock private NotificationRepository notificationRepository;
     @Mock private DeviceTokenRepository deviceTokenRepository;
+    @Mock private MeetingRepository meetingRepository;
     @Mock private FcmService fcmService;
 
     private NotificationService notificationService;
@@ -44,7 +48,7 @@ class NotificationServiceTest {
 
     @BeforeEach
     void setUp() {
-        notificationService = new NotificationService(notificationRepository, deviceTokenRepository, fcmService);
+        notificationService = new NotificationService(notificationRepository, deviceTokenRepository, meetingRepository, fcmService);
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken(USER_ID, null, List.of(new SimpleGrantedAuthority("ROLE_USER")))
         );
@@ -59,6 +63,7 @@ class NotificationServiceTest {
     void 알림_목록을_정상_조회한다() {
         Notification n = mockNotification(NOTIFICATION_ID, USER_ID, NotificationType.COND_INPUT, 10L, false);
         when(notificationRepository.findByUserIdWithCursor(eq(USER_ID), any(), eq(null), eq(21))).thenReturn(List.of(n));
+        when(meetingRepository.findAllById(any())).thenReturn(List.of());
 
         NotificationListResponse response = notificationService.getNotifications(null, 20);
 
@@ -75,12 +80,44 @@ class NotificationServiceTest {
                 mockNotification(2L, USER_ID, NotificationType.PLACE_VOTE, 10L, false)
         );
         when(notificationRepository.findByUserIdWithCursor(eq(USER_ID), any(), eq(null), eq(2))).thenReturn(results);
+        when(meetingRepository.findAllById(any())).thenReturn(List.of());
 
         NotificationListResponse response = notificationService.getNotifications(null, 1);
 
         assertThat(response.hasNext()).isTrue();
         assertThat(response.nextCursor()).isEqualTo(1L);
         assertThat(response.notifications()).hasSize(1);
+    }
+
+    @Test
+    void 종료된_모임의_알림은_isMeetingCompleted가_true이다() {
+        Long meetingId = 10L;
+        Notification n = mockNotification(NOTIFICATION_ID, USER_ID, NotificationType.MEETING_CONFIRMED, meetingId, false);
+        when(notificationRepository.findByUserIdWithCursor(eq(USER_ID), any(), eq(null), eq(21))).thenReturn(List.of(n));
+
+        Meeting completedMeeting = mock(Meeting.class);
+        when(completedMeeting.getId()).thenReturn(meetingId);
+        when(completedMeeting.getStatus()).thenReturn(MeetingStatus.COMPLETED);
+        when(meetingRepository.findAllById(any())).thenReturn(List.of(completedMeeting));
+
+        NotificationListResponse response = notificationService.getNotifications(null, 20);
+
+        assertThat(response.notifications().get(0).isMeetingCompleted()).isTrue();
+    }
+
+    @Test
+    void 진행중인_모임의_알림은_isMeetingCompleted가_false이다() {
+        Long meetingId = 10L;
+        Notification n = mockNotification(NOTIFICATION_ID, USER_ID, NotificationType.PLACE_VOTE, meetingId, false);
+        when(notificationRepository.findByUserIdWithCursor(eq(USER_ID), any(), eq(null), eq(21))).thenReturn(List.of(n));
+
+        Meeting votingMeeting = mock(Meeting.class);
+        when(votingMeeting.getStatus()).thenReturn(MeetingStatus.VOTING);
+        when(meetingRepository.findAllById(any())).thenReturn(List.of(votingMeeting));
+
+        NotificationListResponse response = notificationService.getNotifications(null, 20);
+
+        assertThat(response.notifications().get(0).isMeetingCompleted()).isFalse();
     }
 
     @Test
