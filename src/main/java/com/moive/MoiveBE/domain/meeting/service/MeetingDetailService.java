@@ -3,6 +3,8 @@ package com.moive.MoiveBE.domain.meeting.service;
 import com.moive.MoiveBE.domain.meeting.dto.MeetingHomeResponse;
 import com.moive.MoiveBE.domain.meeting.entity.*;
 import com.moive.MoiveBE.domain.meeting.repository.*;
+import com.moive.MoiveBE.domain.recommendation.entity.RecommendationStatus;
+import com.moive.MoiveBE.domain.recommendation.repository.RecommendationRunRepository;
 import com.moive.MoiveBE.domain.user.entity.User;
 import com.moive.MoiveBE.domain.user.repository.UserRepository;
 import com.moive.MoiveBE.global.exception.CustomErrorCode;
@@ -26,6 +28,7 @@ public class MeetingDetailService {
     private final MeetingPurposeRepository meetingPurposeRepository;
     private final ParticipantRepository participantRepository;
     private final UserRepository userRepository;
+    private final RecommendationRunRepository recommendationRunRepository;
     private final String inviteBaseUrl;
 
     public MeetingDetailService(
@@ -33,12 +36,14 @@ public class MeetingDetailService {
             MeetingPurposeRepository meetingPurposeRepository,
             ParticipantRepository participantRepository,
             UserRepository userRepository,
+            RecommendationRunRepository recommendationRunRepository,
             @Value("${app.invite.base-url}") String inviteBaseUrl
     ) {
         this.meetingRepository = meetingRepository;
         this.meetingPurposeRepository = meetingPurposeRepository;
         this.participantRepository = participantRepository;
         this.userRepository = userRepository;
+        this.recommendationRunRepository = recommendationRunRepository;
         this.inviteBaseUrl = inviteBaseUrl;
     }
 
@@ -79,9 +84,14 @@ public class MeetingDetailService {
                             p.getUserId().equals(currentUserId)
                     );
                 })
+                .sorted((a, b) -> Boolean.compare(b.isMe(), a.isMe()))
                 .toList();
 
-        HomeAction action = resolveHomeAction(status);
+        boolean recommendationCompleted = status == MeetingStatus.VOTING &&
+                recommendationRunRepository.findTopByMeetingIdAndStatusOrderByCreatedAtDesc(
+                        meetingId, RecommendationStatus.COMPLETED).isPresent();
+
+        HomeAction action = resolveHomeAction(status, recommendationCompleted);
 
         boolean hasSchedule = meeting.hasSchedule();
         String scheduledDate = hasSchedule && meeting.getScheduledDate() != null
@@ -107,10 +117,10 @@ public class MeetingDetailService {
         );
     }
 
-    private HomeAction resolveHomeAction(MeetingStatus status) {
+    private HomeAction resolveHomeAction(MeetingStatus status, boolean recommendationCompleted) {
         return switch (status) {
             case CONDITION_INPUT -> new HomeAction("아직 조건 입력 중이에요!", "추천 장소 확인", false);
-            case VOTING -> new HomeAction("이미 조건 입력이 완료된 모임이에요!", "추천 장소 확인 및 투표", true);
+            case VOTING -> new HomeAction("이미 조건 입력이 완료된 모임이에요!", "추천 장소 확인 및 투표", recommendationCompleted);
             case CONFIRMED -> new HomeAction("모임이 확정됐어요. 모임 정보를 확인해보세요!", "확정된 모임 보러 가기", true);
             case COMPLETED -> new HomeAction(null, null, false);
         };
