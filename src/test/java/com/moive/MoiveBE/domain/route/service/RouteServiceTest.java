@@ -125,6 +125,83 @@ class RouteServiceTest {
     }
 
     @Test
+    void 요금_정보의_value가_null이고_min_max가_있으면_max를_참조한다() {
+        // given
+        stubUserAndMeetingExist();
+        stubParticipant(DEPARTURE_LATITUDE, DEPARTURE_LONGITUDE);
+        stubRecommendedPlace();
+        stubGooglePlaceLocation(PLACE_LATITUDE, PLACE_LONGITUDE);
+        // fare 객체는 존재하지만 value만 null인 응답
+        when(kakaoTransitClient.getTransitRoute(
+                any(Location.class), any(Location.class), anyString(), anyString()))
+                .thenReturn(okTransitRouteWithFare(new KakaoTransitRouteResponse.Fare(null, 1250, 2150)));
+
+        // when
+        RouteDetailResponse response = routeService.getRecommendedPlaceRoute(
+                USER_ID, MEETING_ID, RECOMMENDED_PLACE_ID);
+
+        // then
+        assertThat(response.fare()).isEqualTo(2150);
+    }
+
+    @Test
+    void 요금_정보의_value_max가_없고_min만_있으면_min을_참조한다() {
+        // given
+        stubUserAndMeetingExist();
+        stubParticipant(DEPARTURE_LATITUDE, DEPARTURE_LONGITUDE);
+        stubRecommendedPlace();
+        stubGooglePlaceLocation(PLACE_LATITUDE, PLACE_LONGITUDE);
+        when(kakaoTransitClient.getTransitRoute(
+                any(Location.class), any(Location.class), anyString(), anyString()))
+                .thenReturn(okTransitRouteWithFare(new KakaoTransitRouteResponse.Fare(null, 1250, null)));
+
+        // when
+        RouteDetailResponse response = routeService.getRecommendedPlaceRoute(
+                USER_ID, MEETING_ID, RECOMMENDED_PLACE_ID);
+
+        // then
+        assertThat(response.fare()).isEqualTo(1250);
+    }
+
+    @Test
+    void 요금_정보의_value_min_max가_모두_없으면_null로_응답한다() {
+        // given
+        stubUserAndMeetingExist();
+        stubParticipant(DEPARTURE_LATITUDE, DEPARTURE_LONGITUDE);
+        stubRecommendedPlace();
+        stubGooglePlaceLocation(PLACE_LATITUDE, PLACE_LONGITUDE);
+        when(kakaoTransitClient.getTransitRoute(
+                any(Location.class), any(Location.class), anyString(), anyString()))
+                .thenReturn(okTransitRouteWithFare(new KakaoTransitRouteResponse.Fare(null, null, null)));
+
+        // when
+        RouteDetailResponse response = routeService.getRecommendedPlaceRoute(
+                USER_ID, MEETING_ID, RECOMMENDED_PLACE_ID);
+
+        // then
+        assertThat(response.fare()).isNull();
+    }
+
+    @Test
+    void 요금_정보가_없으면_null로_응답한다() {
+        // given
+        stubUserAndMeetingExist();
+        stubParticipant(DEPARTURE_LATITUDE, DEPARTURE_LONGITUDE);
+        stubRecommendedPlace();
+        stubGooglePlaceLocation(PLACE_LATITUDE, PLACE_LONGITUDE);
+        when(kakaoTransitClient.getTransitRoute(
+                any(Location.class), any(Location.class), anyString(), anyString()))
+                .thenReturn(okTransitRouteWithFare(null));
+
+        // when
+        RouteDetailResponse response = routeService.getRecommendedPlaceRoute(
+                USER_ID, MEETING_ID, RECOMMENDED_PLACE_ID);
+
+        // then
+        assertThat(response.fare()).isNull();
+    }
+
+    @Test
     void 대중교통_경로가_없으면_TRANSIT_ROUTE_NOT_FOUND_예외가_발생한다() {
         // given
         stubUserAndMeetingExist();
@@ -241,6 +318,10 @@ class RouteServiceTest {
      * path 좌표는 [경도, 위도] 순서(카카오 규격)
      */
     private KakaoTransitRouteResponse okTransitRoute() {
+        return okTransitRouteWithFare(new KakaoTransitRouteResponse.Fare(1500, 1500, 1500));
+    }
+
+    private KakaoTransitRouteResponse okTransitRouteWithFare(KakaoTransitRouteResponse.Fare fare) {
         KakaoTransitRouteResponse.Step walk = transitStep("WALKING", 300,
                 new Double[][]{{126.9014, 37.5788}, {126.9020, 37.5780}});
         KakaoTransitRouteResponse.Step subway = transitStep("SUBWAY", 600,
@@ -250,8 +331,7 @@ class RouteServiceTest {
 
         KakaoTransitRouteResponse.RouteProperties routeProperties =
                 new KakaoTransitRouteResponse.RouteProperties(
-                        "TRANSIT", 5000, 1800, 1,
-                        new KakaoTransitRouteResponse.Fare(1500, 1500, 1500));
+                        "TRANSIT", 5000, 1800, 1, fare);
 
         KakaoTransitRouteResponse.Route route =
                 new KakaoTransitRouteResponse.Route(routeProperties, List.of(walk, subway, bus));
