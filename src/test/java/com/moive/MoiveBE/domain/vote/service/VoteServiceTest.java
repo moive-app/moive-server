@@ -67,7 +67,6 @@ class VoteServiceTest {
     private static final Long USER_ID = 1L;
     private static final Long MEETING_ID = 10L;
     private static final Long MY_PARTICIPANT_ID = 100L;
-
     private static final Long RECOMMENDATION_RUN_ID = 1000L;
 
     @Mock private MeetingRepository meetingRepository;
@@ -163,8 +162,8 @@ class VoteServiceTest {
         Meeting meeting = mock(Meeting.class);
         stubMeetingAndParticipant(meeting, MY_PARTICIPANT_ID);
 
-        when(dateVoteRepository.countDistinctVoters(MEETING_ID)).thenReturn(4L);
-        when(dateVoteRepository.aggregateTopDates(eq(MEETING_ID), eq(MY_PARTICIPANT_ID), any()))
+        when(dateVoteRepository.countDistinctVoters(eq(MEETING_ID), anyList())).thenReturn(4L);
+        when(dateVoteRepository.aggregateTopDates(eq(MEETING_ID), eq(MY_PARTICIPANT_ID), anyList(), any()))
                 .thenReturn(List.of(
                         new DateVoteSummary(LocalDate.of(2026, 9, 15), LocalTime.of(18, 0), 4L, 1L),
                         new DateVoteSummary(LocalDate.of(2026, 9, 12), LocalTime.of(15, 0), 2L, 0L),
@@ -189,7 +188,7 @@ class VoteServiceTest {
         );
 
         ArgumentCaptor<Pageable> pageable = ArgumentCaptor.forClass(Pageable.class);
-        verify(dateVoteRepository).aggregateTopDates(eq(MEETING_ID), eq(MY_PARTICIPANT_ID), pageable.capture());
+        verify(dateVoteRepository).aggregateTopDates(eq(MEETING_ID), eq(MY_PARTICIPANT_ID), anyList(), pageable.capture());
         assertThat(pageable.getValue().getPageNumber()).isZero();
         assertThat(pageable.getValue().getPageSize()).isEqualTo(3);
     }
@@ -200,8 +199,8 @@ class VoteServiceTest {
         Meeting meeting = mock(Meeting.class);
         stubMeetingAndParticipant(meeting, MY_PARTICIPANT_ID);
 
-        when(dateVoteRepository.countDistinctVoters(MEETING_ID)).thenReturn(2L);
-        when(dateVoteRepository.aggregateTopDates(eq(MEETING_ID), eq(MY_PARTICIPANT_ID), any()))
+        when(dateVoteRepository.countDistinctVoters(eq(MEETING_ID), anyList())).thenReturn(2L);
+        when(dateVoteRepository.aggregateTopDates(eq(MEETING_ID), eq(MY_PARTICIPANT_ID), anyList(), any()))
                 .thenReturn(List.of(
                         new DateVoteSummary(LocalDate.of(2026, 9, 15), LocalTime.of(18, 0), 2L, 1L),
                         new DateVoteSummary(LocalDate.of(2026, 9, 12), LocalTime.of(15, 0), 1L, 0L)
@@ -219,8 +218,8 @@ class VoteServiceTest {
         // given
         Meeting meeting = mock(Meeting.class);
         stubMeetingAndParticipant(meeting);
-        when(dateVoteRepository.countDistinctVoters(MEETING_ID)).thenReturn(0L);
-        when(dateVoteRepository.aggregateTopDates(any(), any(), any())).thenReturn(List.of());
+        when(dateVoteRepository.countDistinctVoters(eq(MEETING_ID), anyList())).thenReturn(0L);
+        when(dateVoteRepository.aggregateTopDates(any(), any(), anyList(), any())).thenReturn(List.of());
 
         // when
         DateVoteResultResponse response = voteService.getMeetingScheduleVoteResult(USER_ID, MEETING_ID);
@@ -817,6 +816,8 @@ class VoteServiceTest {
         when(meetingRepository.findById(MEETING_ID)).thenReturn(Optional.of(meeting));
         when(participantRepository.findByMeetingIdAndUserIdAndLeftAtIsNull(MEETING_ID, USER_ID))
                 .thenReturn(Optional.of(participant));
+        lenient().when(participantRepository.findAllByMeetingIdAndLeftAtIsNull(MEETING_ID))
+                .thenReturn(List.of(participant));
     }
 
     private PlaceVoteRequest placeVoteRequest(Long... recommendedPlaceIds) {

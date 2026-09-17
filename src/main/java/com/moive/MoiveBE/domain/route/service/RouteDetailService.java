@@ -60,7 +60,7 @@ public class RouteDetailService {
 
                 List<Location> pathPoints = buildSimplifiedPathPoints(bestRoute, userLocation, placeLocation);
 
-                int fare = totalSummary.fare() != null ? totalSummary.fare().value() : 0;
+                Integer fare = resolveFare(totalSummary.fare());
 
                 yield RouteDetail.builder()
                         .pathPoints(pathPoints)
@@ -88,6 +88,20 @@ public class RouteDetailService {
                 throw new CustomException(TRANSIT_ROUTE_NOT_FOUND);
             }
         };
+    }
+
+    // 요금 정보 추출
+    private Integer resolveFare(KakaoTransitRouteResponse.Fare fare) {
+        if (fare == null) {
+            return null;
+        }
+        if (fare.value() != null) {
+            return fare.value();
+        }
+        if (fare.max() != null) {
+            return fare.max();
+        }
+        return fare.min();
     }
 
     // 이동 수단(WALKING/BUS/SUBWAY)별 이동 시간 누적합(초 단위) 계산

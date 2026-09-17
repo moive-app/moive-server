@@ -15,7 +15,7 @@ public record RouteDetail(
         int busTime,
         int subwayTime,
         int transferCnt,
-        int fare,
+        Integer fare,
         String landingUrl
 ) {
 }

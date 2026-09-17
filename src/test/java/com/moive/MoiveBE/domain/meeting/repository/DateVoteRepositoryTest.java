@@ -39,13 +39,15 @@ class DateVoteRepositoryTest {
     private static final Long D = 40L;
     private static final Long E = 50L;
 
+    private static final List<Long> ALL_PARTICIPANT_IDS = List.of(A, B, C, D, E);
+
     @Test
     void 서로_다른_참여자가_투표하면_참여자_수를_센다() {
         vote(A, "2026-09-12", "13:00");
         vote(B, "2026-09-13", "14:00");
         vote(C, "2026-09-13", "10:00");
 
-        assertThat(dateVoteRepository.countDistinctVoters(MEETING_ID)).isEqualTo(3);
+        assertThat(dateVoteRepository.countDistinctVoters(MEETING_ID, ALL_PARTICIPANT_IDS)).isEqualTo(3);
     }
 
     @Test
@@ -54,7 +56,7 @@ class DateVoteRepositoryTest {
         vote(A, "2026-09-12", "15:00");
         vote(A, "2026-09-15", "12:00");
 
-        assertThat(dateVoteRepository.countDistinctVoters(MEETING_ID)).isEqualTo(1);
+        assertThat(dateVoteRepository.countDistinctVoters(MEETING_ID, ALL_PARTICIPANT_IDS)).isEqualTo(1);
     }
 
     @Test
@@ -63,12 +65,12 @@ class DateVoteRepositoryTest {
         voteRaw(B, null, LocalTime.of(14, 0));
         voteRaw(C, LocalDate.of(2026, 9, 13), null);
 
-        assertThat(dateVoteRepository.countDistinctVoters(MEETING_ID)).isEqualTo(1);
+        assertThat(dateVoteRepository.countDistinctVoters(MEETING_ID, ALL_PARTICIPANT_IDS)).isEqualTo(1);
     }
 
     @Test
     void 투표가_없으면_참여자_수는_0() {
-        assertThat(dateVoteRepository.countDistinctVoters(MEETING_ID)).isZero();
+        assertThat(dateVoteRepository.countDistinctVoters(MEETING_ID, ALL_PARTICIPANT_IDS)).isZero();
     }
 
     @Test
@@ -87,7 +89,7 @@ class DateVoteRepositoryTest {
         vote(D, "2026-09-12", "15:00");
         vote(D, "2026-09-14", "12:00");
 
-        List<DateVoteSummary> result = dateVoteRepository.aggregateTopDates(MEETING_ID, A, top(3));
+        List<DateVoteSummary> result = dateVoteRepository.aggregateTopDates(MEETING_ID, A, ALL_PARTICIPANT_IDS, top(3));
 
         assertThat(result).hasSize(3);
         assertCandidate(result.get(0), "2026-09-15", "18:00", 3);
@@ -105,7 +107,7 @@ class DateVoteRepositoryTest {
         vote(C, "2026-09-10", "10:00");
         vote(D, "2026-09-10", "11:00");
 
-        List<DateVoteSummary> result = dateVoteRepository.aggregateTopDates(MEETING_ID, A, top(3));
+        List<DateVoteSummary> result = dateVoteRepository.aggregateTopDates(MEETING_ID, A, ALL_PARTICIPANT_IDS, top(3));
 
         assertThat(result).extracting(DateVoteSummary::candidateDate)
                 .containsExactly(
@@ -126,7 +128,7 @@ class DateVoteRepositoryTest {
         vote(A, "2026-09-12", "10:00");
         vote(B, "2026-09-12", "10:00");
 
-        List<DateVoteSummary> result = dateVoteRepository.aggregateTopDates(MEETING_ID, A, top(3));
+        List<DateVoteSummary> result = dateVoteRepository.aggregateTopDates(MEETING_ID, A, ALL_PARTICIPANT_IDS, top(3));
 
         assertThat(result).extracting(DateVoteSummary::candidateDate, DateVoteSummary::voterCnt)
                 .containsExactly(
@@ -141,7 +143,7 @@ class DateVoteRepositoryTest {
         vote(A, "2026-09-12", "13:00");
         vote(B, "2026-09-13", "14:00");
 
-        assertThat(dateVoteRepository.aggregateTopDates(MEETING_ID, A, top(3))).hasSize(2);
+        assertThat(dateVoteRepository.aggregateTopDates(MEETING_ID, A, ALL_PARTICIPANT_IDS, top(3))).hasSize(2);
     }
 
     @Test
@@ -152,7 +154,7 @@ class DateVoteRepositoryTest {
         vote(D, "2026-09-13", "10:00");
         vote(E, "2026-09-14", "10:00");
 
-        List<DateVoteSummary> result = dateVoteRepository.aggregateTopDates(MEETING_ID, A, top(3));
+        List<DateVoteSummary> result = dateVoteRepository.aggregateTopDates(MEETING_ID, A, ALL_PARTICIPANT_IDS, top(3));
 
         // 전부 1표라 날짜 오름차순으로 앞의 3개
         assertThat(result).extracting(DateVoteSummary::candidateDate).containsExactly(
@@ -166,7 +168,7 @@ class DateVoteRepositoryTest {
         vote(B, "2026-09-15", "18:00");
         vote(C, "2026-09-15", "12:00");
 
-        DateVoteSummary summary = dateVoteRepository.aggregateTopDates(MEETING_ID, A, top(3)).get(0);
+        DateVoteSummary summary = dateVoteRepository.aggregateTopDates(MEETING_ID, A, ALL_PARTICIPANT_IDS, top(3)).get(0);
 
         assertThat(summary.candidateTime()).isEqualTo(LocalTime.of(18, 0));
         assertThat(summary.voterCnt()).isEqualTo(3L);
@@ -177,7 +179,7 @@ class DateVoteRepositoryTest {
         vote(A, "2026-09-20", "10:00");
         vote(A, "2026-09-20", "14:00");
 
-        DateVoteSummary summary = dateVoteRepository.aggregateTopDates(MEETING_ID, A, top(3)).get(0);
+        DateVoteSummary summary = dateVoteRepository.aggregateTopDates(MEETING_ID, A, ALL_PARTICIPANT_IDS, top(3)).get(0);
 
         assertThat(summary.voterCnt()).isEqualTo(1L);
         assertThat(summary.candidateTime()).isEqualTo(LocalTime.of(14, 0));
@@ -190,11 +192,11 @@ class DateVoteRepositoryTest {
         vote(B, "2026-09-13", "14:00");
         vote(C, "2026-09-13", "10:00");
 
-        List<DateVoteSummary> asA = dateVoteRepository.aggregateTopDates(MEETING_ID, A, top(3));
+        List<DateVoteSummary> asA = dateVoteRepository.aggregateTopDates(MEETING_ID, A, ALL_PARTICIPANT_IDS, top(3));
         assertThat(pick(asA, "2026-09-15").isVotedByMe()).isTrue();
         assertThat(pick(asA, "2026-09-13").isVotedByMe()).isFalse();
 
-        List<DateVoteSummary> asC = dateVoteRepository.aggregateTopDates(MEETING_ID, C, top(3));
+        List<DateVoteSummary> asC = dateVoteRepository.aggregateTopDates(MEETING_ID, C, ALL_PARTICIPANT_IDS, top(3));
         assertThat(pick(asC, "2026-09-15").isVotedByMe()).isFalse();
         assertThat(pick(asC, "2026-09-13").isVotedByMe()).isTrue();
     }
@@ -205,7 +207,7 @@ class DateVoteRepositoryTest {
         vote(B, "2026-09-13", "14:00");
 
         // 투표한 적 없는 참여자 id 로 조회
-        List<DateVoteSummary> result = dateVoteRepository.aggregateTopDates(MEETING_ID, 999L, top(3));
+        List<DateVoteSummary> result = dateVoteRepository.aggregateTopDates(MEETING_ID, 999L, ALL_PARTICIPANT_IDS, top(3));
 
         assertThat(result).allSatisfy(s -> assertThat(s.isVotedByMe()).isFalse());
     }
@@ -216,7 +218,7 @@ class DateVoteRepositoryTest {
         voteRaw(B, null, LocalTime.of(14, 0));
         voteRaw(C, LocalDate.of(2026, 9, 13), null);
 
-        List<DateVoteSummary> result = dateVoteRepository.aggregateTopDates(MEETING_ID, A, top(3));
+        List<DateVoteSummary> result = dateVoteRepository.aggregateTopDates(MEETING_ID, A, ALL_PARTICIPANT_IDS, top(3));
 
         assertThat(result).hasSize(1);
         assertCandidate(result.get(0), "2026-09-12", "13:00", 1);
@@ -224,7 +226,7 @@ class DateVoteRepositoryTest {
 
     @Test
     void 투표가_없으면_빈_리스트를_반환한다() {
-        assertThat(dateVoteRepository.aggregateTopDates(MEETING_ID, A, top(3))).isEmpty();
+        assertThat(dateVoteRepository.aggregateTopDates(MEETING_ID, A, ALL_PARTICIPANT_IDS, top(3))).isEmpty();
     }
 
     @Test
@@ -233,10 +235,33 @@ class DateVoteRepositoryTest {
         voteFor(OTHER_MEETING_ID, B, "2026-09-12", "13:00");
         voteFor(OTHER_MEETING_ID, C, "2026-09-13", "10:00");
 
-        List<DateVoteSummary> result = dateVoteRepository.aggregateTopDates(MEETING_ID, A, top(3));
+        List<DateVoteSummary> result = dateVoteRepository.aggregateTopDates(MEETING_ID, A, ALL_PARTICIPANT_IDS, top(3));
 
         assertThat(result).hasSize(1);
         assertCandidate(result.get(0), "2026-09-12", "13:00", 1);
+    }
+
+    @Test
+    void participantIds에_없는_참여자의_투표는_참여자_수_집계에서_제외한다() {
+        vote(A, "2026-09-12", "13:00");
+        vote(B, "2026-09-12", "13:00");
+        // C는 탈퇴하여 유효 참여자 목록(A, B)에서 제외된 상황을 가정
+        vote(C, "2026-09-12", "13:00");
+
+        assertThat(dateVoteRepository.countDistinctVoters(MEETING_ID, List.of(A, B))).isEqualTo(2);
+    }
+
+    @Test
+    void participantIds에_없는_참여자의_투표는_날짜별_집계에서_제외한다() {
+        vote(A, "2026-09-12", "13:00");
+        vote(B, "2026-09-12", "13:00");
+        // C만 투표한 날짜는 유효 참여자 목록(A, B)에 없으므로 후보에서 제외되어야 함
+        vote(C, "2026-09-13", "10:00");
+
+        List<DateVoteSummary> result = dateVoteRepository.aggregateTopDates(MEETING_ID, A, List.of(A, B), top(3));
+
+        assertThat(result).hasSize(1);
+        assertCandidate(result.get(0), "2026-09-12", "13:00", 2);
     }
 
     /**
