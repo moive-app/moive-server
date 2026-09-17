@@ -79,6 +79,7 @@ public class MeetingDetailService {
                             p.getUserId().equals(currentUserId)
                     );
                 })
+                .sorted((a, b) -> Boolean.compare(b.isMe(), a.isMe()))
                 .toList();
 
         HomeAction action = resolveHomeAction(status);
