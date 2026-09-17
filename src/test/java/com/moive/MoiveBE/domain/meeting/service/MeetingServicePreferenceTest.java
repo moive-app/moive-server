@@ -5,7 +5,8 @@ import com.moive.MoiveBE.domain.meeting.dto.SubmitPreferenceResponse;
 import com.moive.MoiveBE.domain.meeting.entity.*;
 import com.moive.MoiveBE.domain.meeting.repository.*;
 import com.moive.MoiveBE.domain.notification.service.NotificationService;
-import com.moive.MoiveBE.domain.recommendation.service.AreaRecommendationService;
+import com.moive.MoiveBE.domain.recommendation.event.AreaRecommendationRequestedEvent;
+import org.springframework.context.ApplicationEventPublisher;
 import com.moive.MoiveBE.global.exception.CustomErrorCode;
 import com.moive.MoiveBE.global.exception.CustomException;
 import org.junit.jupiter.api.AfterEach;
@@ -38,7 +39,7 @@ class MeetingServicePreferenceTest {
     @Mock private ActivityRepository activityRepository;
     @Mock private DateVoteRepository dateVoteRepository;
     @Mock private NotificationService notificationService;
-    @Mock private AreaRecommendationService areaRecommendationService;
+    @Mock private ApplicationEventPublisher eventPublisher;
 
     private MeetingService meetingService;
 
@@ -53,7 +54,7 @@ class MeetingServicePreferenceTest {
                 activityRepository,
                 dateVoteRepository,
                 notificationService,
-                areaRecommendationService,
+                eventPublisher,
                 "https://moiveserver.store/invite"
         );
         SecurityContextHolder.getContext().setAuthentication(
@@ -161,6 +162,10 @@ class MeetingServicePreferenceTest {
         assertThat(response.recommendationTriggered()).isTrue();
         assertThat(response.meetingStatus()).isEqualTo("VOTING");
         verify(meeting).transitionToVoting();
+
+        verify(eventPublisher).publishEvent(
+                any(AreaRecommendationRequestedEvent.class)
+        );
     }
 
     @Test

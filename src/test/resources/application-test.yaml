@@ -17,3 +17,6 @@ aws:
 
 openai:
   api-key: test-openai-api-key
+
+vworld:
+  api-key: test-vworld-api-key
