@@ -5,6 +5,9 @@ import com.moive.MoiveBE.domain.meeting.entity.*;
 import com.moive.MoiveBE.domain.meeting.repository.MeetingPurposeRepository;
 import com.moive.MoiveBE.domain.meeting.repository.MeetingRepository;
 import com.moive.MoiveBE.domain.meeting.repository.ParticipantRepository;
+import com.moive.MoiveBE.domain.recommendation.entity.RecommendationRun;
+import com.moive.MoiveBE.domain.recommendation.entity.RecommendationStatus;
+import com.moive.MoiveBE.domain.recommendation.repository.RecommendationRunRepository;
 import com.moive.MoiveBE.domain.user.entity.User;
 import com.moive.MoiveBE.domain.user.repository.UserRepository;
 import com.moive.MoiveBE.global.exception.CustomErrorCode;
@@ -33,6 +36,7 @@ class MeetingDetailServiceTest {
     @Mock private MeetingPurposeRepository meetingPurposeRepository;
     @Mock private ParticipantRepository participantRepository;
     @Mock private UserRepository userRepository;
+    @Mock private RecommendationRunRepository recommendationRunRepository;
 
     private MeetingDetailService meetingDetailService;
     private static final Long CURRENT_USER_ID = 1L;
@@ -42,7 +46,7 @@ class MeetingDetailServiceTest {
     void setUp() {
         meetingDetailService = new MeetingDetailService(
                 meetingRepository, meetingPurposeRepository, participantRepository,
-                userRepository, "https://moive.app/invite"
+                userRepository, recommendationRunRepository, "https://moive.app/invite"
         );
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken(
@@ -67,6 +71,10 @@ class MeetingDetailServiceTest {
 
     @Test
     void VOTING이면_배너_문구와_CTA가_올바르게_조립된다() {
+        RecommendationRun run = mock(RecommendationRun.class);
+        when(recommendationRunRepository.findTopByMeetingIdAndStatusOrderByCreatedAtDesc(
+                MEETING_ID, RecommendationStatus.COMPLETED)).thenReturn(Optional.of(run));
+
         MeetingHomeResponse response = setupAndCallGetMeetingHome(MeetingStatus.VOTING);
 
         assertThat(response.homeMessage()).isEqualTo("이미 조건 입력이 완료된 모임이에요!");
@@ -118,6 +126,27 @@ class MeetingDetailServiceTest {
                 .isInstanceOf(CustomException.class)
                 .satisfies(e -> assertThat(((CustomException) e).getCustomErrorCode())
                         .isEqualTo(CustomErrorCode.NOT_A_PARTICIPANT));
+    }
+
+    @Test
+    void VOTING이고_추천완료_없으면_primaryActionEnabled가_false이다() {
+        when(recommendationRunRepository.findTopByMeetingIdAndStatusOrderByCreatedAtDesc(
+                MEETING_ID, RecommendationStatus.COMPLETED)).thenReturn(Optional.empty());
+
+        MeetingHomeResponse response = setupAndCallGetMeetingHome(MeetingStatus.VOTING);
+
+        assertThat(response.primaryActionEnabled()).isFalse();
+    }
+
+    @Test
+    void VOTING이고_추천완료_있으면_primaryActionEnabled가_true이다() {
+        RecommendationRun run = mock(RecommendationRun.class);
+        when(recommendationRunRepository.findTopByMeetingIdAndStatusOrderByCreatedAtDesc(
+                MEETING_ID, RecommendationStatus.COMPLETED)).thenReturn(Optional.of(run));
+
+        MeetingHomeResponse response = setupAndCallGetMeetingHome(MeetingStatus.VOTING);
+
+        assertThat(response.primaryActionEnabled()).isTrue();
     }
 
     private MeetingHomeResponse setupAndCallGetMeetingHome(MeetingStatus status) {
