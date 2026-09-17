@@ -84,6 +84,30 @@ class MeetingDetailServiceTest {
     }
 
     @Test
+    void 참여자_목록에서_본인이_첫번째로_정렬된다() {
+        Meeting meeting = mockMeeting(MEETING_ID, MeetingStatus.CONDITION_INPUT, null);
+        Participant other = mockParticipant(1L, 99L, ParticipantState.COND_PENDING);
+        Participant me = mockParticipant(2L, CURRENT_USER_ID, ParticipantState.COND_PENDING);
+        MeetingPurpose purpose = mockPurpose(PurposeType.NETWORKING);
+        User userOther = mockUser(99L, "다른사람");
+        User userMe = mockUser(CURRENT_USER_ID, "나");
+
+        when(meetingRepository.findById(MEETING_ID)).thenReturn(Optional.of(meeting));
+        when(participantRepository.findByMeetingIdAndUserIdAndLeftAtIsNull(MEETING_ID, CURRENT_USER_ID))
+                .thenReturn(Optional.of(me));
+        when(meetingPurposeRepository.findByMeetingId(MEETING_ID)).thenReturn(Optional.of(purpose));
+        // other가 먼저 가입한 순서
+        when(participantRepository.findAllByMeetingIdAndLeftAtIsNullOrderByJoinedAtAsc(MEETING_ID))
+                .thenReturn(List.of(other, me));
+        when(userRepository.findAllById(any())).thenReturn(List.of(userOther, userMe));
+
+        MeetingHomeResponse response = meetingDetailService.getMeetingHome(MEETING_ID);
+
+        assertThat(response.participants().get(0).isMe()).isTrue();
+        assertThat(response.participants().get(1).isMe()).isFalse();
+    }
+
+    @Test
     void getMeetingHome에서_참여자가_아니면_NOT_A_PARTICIPANT_예외가_발생한다() {
         Meeting meeting = mockMeeting(MEETING_ID, MeetingStatus.CONDITION_INPUT, null);
         when(meetingRepository.findById(MEETING_ID)).thenReturn(Optional.of(meeting));

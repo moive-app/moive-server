@@ -389,6 +389,29 @@ class VoteServiceTest {
     }
 
     @Test
+    void 투표_완료_시_참여자_상태가_VOTE_DONE으로_변경된다() {
+        // given
+        Meeting meeting = meetingWithStatus(MeetingStatus.VOTING);
+        lenient().when(meeting.getParticipantCnt()).thenReturn(5);
+        stubMeetingAndRecommendation(meeting, 101L, 102L);
+
+        Participant participant = mock(Participant.class);
+        lenient().when(participant.getId()).thenReturn(MY_PARTICIPANT_ID);
+        when(participantRepository.findByMeetingIdAndUserIdAndLeftAtIsNull(MEETING_ID, USER_ID))
+                .thenReturn(Optional.of(participant));
+
+        when(placeVoteRepository.existsByMeetingIdAndParticipantId(MEETING_ID, MY_PARTICIPANT_ID)).thenReturn(false);
+        when(placeVoteRepository.countDistinctVoters(MEETING_ID)).thenReturn(2L);
+        when(participantRepository.countByMeetingIdAndLeftAtIsNullAndStateNot(MEETING_ID, ParticipantState.NEW_RESTRICTED)).thenReturn(5L);
+
+        // when
+        voteService.createPlaceVote(USER_ID, MEETING_ID, placeVoteRequest(101L));
+
+        // then
+        verify(participant).completeVote();
+    }
+
+    @Test
     void 마지막_투표자가_투표하면_득표_1위_장소로_모임이_확정된다() {
         // given: 참여자 2명 모임, 마지막 투표 상황 가정
         Meeting meeting = meetingWithStatus(MeetingStatus.VOTING);
