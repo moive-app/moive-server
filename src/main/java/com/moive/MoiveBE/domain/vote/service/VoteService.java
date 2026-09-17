@@ -3,7 +3,6 @@ package com.moive.MoiveBE.domain.vote.service;
 import com.moive.MoiveBE.domain.meeting.entity.Meeting;
 import com.moive.MoiveBE.domain.meeting.entity.MeetingStatus;
 import com.moive.MoiveBE.domain.meeting.entity.Participant;
-import com.moive.MoiveBE.domain.meeting.entity.ParticipantPreference;
 import com.moive.MoiveBE.domain.meeting.entity.ParticipantState;
 import com.moive.MoiveBE.domain.meeting.repository.DateVoteRepository;
 import com.moive.MoiveBE.domain.meeting.repository.MeetingRepository;
@@ -103,12 +102,17 @@ public class VoteService {
         }
 
         // 일정 미확정인 경우 => DateVote 내역 집계
+        // - 유효 참여자 id 목록 조회
+        List<Long> validParticipantIds = participantRepository.findAllByMeetingIdAndLeftAtIsNull(meetingId).stream()
+                .map(Participant::getId)
+                .toList();
+
         // - 투표 참여 인원
-        int totalVoterCnt = (int) dateVoteRepository.countDistinctVoters(meetingId);
+        int totalVoterCnt = (int) dateVoteRepository.countDistinctVoters(meetingId, validParticipantIds);
 
         // - 날짜별 집계
         List<DateVoteResultResponse.Candidate> candidates = dateVoteRepository
-                .aggregateTopDates(meetingId, participant.getId(), PageRequest.of(0, TOP_N))
+                .aggregateTopDates(meetingId, participant.getId(), validParticipantIds, PageRequest.of(0, TOP_N))
                 .stream()
                 .map(this::toCandidate)
                 .toList();
