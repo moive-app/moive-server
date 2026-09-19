@@ -287,4 +287,211 @@ class PlaceRecommendationGenerationServiceTest {
         verify(recommendedPlaceRepository)
                 .saveAll(anyList());
     }
+
+    @Test
+    void 선호조건이_없는_신규_참가자는_제외하고_장소를_추천한다() {
+
+        // given
+        Long recommendedAreaId = 10L;
+
+        RecommendedArea recommendedArea = mock(RecommendedArea.class);
+        RecommendationRun recommendationRun = mock(RecommendationRun.class);
+
+        Participant participant1 = mock(Participant.class);
+        Participant participant2 = mock(Participant.class);
+        Participant newParticipant = mock(Participant.class);
+
+        ParticipantPreference preference1 =
+                mock(ParticipantPreference.class);
+        ParticipantPreference preference2 =
+                mock(ParticipantPreference.class);
+
+        when(recommendedArea.getRecommendationRunId()).thenReturn(20L);
+        when(recommendedArea.getAreaName()).thenReturn("강남역");
+
+        when(recommendationRun.getMeetingId()).thenReturn(30L);
+
+        when(participant1.getId()).thenReturn(1L);
+        when(participant2.getId()).thenReturn(2L);
+        when(newParticipant.getId()).thenReturn(3L);
+
+        when(preference1.getParticipantId()).thenReturn(1L);
+        when(preference2.getParticipantId()).thenReturn(2L);
+
+        when(recommendedAreaRepository.findById(recommendedAreaId))
+                .thenReturn(java.util.Optional.of(recommendedArea));
+
+        when(recommendationRunRepository.findById(20L))
+                .thenReturn(java.util.Optional.of(recommendationRun));
+
+        /*
+         * 3번 참가자는 지역 추천 이후 새로 참여했으며
+         * 아직 선호조건을 입력하지 않은 상태
+         */
+        when(participantRepository.findAllByMeetingIdAndLeftAtIsNull(30L))
+                .thenReturn(
+                        List.of(
+                                participant1,
+                                participant2,
+                                newParticipant
+                        )
+                );
+
+        /*
+         * 신규 참가자(3번)의 ParticipantPreference는 존재하지 않는다.
+         */
+        when(participantPreferenceRepository.findAllByParticipantIdIn(
+                List.of(1L, 2L, 3L)
+        )).thenReturn(
+                List.of(preference1, preference2)
+        );
+
+        List<ParticipantRecommendationCondition> conditions = List.of(
+                new ParticipantRecommendationCondition(
+                        0,
+                        Set.of("한식"),
+                        30
+                ),
+                new ParticipantRecommendationCondition(
+                        1,
+                        Set.of("볼링"),
+                        60
+                )
+        );
+
+        /*
+         * 조건이 존재하는 1, 2번 참가자만 전달되어야 한다.
+         */
+        when(participantRecommendationConditionService.createConditions(
+                List.of(preference1, preference2)
+        )).thenReturn(conditions);
+
+        Map<String, Integer> allocations = Map.of(
+                "한식", 5,
+                "볼링", 5
+        );
+
+        when(placePreferenceAllocationService.allocate(conditions))
+                .thenReturn(allocations);
+
+        List<PlaceCandidate> candidates = List.of(
+                new PlaceCandidate(
+                        "place-1",
+                        37.1,
+                        127.1,
+                        0,
+                        "한식"
+                ),
+                new PlaceCandidate(
+                        "place-2",
+                        37.2,
+                        127.2,
+                        1,
+                        "볼링"
+                ),
+                new PlaceCandidate(
+                        "place-3",
+                        37.3,
+                        127.3,
+                        2,
+                        "한식"
+                )
+        );
+
+        when(placeCandidateGenerationService.generateCandidates(
+                "강남역",
+                allocations
+        )).thenReturn(candidates);
+
+        List<GoogleRouteMatrixResponse> routeResponses =
+                mock(List.class);
+
+        /*
+         * 신규 참가자는 Route Matrix 계산에서도 제외되어야 한다.
+         */
+        when(placeRouteService.calculate(
+                List.of(preference1, preference2),
+                candidates
+        )).thenReturn(routeResponses);
+
+        List<PlaceRouteResult> routeResults = List.of(
+                new PlaceRouteResult(0, 1000.0, 1200.0),
+                new PlaceRouteResult(1, 1100.0, 1300.0),
+                new PlaceRouteResult(2, 1200.0, 1400.0)
+        );
+
+        /*
+         * 전체 참가자는 3명이지만
+         * 추천 계산 참가자는 2명이므로 originCount = 2
+         */
+        when(routeMatrixService.calculateRouteResults(
+                candidates,
+                routeResponses,
+                2
+        )).thenReturn(routeResults);
+
+        List<PlaceMatchResult> matchResults = List.of(
+                new PlaceMatchResult(0, 2),
+                new PlaceMatchResult(1, 1),
+                new PlaceMatchResult(2, 2)
+        );
+
+        when(placeMatchService.calculateMatchCounts(
+                candidates,
+                conditions,
+                routeResponses
+        )).thenReturn(matchResults);
+
+        List<PlaceRankingResult> topPlaces = List.of(
+                new PlaceRankingResult(
+                        "place-1", 0, 0,
+                        2, 1000.0, 1200.0
+                ),
+                new PlaceRankingResult(
+                        "place-3", 2, 2,
+                        2, 1200.0, 1400.0
+                ),
+                new PlaceRankingResult(
+                        "place-2", 1, 1,
+                        1, 1100.0, 1300.0
+                )
+        );
+
+        when(placeRankingService.selectTopPlaces(
+                candidates,
+                routeResults,
+                matchResults
+        )).thenReturn(topPlaces);
+
+        when(recommendedPlaceRepository.saveAll(anyList()))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        // when
+        List<RecommendedPlace> result =
+                service.recommend(recommendedAreaId);
+
+        // then
+        assertThat(result).hasSize(3);
+
+        verify(participantRecommendationConditionService)
+                .createConditions(
+                        List.of(preference1, preference2)
+                );
+
+        verify(placeRouteService)
+                .calculate(
+                        List.of(preference1, preference2),
+                        candidates
+                );
+
+        verify(routeMatrixService)
+                .calculateRouteResults(
+                        candidates,
+                        routeResponses,
+                        2
+                );
+
+        verify(recommendedPlaceRepository)
+                .saveAll(anyList());
+    }
 }
