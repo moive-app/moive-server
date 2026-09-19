@@ -8,8 +8,8 @@ import lombok.RequiredArgsConstructor;
 public enum MeetingStatus {
     CONDITION_INPUT("조건 입력중"),
     VOTING("투표 진행중"),
-    CONFIRMED("확정"),
-    COMPLETED("완료");
+    CONFIRMED("모임 확정"),
+    COMPLETED("모임 종료");
 
     private final String label;
 }
