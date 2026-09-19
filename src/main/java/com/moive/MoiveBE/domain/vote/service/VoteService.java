@@ -160,7 +160,7 @@ public class VoteService {
      * 장소 투표 생성
      */
     @Transactional
-    public boolean createPlaceVote(Long userId, Long meetingId, PlaceVoteRequest request) {
+    public void createPlaceVote(Long userId, Long meetingId, PlaceVoteRequest request) {
         // 모임 조회
         Meeting meeting = meetingRepository.findById(meetingId)
                 .orElseThrow(() -> new CustomException(MEETING_NOT_FOUND));
@@ -219,11 +219,9 @@ public class VoteService {
         long voterCnt = placeVoteRepository.countDistinctVoters(meetingId);
         long eligibleCnt = participantRepository.countByMeetingIdAndLeftAtIsNullAndStateNot(
                 meetingId, ParticipantState.NEW_RESTRICTED);
-        boolean isConfirmed = voterCnt == eligibleCnt;
-        if (isConfirmed) {
+        if (voterCnt == eligibleCnt) {
             confirmMeetingPlace(meeting);
         }
-        return isConfirmed;
     }
 
     // 모임 장소 확정
