@@ -1,6 +1,7 @@
 package com.moive.MoiveBE.domain.recommendation.client;
 
 import com.moive.MoiveBE.domain.recommendation.dto.AreaCenter;
+import com.moive.MoiveBE.domain.recommendation.dto.VWorldSigunguResponse;
 import com.moive.MoiveBE.domain.recommendation.service.LegalDongBboxService;
 import com.moive.MoiveBE.domain.recommendation.service.LegalDongCandidateService;
 import com.moive.MoiveBE.domain.recommendation.service.VWorldLegalDongParser;
@@ -34,8 +35,8 @@ class VWorldLegalDongClientIntegrationTest {
 
         AreaCenter center =
                 new AreaCenter(
-                        37.1871,
-                        127.0434
+                        37.5599985,
+                        127.6927097
                 );
 
         String bbox =
@@ -63,5 +64,24 @@ class VWorldLegalDongClientIntegrationTest {
                 legalDongCandidateService.generate(center);
 
         assertThat(candidates).hasSize(10);
+    }
+
+    @Test
+    void 시군구_코드로_시군구를_조회한다() {
+
+        VWorldSigunguResponse response =
+                vWorldLegalDongClient.getSigungu("51720");
+
+        System.out.println(
+                response.response()
+                        .result()
+                        .featureCollection()
+                        .features()
+                        .get(0)
+                        .properties()
+                        .full_nm()
+        );
+
+        assertThat(response).isNotNull();
     }
 }

@@ -19,14 +19,11 @@ class AreaCandidateResolverTest {
     @Mock
     private GooglePlacesClient googlePlacesClient;
 
-    @Mock
-    private AreaDistanceService areaDistanceService;
-
     @InjectMocks
     private AreaCandidateResolver areaCandidateResolver;
 
     @Test
-    void 추천_지역의_대표_좌표를_조회하고_5km_이내인지_검증한다() {
+    void 추천_지역의_대표_좌표를_조회한다() {
 
         double centerLatitude = 37.4979;
         double centerLongitude = 127.0276;
@@ -47,24 +44,15 @@ class AreaCandidateResolverTest {
 
         when(
                 googlePlacesClient.searchAreaPlace(
-                        "역삼동 지하철역",
+                        "서울특별시 강남구 역삼동 지하철역",
                         centerLatitude,
                         centerLongitude
                 )
         ).thenReturn(response);
 
-        when(
-                areaDistanceService.isWithin5Km(
-                        centerLatitude,
-                        centerLongitude,
-                        37.5006,
-                        127.0363
-                )
-        ).thenReturn(true);
-
         GooglePlaceSearchResponse.Place result =
                 areaCandidateResolver.resolve(
-                        "역삼동",
+                        "서울특별시 강남구 역삼동",
                         centerLatitude,
                         centerLongitude
                 );

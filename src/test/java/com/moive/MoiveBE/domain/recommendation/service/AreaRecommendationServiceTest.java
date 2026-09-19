@@ -97,16 +97,22 @@ class AreaRecommendationServiceTest {
         List<AreaCandidate> candidates = List.of(
                 new AreaCandidate(
                         "역삼동",
+                        "역삼동",
+                        "11680",
                         37.5006,
                         127.0363
                 ),
                 new AreaCandidate(
                         "논현동",
+                        "논현동",
+                        "11680",
                         37.5112,
                         127.0285
                 ),
                 new AreaCandidate(
                         "신사동",
+                        "신사동",
+                        "11680",
                         37.5160,
                         127.0200
                 )
@@ -322,16 +328,22 @@ class AreaRecommendationServiceTest {
         List<AreaCandidate> candidates = List.of(
                 new AreaCandidate(
                         "역삼동",
+                        "역삼동",
+                        "11680",
                         37.5006,
                         127.0363
                 ),
                 new AreaCandidate(
                         "논현동",
+                        "논현동",
+                        "11680",
                         37.5112,
                         127.0285
                 ),
                 new AreaCandidate(
                         "신사동",
+                        "신사동",
+                        "11680",
                         37.5160,
                         127.0200
                 )

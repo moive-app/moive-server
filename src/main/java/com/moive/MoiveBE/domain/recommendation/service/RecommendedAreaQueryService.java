@@ -24,6 +24,7 @@ public class RecommendedAreaQueryService {
     private final RecommendedAreaRepository recommendedAreaRepository;
     private final AreaCenterService areaCenterService;
     private final AreaCandidateResolver areaCandidateResolver;
+    private final LegalDongCandidateService legalDongCandidateService;
 
     public RecommendedAreaListResponse getRecommendedAreas(
             Long meetingId
@@ -50,12 +51,16 @@ public class RecommendedAreaQueryService {
         AreaCenter center =
                 areaCenterService.calculate(meetingId);
 
+        List<AreaCandidate> candidates =
+                legalDongCandidateService.generate(center);
+
         List<RecommendedAreaListResponse.Area> areas =
                 recommendedAreas.stream()
                         .map(recommendedArea ->
                                 toResponse(
                                         recommendedArea,
-                                        center
+                                        center,
+                                        candidates
                                 )
                         )
                         .toList();
@@ -65,12 +70,27 @@ public class RecommendedAreaQueryService {
 
     private RecommendedAreaListResponse.Area toResponse(
             RecommendedArea recommendedArea,
-            AreaCenter center
+            AreaCenter center,
+            List<AreaCandidate> candidates
     ) {
+
+        AreaCandidate candidate =
+                candidates.stream()
+                        .filter(areaCandidate ->
+                                areaCandidate.name().equals(
+                                        recommendedArea.getAreaName()
+                                )
+                        )
+                        .findFirst()
+                        .orElseThrow(() ->
+                                new CustomException(
+                                        CustomErrorCode.AREA_INFO_LOOKUP_FAILED
+                                )
+                        );
 
         GooglePlaceSearchResponse.Place place =
                 areaCandidateResolver.resolve(
-                        recommendedArea.getAreaName(),
+                        candidate.searchName(),
                         center.latitude(),
                         center.longitude()
                 );
