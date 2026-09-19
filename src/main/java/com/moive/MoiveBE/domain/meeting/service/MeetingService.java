@@ -269,13 +269,6 @@ public class MeetingService {
                     new AreaRecommendationRequestedEvent(meetingId)
             );
 
-            // NOTI-003: 장소 투표 완료 요청 (전체 참여자)
-            List<Participant> allParticipants = participantRepository
-                    .findAllByMeetingIdAndLeftAtIsNullOrderByJoinedAtAsc(meetingId);
-            for (Participant p : allParticipants) {
-                notificationService.sendNotification(p.getUserId(), meetingId, NotificationType.PLACE_VOTE,
-                        meeting.getName() + "의 장소 투표를 아직 완료하지 않았어요.");
-            }
         }
 
         return SubmitPreferenceResponse.of(
