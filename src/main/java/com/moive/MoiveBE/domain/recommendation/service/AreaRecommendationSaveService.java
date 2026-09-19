@@ -73,6 +73,9 @@ public class AreaRecommendationSaveService {
             notificationService.sendNotification(
                     p.getUserId(), meetingId, NotificationType.PLACE_RECOMMEND,
                     "'" + meetingName + "'의 장소 추천이 완료됐어요. 지금 투표하세요!");
+            notificationService.sendNotification(
+                    p.getUserId(), meetingId, NotificationType.PLACE_VOTE,
+                    meetingName + "의 장소 투표를 아직 완료하지 않았어요.");
         }
 
         return run;
