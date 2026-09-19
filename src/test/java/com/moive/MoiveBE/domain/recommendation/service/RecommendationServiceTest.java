@@ -593,4 +593,169 @@ class RecommendationServiceTest {
         verify(placeRecommendationGenerationService)
                 .recommend(recommendedAreaId);
     }
+
+    @Test
+    void 선호조건이_없는_신규_참가자를_제외하고_추천_장소_목록을_조회한다() {
+
+        // given
+        Long meetingId = 1L;
+        Long recommendedAreaId = 1L;
+        Long recommendationRunId = 10L;
+
+        RecommendedArea recommendedArea = mock(RecommendedArea.class);
+        RecommendationRun recommendationRun = mock(RecommendationRun.class);
+
+        given(recommendedAreaRepository.findById(recommendedAreaId))
+                .willReturn(Optional.of(recommendedArea));
+
+        given(recommendedArea.getRecommendationRunId())
+                .willReturn(recommendationRunId);
+
+        given(recommendationRunRepository.findById(recommendationRunId))
+                .willReturn(Optional.of(recommendationRun));
+
+        given(recommendationRun.getMeetingId())
+                .willReturn(meetingId);
+
+        given(recommendedPlaceRepository
+                .existsByRecommendedAreaId(recommendedAreaId))
+                .willReturn(true);
+
+        /*
+         * 현재 활성 참가자는 3명
+         */
+        Participant participant1 = mock(Participant.class);
+        Participant participant2 = mock(Participant.class);
+        Participant newParticipant = mock(Participant.class);
+
+        given(participant1.getId()).willReturn(1L);
+        given(participant2.getId()).willReturn(2L);
+        given(newParticipant.getId()).willReturn(3L);
+
+        given(participantRepository
+                .findAllByMeetingIdAndLeftAtIsNull(meetingId))
+                .willReturn(List.of(
+                        participant1,
+                        participant2,
+                        newParticipant
+                ));
+
+        /*
+         * 신규 참가자(3번)는 아직 선호조건을 입력하지 않음
+         */
+        ParticipantPreference preference1 =
+                mock(ParticipantPreference.class);
+        ParticipantPreference preference2 =
+                mock(ParticipantPreference.class);
+
+        given(preference1.getParticipantId()).willReturn(1L);
+        given(preference2.getParticipantId()).willReturn(2L);
+
+        given(participantPreferenceRepository
+                .findAllByParticipantIdIn(
+                        List.of(1L, 2L, 3L)
+                ))
+                .willReturn(List.of(
+                        preference1,
+                        preference2
+                ));
+
+        /*
+         * 조건을 입력한 2명 모두 해당 장소와 선호가 일치
+         */
+        RecommendedPlace recommendedPlace =
+                RecommendedPlace.create(
+                        recommendedAreaId,
+                        "google-place-id",
+                        "한식",
+                        2
+                );
+
+        given(recommendedPlaceRepository
+                .findAllByRecommendedAreaId(recommendedAreaId))
+                .willReturn(List.of(recommendedPlace));
+
+        GooglePlaceDetailsResponse details =
+                new GooglePlaceDetailsResponse(
+                        new GooglePlaceDetailsResponse.LocalizedText(
+                                "다몽집",
+                                "ko"
+                        ),
+                        "서울특별시 강남구 테헤란로 123",
+                        List.of(),
+                        new GooglePlaceDetailsResponse.Location(
+                                37.4979,
+                                127.0276
+                        )
+                );
+
+        given(googlePlacesClient
+                .getPlaceSummaryDetails("google-place-id"))
+                .willReturn(details);
+
+        List<GoogleRouteMatrixResponse> routeResponses =
+                List.of(mock(GoogleRouteMatrixResponse.class));
+
+        given(placeRouteService.calculate(
+                anyList(),
+                anyList()
+        )).willReturn(routeResponses);
+
+        PlaceRouteResult routeResult =
+                new PlaceRouteResult(
+                        0,
+                        1200.0,
+                        1800.0
+                );
+
+        /*
+         * 전체 활성 참가자는 3명이지만
+         * Preference가 존재하는 참가자는 2명이므로 originCount = 2
+         */
+        given(routeMatrixService.calculateRouteResults(
+                anyList(),
+                eq(routeResponses),
+                eq(2)
+        )).willReturn(List.of(routeResult));
+
+        // when
+        RecommendedPlaceListResponse response =
+                recommendationService.getRecommendedPlaces(
+                        meetingId,
+                        recommendedAreaId
+                );
+
+        // then
+        assertThat(response.places()).hasSize(1);
+
+        RecommendedPlaceListResponse.Place place =
+                response.places().get(0);
+
+        /*
+         * preferenceMatchCnt = 2
+         * 추천 계산 대상 참가자 = 2
+         *
+         * 2 / 2 * 100 = 100%
+         */
+        assertThat(place.preferenceMatchCnt())
+                .isEqualTo(2);
+
+        assertThat(place.preferenceMatchRate())
+                .isEqualTo(100);
+
+        /*
+         * Preference 없는 신규 참가자를 제외하고
+         * 기존 두 참가자만 이동시간 계산에 사용
+         */
+        verify(placeRouteService).calculate(
+                eq(List.of(preference1, preference2)),
+                anyList()
+        );
+
+        verify(routeMatrixService).calculateRouteResults(
+                anyList(),
+                eq(routeResponses),
+                eq(2)
+        );
+    }
 }
