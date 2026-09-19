@@ -113,18 +113,10 @@ public class PlaceRecommendationGenerationService {
          */
         List<ParticipantPreference> orderedPreferences =
                 participants.stream()
-                        .map(participant -> {
-                            ParticipantPreference preference =
-                                    preferenceMap.get(participant.getId());
-
-                            if (preference == null) {
-                                throw new IllegalStateException(
-                                        "참가자의 선호조건이 존재하지 않습니다."
-                                );
-                            }
-
-                            return preference;
-                        })
+                        .map(participant ->
+                                preferenceMap.get(participant.getId())
+                        )
+                        .filter(preference -> preference != null)
                         .toList();
 
         // 5. 참가자별 추천 계산 조건 생성

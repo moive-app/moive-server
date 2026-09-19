@@ -79,13 +79,13 @@ public class RecommendationService {
                         meetingId
                 );
 
-        int participantCount = participants.size();
-
         /*
-         * 참가자 출발 위치 조회
+         * 선호조건이 존재하는 참가자의 출발 위치 조회
          */
         List<ParticipantPreference> orderedPreferences =
                 getOrderedParticipantPreferences(participants);
+
+        int participantCount = orderedPreferences.size();
 
         /*
          * 저장된 googlePlaceId로 장소 정보와 좌표 조회
@@ -422,19 +422,10 @@ public class RecommendationService {
                         ));
 
         return participants.stream()
-                .map(participant -> {
-
-                    ParticipantPreference preference =
-                            preferenceMap.get(participant.getId());
-
-                    if (preference == null) {
-                        throw new IllegalStateException(
-                                "참가자의 선호조건이 존재하지 않습니다."
-                        );
-                    }
-
-                    return preference;
-                })
+                .map(participant ->
+                        preferenceMap.get(participant.getId())
+                )
+                .filter(preference -> preference != null)
                 .toList();
     }
 
