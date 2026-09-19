@@ -2,6 +2,7 @@ package com.moive.MoiveBE.domain.vote.controller;
 
 import com.moive.MoiveBE.domain.vote.dto.DateVoteResultResponse;
 import com.moive.MoiveBE.domain.vote.dto.PlaceVoteRequest;
+import com.moive.MoiveBE.domain.vote.dto.PlaceVoteResponse;
 import com.moive.MoiveBE.domain.vote.dto.PlaceVoteResultResponse;
 import com.moive.MoiveBE.domain.vote.service.VoteService;
 import com.moive.MoiveBE.global.common.BaseResponse;
@@ -42,13 +43,13 @@ public class VoteController {
             description = "추천 장소들에 대한 투표를 진행합니다."
     )
     @PostMapping("/place-votes")
-    public BaseResponse<Void> createMeetingPlaceVote (
+    public BaseResponse<PlaceVoteResponse> createMeetingPlaceVote (
             @AuthenticationPrincipal Long userId,
             @PathVariable Long meetingId,
             @Valid @RequestBody PlaceVoteRequest request
     ) {
-        voteService.createPlaceVote(userId, meetingId, request);
-        return BaseResponse.success(null);
+        boolean isConfirmed = voteService.createPlaceVote(userId, meetingId, request);
+        return BaseResponse.success(PlaceVoteResponse.of(isConfirmed));
     }
 
     @Operation(

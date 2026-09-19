@@ -183,6 +183,58 @@ class PlaceVoteRepositoryTest {
                 .containsExactly(tuple(PLACE_1, 1L));
     }
 
+    @Test
+    void googlePlaceId가_같은_추천_장소는_하나로_병합해_득표수를_합산한다() {
+        // PLACE_1과 같은 실제 장소(google-place-1)를 다른 추천 지역에서 또 추천한 경우
+        Long duplicatedPlace1 = duplicatedPlace("google-place-1");
+        vote(MEETING_ID, A, PLACE_1);
+        vote(MEETING_ID, B, duplicatedPlace1);
+        vote(MEETING_ID, C, PLACE_2);
+
+        List<PlaceVoteSummary> result = placeVoteRepository.aggregateByPlace(MEETING_ID, A);
+
+        assertThat(result).extracting(PlaceVoteSummary::recommendedPlaceId, PlaceVoteSummary::voterCnt)
+                .containsExactlyInAnyOrder(
+                        tuple(PLACE_1, 2L),
+                        tuple(PLACE_2, 1L)
+                );
+    }
+
+    @Test
+    void 한_참여자가_병합되는_두_추천_장소에_모두_투표해도_1표로_센다() {
+        Long duplicatedPlace1 = duplicatedPlace("google-place-1");
+        vote(MEETING_ID, A, PLACE_1);
+        vote(MEETING_ID, A, duplicatedPlace1);
+
+        List<PlaceVoteSummary> result = placeVoteRepository.aggregateByPlace(MEETING_ID, A);
+
+        assertThat(result).extracting(PlaceVoteSummary::recommendedPlaceId, PlaceVoteSummary::voterCnt)
+                .containsExactly(tuple(PLACE_1, 1L));
+    }
+
+    @Test
+    void 병합된_장소는_대표가_아닌_추천_장소에_투표했어도_votedByMe가_true다() {
+        Long duplicatedPlace1 = duplicatedPlace("google-place-1");
+        vote(MEETING_ID, A, PLACE_1);
+        vote(MEETING_ID, B, duplicatedPlace1);
+
+        List<PlaceVoteSummary> result = placeVoteRepository.aggregateByPlace(MEETING_ID, B);
+
+        assertThat(result).extracting(PlaceVoteSummary::recommendedPlaceId, PlaceVoteSummary::isVotedByMe)
+                .containsExactly(tuple(PLACE_1, true));
+    }
+
+    @Test
+    void 병합된_장소의_대표_id는_투표된_추천_장소_중_가장_작은_id다() {
+        Long duplicatedPlace1 = duplicatedPlace("google-place-1");
+        // PLACE_1(더 작은 id)에는 투표가 없고 duplicatedPlace1에만 투표가 있는 경우
+        vote(MEETING_ID, A, duplicatedPlace1);
+
+        List<PlaceVoteSummary> result = placeVoteRepository.aggregateByPlace(MEETING_ID, A);
+
+        assertThat(result).extracting(PlaceVoteSummary::recommendedPlaceId).containsExactly(duplicatedPlace1);
+    }
+
     /**
      * helpers
      */
@@ -195,6 +247,12 @@ class PlaceVoteRepositoryTest {
         return em.persistAndFlush(
                 RecommendedPlace.create(recommendedAreaId, googlePlaceId, category, preferenceMatchCnt)
         ).getId();
+    }
+
+    // 다른 추천 지역에서 같은 장소가 추천되는 경우 (recommendedPlaceId는 다르고 googlePlaceId는 동일)
+    private Long duplicatedPlace(String googlePlaceId) {
+        Long otherAreaId = area(RECOMMENDATION_RUN_ID, "강남역");
+        return place(otherAreaId, googlePlaceId, "카페", 5);
     }
 
     private void vote(Long meetingId, Long participantId, Long recommendedPlaceId) {

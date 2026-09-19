@@ -581,6 +581,57 @@ class VoteServiceTest {
     }
 
     @Test
+    void 마감_기한이_지났고_아무도_투표하지_않은_경우_일정이_미확정이면_일정_투표_집계_1위로_일정을_확정한다() {
+        // given: 일정 미확정 모임 + 전원 장소 투표 x
+        Meeting meeting = mock(Meeting.class);
+        lenient().when(meeting.getId()).thenReturn(MEETING_ID);
+        when(meetingRepository.findAllByStatus(MeetingStatus.VOTING)).thenReturn(List.of(meeting));
+        RecommendationRun expiredRun = completedRunAt(MEETING_ID, LocalDateTime.now().minusDays(10));
+        when(recommendationRunRepository.findAllByMeetingIdInAndStatus(List.of(MEETING_ID), RecommendationStatus.COMPLETED))
+                .thenReturn(List.of(expiredRun));
+        when(placeVoteRepository.aggregateByPlace(eq(MEETING_ID), any())).thenReturn(List.of());
+
+        Long activeParticipantId = 500L;
+        Participant activeParticipant = mock(Participant.class);
+        when(activeParticipant.getId()).thenReturn(activeParticipantId);
+        when(participantRepository.findAllByMeetingIdAndLeftAtIsNull(MEETING_ID)).thenReturn(List.of(activeParticipant));
+
+        LocalDate topDate = LocalDate.of(2026, 10, 3);
+        LocalTime topTime = LocalTime.of(18, 0);
+        when(dateVoteRepository.aggregateTopDates(eq(MEETING_ID), any(), eq(List.of(activeParticipantId)), any()))
+                .thenReturn(List.of(new DateVoteSummary(topDate, topTime, 3L, 0L)));
+
+        // when
+        voteService.finalizeExpiredPlaceVotes();
+
+        // then: 일정은 일정 투표 집계 1위로 확정, 장소는 미정인 채로 모임 상태만 확정
+        verify(meeting).confirmSchedule(topDate, topTime);
+        verify(meeting).confirmPlace(null);
+    }
+
+    @Test
+    void 마감_배치_시_이미_일정이_확정된_모임은_일정_투표_집계를_하지_않는다() {
+        // given: 모임 생성 시 일정을 확정한 모임 (또는 이미 일정 투표 현황 조회로 확정된 모임)
+        Meeting meeting = mock(Meeting.class);
+        lenient().when(meeting.getId()).thenReturn(MEETING_ID);
+        when(meeting.getScheduledDate()).thenReturn(LocalDate.of(2026, 10, 3));
+        when(meeting.getScheduledTime()).thenReturn(LocalTime.of(18, 0));
+        when(meetingRepository.findAllByStatus(MeetingStatus.VOTING)).thenReturn(List.of(meeting));
+        RecommendationRun expiredRun = completedRunAt(MEETING_ID, LocalDateTime.now().minusDays(10));
+        when(recommendationRunRepository.findAllByMeetingIdInAndStatus(List.of(MEETING_ID), RecommendationStatus.COMPLETED))
+                .thenReturn(List.of(expiredRun));
+        when(placeVoteRepository.aggregateByPlace(eq(MEETING_ID), any())).thenReturn(List.of());
+
+        // when
+        voteService.finalizeExpiredPlaceVotes();
+
+        // then
+        verifyNoInteractions(dateVoteRepository);
+        verify(meeting, never()).confirmSchedule(any(), any());
+        verify(meeting).confirmPlace(null);
+    }
+
+    @Test
     void 여러_모임을_한번에_처리하며_각각_기한_경과_여부에_따라_다르게_처리한다() {
         // given: A=아직 기한 안 지남(스킵), B=기한 지나고 투표 있음(확정), C=기한 지나고 투표 없음(장소 없이 확정)
         Long meetingA = 21L, meetingB = 22L, meetingC = 23L;
