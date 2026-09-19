@@ -4,11 +4,14 @@ import com.moive.MoiveBE.domain.recommendation.client.VWorldLegalDongClient;
 import com.moive.MoiveBE.domain.recommendation.dto.AreaCandidate;
 import com.moive.MoiveBE.domain.recommendation.dto.AreaCenter;
 import com.moive.MoiveBE.domain.recommendation.dto.VWorldLegalDong;
+import com.moive.MoiveBE.domain.recommendation.dto.VWorldSigunguResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -33,31 +36,63 @@ public class LegalDongCandidateService {
         List<VWorldLegalDong> legalDongs =
                 vWorldLegalDongParser.parse(xml);
 
-        return legalDongs.stream()
-                .collect(Collectors.toMap(
-                        VWorldLegalDong::name,
-                        dong -> dong,
-                        (existing, replacement) -> existing
-                ))
-                .values()
-                .stream()
-                .sorted(Comparator.comparingDouble(
-                        dong -> calculateDistance(
-                                center.latitude(),
-                                center.longitude(),
-                                dong.latitude(),
-                                dong.longitude()
-                        )
-                ))
-                .limit(MAX_CANDIDATES)
-                .map(dong ->
-                        new AreaCandidate(
-                                dong.name(),
-                                dong.latitude(),
-                                dong.longitude()
-                        )
-                )
+        List<VWorldLegalDong> selectedDongs =
+                legalDongs.stream()
+                        .collect(Collectors.toMap(
+                                dong -> dong.signguCode() + ":" + dong.name(),
+                                dong -> dong,
+                                (existing, replacement) -> existing
+                        ))
+                        .values()
+                        .stream()
+                        .sorted(Comparator.comparingDouble(
+                                dong -> calculateDistance(
+                                        center.latitude(),
+                                        center.longitude(),
+                                        dong.latitude(),
+                                        dong.longitude()
+                                )
+                        ))
+                        .limit(MAX_CANDIDATES)
+                        .toList();
+
+        Map<String, String> sigunguNameCache = new HashMap<>();
+
+        return selectedDongs.stream()
+                .map(dong -> {
+
+                    String fullSigunguName =
+                            sigunguNameCache.computeIfAbsent(
+                                    dong.signguCode(),
+                                    this::getFullSigunguName
+                            );
+
+                    String searchName =
+                            fullSigunguName + " " + dong.name();
+
+                    return new AreaCandidate(
+                            dong.name(),
+                            searchName,
+                            dong.signguCode(),
+                            dong.latitude(),
+                            dong.longitude()
+                    );
+                })
                 .toList();
+    }
+
+    private String getFullSigunguName(String signguCode) {
+
+        VWorldSigunguResponse response =
+                vWorldLegalDongClient.getSigungu(signguCode);
+
+        return response.response()
+                .result()
+                .featureCollection()
+                .features()
+                .get(0)
+                .properties()
+                .full_nm();
     }
 
     private double calculateDistance(

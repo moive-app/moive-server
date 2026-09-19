@@ -48,6 +48,9 @@ public class VWorldLegalDongParser {
                 String name =
                         getText(dongElement, "ld_emd_code_nm");
 
+                String signguCode =
+                        getText(dongElement, "src_signgu_code");
+
                 Coordinate center =
                         calculateCenter(dongElement);
 
@@ -55,6 +58,7 @@ public class VWorldLegalDongParser {
                         new VWorldLegalDong(
                                 code,
                                 name,
+                                signguCode,
                                 center.latitude(),
                                 center.longitude()
                         )

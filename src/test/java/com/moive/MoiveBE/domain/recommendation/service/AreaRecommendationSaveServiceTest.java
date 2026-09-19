@@ -58,9 +58,9 @@ class AreaRecommendationSaveServiceTest {
                 .thenReturn(run);
 
         List<AreaCandidate> candidates = List.of(
-                new AreaCandidate("역삼동", 37.5, 127.03),
-                new AreaCandidate("논현동", 37.51, 127.02),
-                new AreaCandidate("신사동", 37.52, 127.02)
+                new AreaCandidate("역삼동","역삼동","11680", 37.5, 127.03),
+                new AreaCandidate("논현동","논현동","11680", 37.51, 127.02),
+                new AreaCandidate("신사동","신사동","11680", 37.52, 127.02)
         );
 
         List<AreaScoreResult> top3 = List.of(
