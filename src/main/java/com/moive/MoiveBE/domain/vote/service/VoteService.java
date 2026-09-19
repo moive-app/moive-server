@@ -71,6 +71,7 @@ public class VoteService {
 
     /**
      * 일정 투표 현황 조회
+     * - 모임 생성 시 일정을 확정하지 않은 경우, 일정 투표 기반으로 모임 일정 확정
      */
     @Transactional
     public DateVoteResultResponse getMeetingScheduleVoteResult(Long userId, Long meetingId) {
@@ -87,7 +88,7 @@ public class VoteService {
         Participant participant = participantRepository.findByMeetingIdAndUserIdAndLeftAtIsNull(meetingId, userId)
                 .orElseThrow(() -> new CustomException(VOTE_ACCESS_DENIED));
 
-        // 모임 생성 시 일정 확정한 경우 => 바로 일정 확정 (투표 생략)
+        // Case A. 모임 생성 시 일정 확정 => 투표 생략
         if (isScheduleConfirmed(meeting)) {
             return DateVoteResultResponse.of(
                     true,
@@ -101,37 +102,49 @@ public class VoteService {
             );
         }
 
-        // 일정 미확정인 경우 => DateVote 내역 집계
+        // Case B. 모임 생성 시 일정 미정 => DateVote 내역 집계 & 일정 확정
         // - 유효 참여자 id 목록 조회
-        List<Long> validParticipantIds = participantRepository.findAllByMeetingIdAndLeftAtIsNull(meetingId).stream()
-                .map(Participant::getId)
-                .toList();
+        List<Long> validParticipantIds = findActiveParticipantIds(meetingId);
 
         // - 투표 참여 인원
         int totalVoterCnt = (int) dateVoteRepository.countDistinctVoters(meetingId, validParticipantIds);
 
         // - 날짜별 집계
-        List<DateVoteResultResponse.Candidate> candidates = dateVoteRepository
-                .aggregateTopDates(meetingId, participant.getId(), validParticipantIds, PageRequest.of(0, TOP_N))
-                .stream()
-                .map(this::toCandidate)
-                .toList();
+        List<DateVoteSummary> topDates = dateVoteRepository
+                .aggregateTopDates(meetingId, participant.getId(), validParticipantIds, PageRequest.of(0, TOP_N));
 
         // - 집계 결과 1위 일정을 모임 일정으로 확정
-        // 일정 투표는 조건 입력 단계에서 전원 완료되어야 VOTING으로 전환되므로,
-        // 별도 투표 인원 비교 없이 scheduledDate/scheduledTime이 둘 다 비어있는 경우 확정
-        if (!candidates.isEmpty() && meeting.getScheduledDate() == null && meeting.getScheduledTime() == null) {
-            DateVoteResultResponse.Candidate top = candidates.get(0);
-            meeting.confirmSchedule(top.meetingDate(), top.meetingTime());
-            log.info("[일정 투표 현황 조회] 일정 확정 (meetingId={}, scheduledDate={}, scheduledTime={})",
-                    meetingId, top.meetingDate(), top.meetingTime());
-        }
+        confirmScheduleWithTopDate(meeting, topDates);
+
+        List<DateVoteResultResponse.Candidate> candidates = topDates.stream()
+                .map(this::toCandidate)
+                .toList();
 
         return DateVoteResultResponse.of(false, totalVoterCnt, candidates);
     }
 
+    // 일정 확정 여부 확인
     private boolean isScheduleConfirmed(Meeting meeting) {
         return meeting.getScheduledDate() != null && meeting.getScheduledTime() != null;
+    }
+
+    // 모임을 나가지 않은 유효한 참여자 ID 목록 조회
+    private List<Long> findActiveParticipantIds(Long meetingId) {
+        return participantRepository.findAllByMeetingIdAndLeftAtIsNull(meetingId).stream()
+                .map(Participant::getId)
+                .toList();
+    }
+
+    // 일정 투표 집계 1위(topDates의 첫 번째)를 모임 일정으로 확정
+    private void confirmScheduleWithTopDate(Meeting meeting, List<DateVoteSummary> topDates) {
+        if (topDates.isEmpty() || isScheduleConfirmed(meeting)) {
+            return;
+        }
+
+        DateVoteSummary top = topDates.get(0);
+        meeting.confirmSchedule(top.candidateDate(), top.candidateTime());
+        log.info("[일정 확정] 일정 투표 집계 1위로 일정 확정 (meetingId={}, scheduledDate={}, scheduledTime={})",
+                meeting.getId(), top.candidateDate(), top.candidateTime());
     }
 
     private DateVoteResultResponse.Candidate toCandidate(DateVoteSummary aggregate) {
@@ -211,6 +224,7 @@ public class VoteService {
         }
     }
 
+    // 모임 장소 확정
     private void confirmMeetingPlace(Meeting meeting) {
         List<CandidateDetail> ranked = rankCandidates(meeting.getId(), NO_VIEWER_PARTICIPANT_ID);
         Long confirmedPlaceId = ranked.isEmpty() ? null : ranked.get(0).recommendedPlaceId();
@@ -264,8 +278,20 @@ public class VoteService {
                 continue;
             }
 
+            confirmScheduleIfNotConfirmed(meeting);
             confirmMeetingPlace(meeting);
         }
+    }
+
+    // 일정 미확정 모임의 일정 확정
+    private void confirmScheduleIfNotConfirmed(Meeting meeting) {
+        if(isScheduleConfirmed(meeting)) {
+            return;
+        }
+
+        List<DateVoteSummary> topDates = dateVoteRepository.aggregateTopDates(
+                meeting.getId(), NO_VIEWER_PARTICIPANT_ID, findActiveParticipantIds(meeting.getId()), PageRequest.of(0, 1));
+        confirmScheduleWithTopDate(meeting, topDates);
     }
 
     /**
