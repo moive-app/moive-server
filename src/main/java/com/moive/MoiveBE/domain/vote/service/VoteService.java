@@ -270,6 +270,8 @@ public class VoteService {
 
     /**
      * 장소 투표 현황 조회
+     * - 서로 다른 recommendedPlaceId라도 googlePlaceId(실제 장소)가 같으면 병합해서 집계
+     *   병합된 그룹은 googlePlaceId가 같은 것 중 recommendedPlaceId가 가장 작은 행을 대표로 사용
      * - 정렬 기준: (1) 득표수 desc -> (2) 참여자 출발지 <-> 장소 간 직선거리 평균값 asc
      * - 구글 장소 조회 실패 시 (2)는 취향 일치 수 desc로 대체 -> (3) recommendedPlaceId asc
      */
