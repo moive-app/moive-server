@@ -22,6 +22,7 @@ import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,6 +31,7 @@ import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.List;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AuthService {
@@ -266,6 +268,8 @@ public class AuthService {
         // 2. Refresh Token에서 userId 추출
         Long userId = jwtTokenProvider.getUserId(refreshToken);
 
+        log.info("[AUTH] reissue 토큰 검증 통과 - userId={}", userId);
+
         // 3. User 조회
         User user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() ->
@@ -280,6 +284,9 @@ public class AuthService {
 
         if (user.getRefreshToken() == null
                 || !user.getRefreshToken().equals(hashedRefreshToken)) {
+
+            log.warn("[AUTH] reissue 실패(토큰 불일치) - userId={}, storedTokenExpiresAt={}",
+                    userId, user.getRefreshTokenExpiresAt());
 
             throw new CustomException(
                     CustomErrorCode.INVALID_REFRESH_TOKEN
@@ -298,6 +305,8 @@ public class AuthService {
                 hashRefreshToken(newRefreshToken),
                 LocalDateTime.now().plusDays(14)
         );
+
+        log.info("[AUTH] reissue 성공 - userId={}", userId);
 
         // 7. 새 토큰 반환
         return new TokenResponse(
