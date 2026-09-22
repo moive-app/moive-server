@@ -89,7 +89,7 @@ public class VoteService {
                 .orElseThrow(() -> new CustomException(VOTE_ACCESS_DENIED));
 
         // Case A. 모임 생성 시 일정 확정 => 투표 생략
-        if (isScheduleConfirmed(meeting)) {
+        if (isScheduleConfirmed(meeting) && !dateVoteRepository.existsByMeetingId(meetingId)) {
             return DateVoteResultResponse.of(
                     true,
                     null,
