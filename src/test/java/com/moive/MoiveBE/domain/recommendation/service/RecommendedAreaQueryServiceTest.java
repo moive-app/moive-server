@@ -1,5 +1,6 @@
 package com.moive.MoiveBE.domain.recommendation.service;
 
+import com.moive.MoiveBE.domain.recommendation.dto.AreaCandidate;
 import com.moive.MoiveBE.domain.recommendation.dto.AreaCenter;
 import com.moive.MoiveBE.domain.recommendation.dto.GooglePlaceSearchResponse;
 import com.moive.MoiveBE.domain.recommendation.dto.RecommendedAreaListResponse;
@@ -15,7 +16,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import com.moive.MoiveBE.domain.recommendation.dto.AreaCandidate;
 
 import java.lang.reflect.Field;
 import java.util.List;
@@ -23,6 +23,8 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anySet;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -127,12 +129,15 @@ class RecommendedAreaQueryServiceTest {
 
         when(
                 areaCandidateResolver.resolve(
-                        "서울특별시 강남구 역삼동",
-                        center.latitude(),
-                        center.longitude()
+                        eq("서울특별시 강남구 역삼동"),
+                        eq(center.latitude()),
+                        eq(center.longitude()),
+                        anySet(),
+                        anySet()
                 )
         ).thenReturn(
                 place(
+                        "place-1",
                         37.5006,
                         127.0364
                 )
@@ -140,12 +145,15 @@ class RecommendedAreaQueryServiceTest {
 
         when(
                 areaCandidateResolver.resolve(
-                        "서울특별시 강남구 강남동",
-                        center.latitude(),
-                        center.longitude()
+                        eq("서울특별시 강남구 강남동"),
+                        eq(center.latitude()),
+                        eq(center.longitude()),
+                        anySet(),
+                        anySet()
                 )
         ).thenReturn(
                 place(
+                        "place-2",
                         37.4979,
                         127.0276
                 )
@@ -153,12 +161,15 @@ class RecommendedAreaQueryServiceTest {
 
         when(
                 areaCandidateResolver.resolve(
-                        "서울특별시 서초구 서초동",
-                        center.latitude(),
-                        center.longitude()
+                        eq("서울특별시 서초구 서초동"),
+                        eq(center.latitude()),
+                        eq(center.longitude()),
+                        anySet(),
+                        anySet()
                 )
         ).thenReturn(
                 place(
+                        "place-3",
                         37.4837,
                         127.0324
                 )
@@ -187,34 +198,52 @@ class RecommendedAreaQueryServiceTest {
         assertThat(response.areas().get(1).name())
                 .isEqualTo("강남동");
 
+        assertThat(response.areas().get(1).latitude())
+                .isEqualTo(37.4979);
+
+        assertThat(response.areas().get(1).longitude())
+                .isEqualTo(127.0276);
+
         assertThat(response.areas().get(2).recommendedAreaId())
                 .isEqualTo(103L);
 
         assertThat(response.areas().get(2).name())
                 .isEqualTo("서초동");
 
+        assertThat(response.areas().get(2).latitude())
+                .isEqualTo(37.4837);
+
+        assertThat(response.areas().get(2).longitude())
+                .isEqualTo(127.0324);
+
         verify(legalDongCandidateService)
                 .generate(center);
 
         verify(areaCandidateResolver)
                 .resolve(
-                        "서울특별시 강남구 역삼동",
-                        center.latitude(),
-                        center.longitude()
+                        eq("서울특별시 강남구 역삼동"),
+                        eq(center.latitude()),
+                        eq(center.longitude()),
+                        anySet(),
+                        anySet()
                 );
 
         verify(areaCandidateResolver)
                 .resolve(
-                        "서울특별시 강남구 강남동",
-                        center.latitude(),
-                        center.longitude()
+                        eq("서울특별시 강남구 강남동"),
+                        eq(center.latitude()),
+                        eq(center.longitude()),
+                        anySet(),
+                        anySet()
                 );
 
         verify(areaCandidateResolver)
                 .resolve(
-                        "서울특별시 서초구 서초동",
-                        center.latitude(),
-                        center.longitude()
+                        eq("서울특별시 서초구 서초동"),
+                        eq(center.latitude()),
+                        eq(center.longitude()),
+                        anySet(),
+                        anySet()
                 );
     }
 
@@ -249,12 +278,13 @@ class RecommendedAreaQueryServiceTest {
     }
 
     private GooglePlaceSearchResponse.Place place(
+            String placeId,
             double latitude,
             double longitude
     ) {
 
         return new GooglePlaceSearchResponse.Place(
-                "test-place-id",
+                placeId,
                 new GooglePlaceSearchResponse.Location(
                         latitude,
                         longitude
