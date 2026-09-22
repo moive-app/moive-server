@@ -15,6 +15,9 @@ public interface DateVoteRepository extends JpaRepository<DateVote, Long> {
 
     void deleteByMeetingIdAndParticipantId(Long meetingId, Long participantId);
 
+    // 모임 생성 시 일정 확정된 케이스와 투표를 통한 일정 확정된 케이스 구분용
+    boolean existsByMeetingId(Long meetingId);
+
     // 일정 투표 참여 인원 수
     // - participantIds: 탈퇴하지 않은 유효 참여자 id 목록 (탈퇴한 참여자의 투표는 집계에서 제외)
     @Query("""
