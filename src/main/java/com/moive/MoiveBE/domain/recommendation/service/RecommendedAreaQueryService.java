@@ -14,7 +14,10 @@ import com.moive.MoiveBE.global.exception.CustomException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -54,24 +57,51 @@ public class RecommendedAreaQueryService {
         List<AreaCandidate> candidates =
                 legalDongCandidateService.generate(center);
 
+        Set<String> usedPlaceIds = new HashSet<>();
+        Set<String> usedCoordinates = new HashSet<>();
+
         List<RecommendedAreaListResponse.Area> areas =
-                recommendedAreas.stream()
-                        .map(recommendedArea ->
-                                toResponse(
-                                        recommendedArea,
-                                        center,
-                                        candidates
-                                )
-                        )
-                        .toList();
+                new ArrayList<>();
+
+        for (RecommendedArea recommendedArea : recommendedAreas) {
+
+            GooglePlaceSearchResponse.Place place =
+                    resolvePlace(
+                            recommendedArea,
+                            center,
+                            candidates,
+                            usedPlaceIds,
+                            usedCoordinates
+                    );
+
+            usedPlaceIds.add(place.id());
+
+            usedCoordinates.add(
+                    areaCandidateResolver.createCoordinateKey(
+                            place.location().latitude(),
+                            place.location().longitude()
+                    )
+            );
+
+            areas.add(
+                    new RecommendedAreaListResponse.Area(
+                            recommendedArea.getId(),
+                            recommendedArea.getAreaName(),
+                            place.location().latitude(),
+                            place.location().longitude()
+                    )
+            );
+        }
 
         return new RecommendedAreaListResponse(areas);
     }
 
-    private RecommendedAreaListResponse.Area toResponse(
+    private GooglePlaceSearchResponse.Place resolvePlace(
             RecommendedArea recommendedArea,
             AreaCenter center,
-            List<AreaCandidate> candidates
+            List<AreaCandidate> candidates,
+            Set<String> usedPlaceIds,
+            Set<String> usedCoordinates
     ) {
 
         AreaCandidate candidate =
@@ -92,7 +122,9 @@ public class RecommendedAreaQueryService {
                 areaCandidateResolver.resolve(
                         candidate.searchName(),
                         center.latitude(),
-                        center.longitude()
+                        center.longitude(),
+                        usedPlaceIds,
+                        usedCoordinates
                 );
 
         if (place == null || place.location() == null) {
@@ -101,11 +133,6 @@ public class RecommendedAreaQueryService {
             );
         }
 
-        return new RecommendedAreaListResponse.Area(
-                recommendedArea.getId(),
-                recommendedArea.getAreaName(),
-                place.location().latitude(),
-                place.location().longitude()
-        );
+        return place;
     }
 }

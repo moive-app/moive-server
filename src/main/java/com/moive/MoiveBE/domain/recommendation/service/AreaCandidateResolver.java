@@ -6,6 +6,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.util.Set;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -16,7 +18,9 @@ public class AreaCandidateResolver {
     public GooglePlaceSearchResponse.Place resolve(
             String areaName,
             double centerLatitude,
-            double centerLongitude
+            double centerLongitude,
+            Set<String> usedPlaceIds,
+            Set<String> usedCoordinates
     ) {
 
         log.info(
@@ -35,7 +39,11 @@ public class AreaCandidateResolver {
                 );
 
         GooglePlaceSearchResponse.Place subwayPlace =
-                getValidPlace(subwayResponse);
+                getValidPlace(
+                        subwayResponse,
+                        usedPlaceIds,
+                        usedCoordinates
+                );
 
         if (subwayPlace != null) {
             return subwayPlace;
@@ -50,7 +58,11 @@ public class AreaCandidateResolver {
                 );
 
         GooglePlaceSearchResponse.Place transitPlace =
-                getValidPlace(transitResponse);
+                getValidPlace(
+                        transitResponse,
+                        usedPlaceIds,
+                        usedCoordinates
+                );
 
         if (transitPlace != null) {
             return transitPlace;
@@ -64,11 +76,17 @@ public class AreaCandidateResolver {
                         centerLongitude
                 );
 
-        return getValidPlace(areaResponse);
+        return getValidPlace(
+                areaResponse,
+                usedPlaceIds,
+                usedCoordinates
+        );
     }
 
     private GooglePlaceSearchResponse.Place getValidPlace(
-            GooglePlaceSearchResponse response
+            GooglePlaceSearchResponse response,
+            Set<String> usedPlaceIds,
+            Set<String> usedCoordinates
     ) {
 
         if (response == null
@@ -92,12 +110,43 @@ public class AreaCandidateResolver {
             return null;
         }
 
+        if (usedPlaceIds.contains(place.id())) {
+            log.info(
+                    "지역 좌표 중복 - 이미 사용된 Google Place - placeId={}",
+                    place.id()
+            );
+            return null;
+        }
+
+        String coordinateKey =
+                createCoordinateKey(
+                        place.location().latitude(),
+                        place.location().longitude()
+                );
+
+        if (usedCoordinates.contains(coordinateKey)) {
+            log.info(
+                    "지역 좌표 중복 - 이미 사용된 좌표 - latitude={}, longitude={}",
+                    place.location().latitude(),
+                    place.location().longitude()
+            );
+            return null;
+        }
+
         log.info(
-                "지역 좌표 조회 성공 - place=({}, {})",
+                "지역 좌표 조회 성공 - placeId={}, place=({}, {})",
+                place.id(),
                 place.location().latitude(),
                 place.location().longitude()
         );
 
         return place;
+    }
+
+    public String createCoordinateKey(
+            double latitude,
+            double longitude
+    ) {
+        return latitude + "," + longitude;
     }
 }
