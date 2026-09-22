@@ -59,6 +59,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -137,6 +138,7 @@ class VoteServiceTest {
         when(meeting.getScheduledDate()).thenReturn(scheduledDate);
         when(meeting.getScheduledTime()).thenReturn(scheduledTime);
         stubMeetingAndParticipant(meeting);
+        when(dateVoteRepository.existsByMeetingId(MEETING_ID)).thenReturn(false);
 
         // when
         DateVoteResultResponse response = voteService.getMeetingScheduleVoteResult(USER_ID, MEETING_ID);
@@ -152,8 +154,35 @@ class VoteServiceTest {
         assertThat(candidate.voterCnt()).isNull();
         assertThat(candidate.isVotedByMe()).isFalse();
 
-        // 투표 집계 진행 x
-        verifyNoInteractions(dateVoteRepository);
+        // DateVote 존재 여부만 확인, 집계는 생략
+        verify(dateVoteRepository).existsByMeetingId(MEETING_ID);
+        verifyNoMoreInteractions(dateVoteRepository);
+    }
+
+    @Test
+    void 일정_미정으로_생성됐지만_투표로_이미_확정된_모임을_재조회하면_투표_집계_결과를_그대로_반환한다() {
+        // given
+        Meeting meeting = mock(Meeting.class);
+        when(meeting.getScheduledDate()).thenReturn(LocalDate.of(2026, 9, 15));
+        when(meeting.getScheduledTime()).thenReturn(LocalTime.of(18, 0));
+        stubMeetingAndParticipant(meeting, MY_PARTICIPANT_ID);
+
+        when(dateVoteRepository.existsByMeetingId(MEETING_ID)).thenReturn(true);
+        when(dateVoteRepository.countDistinctVoters(eq(MEETING_ID), anyList())).thenReturn(4L);
+        when(dateVoteRepository.aggregateTopDates(eq(MEETING_ID), eq(MY_PARTICIPANT_ID), anyList(), any()))
+                .thenReturn(List.of(
+                        new DateVoteSummary(LocalDate.of(2026, 9, 15), LocalTime.of(18, 0), 4L, 1L)
+                ));
+
+        // when
+        DateVoteResultResponse response = voteService.getMeetingScheduleVoteResult(USER_ID, MEETING_ID);
+
+        // then: 집계 결과 확인, 이미 일정이 확정된 상태이므로 재확정 시도는 생략
+        assertThat(response.isVoteSkipped()).isFalse();
+        assertThat(response.totalVoterCnt()).isEqualTo(4);
+        assertThat(response.candidates()).hasSize(1);
+
+        verify(meeting, never()).confirmSchedule(any(), any());
     }
 
     @Test
