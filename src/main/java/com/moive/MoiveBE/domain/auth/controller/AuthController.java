@@ -13,6 +13,9 @@ import lombok.RequiredArgsConstructor;
 
 import org.springframework.web.bind.annotation.*;
 
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 @Tag(name = "Auth", description = "인증 관련 API")
 @RestController
 @RequiredArgsConstructor
@@ -58,6 +61,8 @@ public class AuthController {
     public BaseResponse<TokenResponse> reissue(
             @Valid @RequestBody ReissueRequest request
     ) {
+        log.info("[AUTH] /api/auth/reissue 요청 수신");
+
         return BaseResponse.success(
                 authService.reissue(request)
         );
