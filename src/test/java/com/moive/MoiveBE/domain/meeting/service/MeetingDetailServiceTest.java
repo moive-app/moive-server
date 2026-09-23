@@ -149,9 +149,33 @@ class MeetingDetailServiceTest {
         assertThat(response.primaryActionEnabled()).isTrue();
     }
 
+    @Test
+    void VOTING이고_추천완료_있어도_신규_참여자면_homeMessage가_다르고_primaryActionEnabled가_false이다() {
+        RecommendationRun run = mock(RecommendationRun.class);
+        when(recommendationRunRepository.findTopByMeetingIdAndStatusOrderByCreatedAtDesc(
+                MEETING_ID, RecommendationStatus.COMPLETED)).thenReturn(Optional.of(run));
+
+        MeetingHomeResponse response = setupAndCallGetMeetingHome(MeetingStatus.VOTING, ParticipantState.NEW_RESTRICTED);
+
+        assertThat(response.homeMessage()).isEqualTo("이미 투표가 시작된 모임이에요!");
+        assertThat(response.primaryActionLabel()).isEqualTo("추천 장소 확인 및 투표");
+        assertThat(response.primaryActionEnabled()).isFalse();
+    }
+
+    @Test
+    void CONFIRMED이면_신규_참여자여도_primaryActionEnabled가_true이다() {
+        MeetingHomeResponse response = setupAndCallGetMeetingHome(MeetingStatus.CONFIRMED, ParticipantState.NEW_RESTRICTED);
+
+        assertThat(response.primaryActionEnabled()).isTrue();
+    }
+
     private MeetingHomeResponse setupAndCallGetMeetingHome(MeetingStatus status) {
+        return setupAndCallGetMeetingHome(status, ParticipantState.COND_PENDING);
+    }
+
+    private MeetingHomeResponse setupAndCallGetMeetingHome(MeetingStatus status, ParticipantState myState) {
         Meeting meeting = mockMeeting(MEETING_ID, status, null);
-        Participant me = mockParticipant(1L, CURRENT_USER_ID, ParticipantState.COND_PENDING);
+        Participant me = mockParticipant(1L, CURRENT_USER_ID, myState);
         MeetingPurpose purpose = mockPurpose(PurposeType.NETWORKING);
         User user = mockUser(CURRENT_USER_ID, "나");
 
