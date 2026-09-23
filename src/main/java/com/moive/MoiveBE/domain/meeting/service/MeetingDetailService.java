@@ -53,7 +53,7 @@ public class MeetingDetailService {
         Meeting meeting = meetingRepository.findById(meetingId)
                 .orElseThrow(() -> new CustomException(CustomErrorCode.MEETING_NOT_FOUND));
 
-        participantRepository.findByMeetingIdAndUserIdAndLeftAtIsNull(meetingId, currentUserId)
+        Participant me = participantRepository.findByMeetingIdAndUserIdAndLeftAtIsNull(meetingId, currentUserId)
                 .orElseThrow(() -> new CustomException(CustomErrorCode.NOT_A_PARTICIPANT));
 
         MeetingPurpose purpose = meetingPurposeRepository.findByMeetingId(meetingId)
@@ -91,7 +91,9 @@ public class MeetingDetailService {
                 recommendationRunRepository.findTopByMeetingIdAndStatusOrderByCreatedAtDesc(
                         meetingId, RecommendationStatus.COMPLETED).isPresent();
 
-        HomeAction action = resolveHomeAction(status, recommendationCompleted);
+        boolean isNewRestricted = me.getState() == ParticipantState.NEW_RESTRICTED;
+
+        HomeAction action = resolveHomeAction(status, recommendationCompleted, isNewRestricted);
 
         boolean hasSchedule = meeting.hasSchedule();
         String scheduledDate = hasSchedule && meeting.getScheduledDate() != null
@@ -117,10 +119,14 @@ public class MeetingDetailService {
         );
     }
 
-    private HomeAction resolveHomeAction(MeetingStatus status, boolean recommendationCompleted) {
+    private HomeAction resolveHomeAction(MeetingStatus status, boolean recommendationCompleted, boolean isNewRestricted) {
         return switch (status) {
             case CONDITION_INPUT -> new HomeAction("아직 조건 입력 중이에요!", "추천 장소 확인", false);
-            case VOTING -> new HomeAction("이미 조건 입력이 완료된 모임이에요!", "추천 장소 확인 및 투표", recommendationCompleted);
+            case VOTING -> new HomeAction(
+                    isNewRestricted ? "이미 투표가 시작된 모임이에요!" : "이미 조건 입력이 완료된 모임이에요!",
+                    "추천 장소 확인 및 투표",
+                    recommendationCompleted && !isNewRestricted
+            );
             case CONFIRMED -> new HomeAction("모임이 확정됐어요. 모임 정보를 확인해보세요!", "확정된 모임 보러 가기", true);
             case COMPLETED -> new HomeAction(null, null, false);
         };
