@@ -25,4 +25,8 @@ public interface MeetingRepository extends JpaRepository<Meeting, Long> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select m from Meeting m where m.id = :id")
     Optional<Meeting> findByIdForUpdate(@Param("id") Long id);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select m from Meeting m where m.inviteCode = :inviteCode")
+    Optional<Meeting> findByInviteCodeForUpdate(@Param("inviteCode") String inviteCode);
 }

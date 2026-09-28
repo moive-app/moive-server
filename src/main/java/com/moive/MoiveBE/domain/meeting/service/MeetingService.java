@@ -130,7 +130,7 @@ public class MeetingService {
     public JoinMeetingResponse joinMeeting(String inviteCode) {
         Long userId = getCurrentUserId();
 
-        Meeting meeting = meetingRepository.findByInviteCode(inviteCode)
+        Meeting meeting = meetingRepository.findByInviteCodeForUpdate(inviteCode)
                 .orElseThrow(() -> new CustomException(CustomErrorCode.INVALID_INVITE_CODE));
 
         if (meeting.getStatus() == MeetingStatus.COMPLETED) {

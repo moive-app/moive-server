@@ -25,7 +25,7 @@ public class MeetingLeaveService {
     public void leaveMeeting(Long meetingId) {
         Long currentUserId = getCurrentUserId();
 
-        Meeting meeting = meetingRepository.findById(meetingId)
+        Meeting meeting = meetingRepository.findByIdForUpdate(meetingId)
                 .orElseThrow(() -> new CustomException(CustomErrorCode.MEETING_NOT_FOUND));
 
         if (meeting.getStatus() == MeetingStatus.COMPLETED) {

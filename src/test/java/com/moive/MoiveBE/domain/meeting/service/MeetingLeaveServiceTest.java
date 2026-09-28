@@ -57,7 +57,7 @@ class MeetingLeaveServiceTest {
         Participant me = mockParticipant(CURRENT_USER_ID, ParticipantState.COND_PENDING, false);
         Participant other = mockParticipant(2L, ParticipantState.COND_PENDING, false);
 
-        when(meetingRepository.findById(MEETING_ID)).thenReturn(Optional.of(meeting));
+        when(meetingRepository.findByIdForUpdate(MEETING_ID)).thenReturn(Optional.of(meeting));
         when(participantRepository.findByMeetingIdAndUserIdAndLeftAtIsNull(MEETING_ID, CURRENT_USER_ID))
                 .thenReturn(Optional.of(me));
         when(participantRepository.findAllByMeetingIdAndLeftAtIsNullOrderByJoinedAtAsc(MEETING_ID))
@@ -77,7 +77,7 @@ class MeetingLeaveServiceTest {
         Participant me = mockParticipant(CURRENT_USER_ID, ParticipantState.COND_DONE, true);
         Participant other = mockParticipant(2L, ParticipantState.COND_PENDING, false);
 
-        when(meetingRepository.findById(MEETING_ID)).thenReturn(Optional.of(meeting));
+        when(meetingRepository.findByIdForUpdate(MEETING_ID)).thenReturn(Optional.of(meeting));
         when(participantRepository.findByMeetingIdAndUserIdAndLeftAtIsNull(MEETING_ID, CURRENT_USER_ID))
                 .thenReturn(Optional.of(me));
         when(participantRepository.findAllByMeetingIdAndLeftAtIsNullOrderByJoinedAtAsc(MEETING_ID))
@@ -94,7 +94,7 @@ class MeetingLeaveServiceTest {
         Participant me = mockParticipant(CURRENT_USER_ID, ParticipantState.COND_PENDING, false);
         Participant next = mockParticipant(2L, ParticipantState.COND_PENDING, false);
 
-        when(meetingRepository.findById(MEETING_ID)).thenReturn(Optional.of(meeting));
+        when(meetingRepository.findByIdForUpdate(MEETING_ID)).thenReturn(Optional.of(meeting));
         when(participantRepository.findByMeetingIdAndUserIdAndLeftAtIsNull(MEETING_ID, CURRENT_USER_ID))
                 .thenReturn(Optional.of(me));
         when(participantRepository.findAllByMeetingIdAndLeftAtIsNullOrderByJoinedAtAsc(MEETING_ID))
@@ -110,7 +110,7 @@ class MeetingLeaveServiceTest {
         Meeting meeting = mockMeeting(MEETING_ID, MeetingStatus.CONDITION_INPUT, CURRENT_USER_ID);
         Participant me = mockParticipant(CURRENT_USER_ID, ParticipantState.COND_PENDING, false);
 
-        when(meetingRepository.findById(MEETING_ID)).thenReturn(Optional.of(meeting));
+        when(meetingRepository.findByIdForUpdate(MEETING_ID)).thenReturn(Optional.of(meeting));
         when(participantRepository.findByMeetingIdAndUserIdAndLeftAtIsNull(MEETING_ID, CURRENT_USER_ID))
                 .thenReturn(Optional.of(me));
         when(participantRepository.findAllByMeetingIdAndLeftAtIsNullOrderByJoinedAtAsc(MEETING_ID))
@@ -125,7 +125,7 @@ class MeetingLeaveServiceTest {
 
     @Test
     void 존재하지_않는_모임이면_MEETING_NOT_FOUND_예외가_발생한다() {
-        when(meetingRepository.findById(MEETING_ID)).thenReturn(Optional.empty());
+        when(meetingRepository.findByIdForUpdate(MEETING_ID)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> meetingLeaveService.leaveMeeting(MEETING_ID))
                 .isInstanceOf(CustomException.class)
@@ -136,7 +136,7 @@ class MeetingLeaveServiceTest {
     @Test
     void COMPLETED_모임에서_나가려하면_CANNOT_LEAVE_COMPLETED_MEETING_예외가_발생한다() {
         Meeting meeting = mockMeeting(MEETING_ID, MeetingStatus.COMPLETED, CURRENT_USER_ID);
-        when(meetingRepository.findById(MEETING_ID)).thenReturn(Optional.of(meeting));
+        when(meetingRepository.findByIdForUpdate(MEETING_ID)).thenReturn(Optional.of(meeting));
 
         assertThatThrownBy(() -> meetingLeaveService.leaveMeeting(MEETING_ID))
                 .isInstanceOf(CustomException.class)
@@ -149,7 +149,7 @@ class MeetingLeaveServiceTest {
     @Test
     void 모임_참여자가_아니면_NOT_A_PARTICIPANT_예외가_발생한다() {
         Meeting meeting = mockMeeting(MEETING_ID, MeetingStatus.CONDITION_INPUT, 99L);
-        when(meetingRepository.findById(MEETING_ID)).thenReturn(Optional.of(meeting));
+        when(meetingRepository.findByIdForUpdate(MEETING_ID)).thenReturn(Optional.of(meeting));
         when(participantRepository.findByMeetingIdAndUserIdAndLeftAtIsNull(MEETING_ID, CURRENT_USER_ID))
                 .thenReturn(Optional.empty());
 
