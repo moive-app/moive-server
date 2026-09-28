@@ -215,11 +215,8 @@ public class VoteService {
         participant.completeVote();
 
         // 마지막 투표자인 경우 => 득표 집계 결과 1위 장소를 모임 장소로 확정
-        // NEW_RESTRICTED(투표 불가 신규 참여자) 제외한 투표 가능 인원과 비교
-        long voterCnt = placeVoteRepository.countDistinctVoters(meetingId);
-        long eligibleCnt = participantRepository.countByMeetingIdAndLeftAtIsNullAndStateNot(
-                meetingId, ParticipantState.NEW_RESTRICTED);
-        if (voterCnt == eligibleCnt) {
+        // - 투표 가능 참여자(모임을 나가지 않음 + 신규 참여(NEW_RESTRICTED) 제외) 중 미투표자가 없으면 마지막 투표로 판단
+        if (participantRepository.countParticipantsYetToVote(meetingId, ParticipantState.NEW_RESTRICTED) == 0) {
             confirmMeetingPlace(meeting);
         }
     }

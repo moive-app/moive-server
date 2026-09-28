@@ -399,7 +399,7 @@ class VoteServiceTest {
         stubMeetingAndRecommendation(meeting, 101L, 102L, 103L);
         stubParticipant();
         when(placeVoteRepository.existsByMeetingIdAndParticipantId(MEETING_ID, MY_PARTICIPANT_ID)).thenReturn(false);
-        when(placeVoteRepository.countDistinctVoters(MEETING_ID)).thenReturn(2L);
+        when(participantRepository.countParticipantsYetToVote(MEETING_ID, ParticipantState.NEW_RESTRICTED)).thenReturn(3L);
 
         // when: 101L 중복 선택
         voteService.createPlaceVote(USER_ID, MEETING_ID, placeVoteRequest(101L, 102L, 101L));
@@ -429,14 +429,30 @@ class VoteServiceTest {
                 .thenReturn(Optional.of(participant));
 
         when(placeVoteRepository.existsByMeetingIdAndParticipantId(MEETING_ID, MY_PARTICIPANT_ID)).thenReturn(false);
-        when(placeVoteRepository.countDistinctVoters(MEETING_ID)).thenReturn(2L);
-        when(participantRepository.countByMeetingIdAndLeftAtIsNullAndStateNot(MEETING_ID, ParticipantState.NEW_RESTRICTED)).thenReturn(5L);
+        when(participantRepository.countParticipantsYetToVote(MEETING_ID, ParticipantState.NEW_RESTRICTED)).thenReturn(3L);
 
         // when
         voteService.createPlaceVote(USER_ID, MEETING_ID, placeVoteRequest(101L));
 
         // then
         verify(participant).completeVote();
+    }
+
+    @Test
+    void 투표_가능_참여자_중_미투표자가_남아있으면_모임이_확정되지_않는다() {
+        // given
+        Meeting meeting = meetingWithStatus(MeetingStatus.VOTING);
+        stubMeetingAndRecommendation(meeting, 101L, 102L);
+        stubParticipant();
+        when(placeVoteRepository.existsByMeetingIdAndParticipantId(MEETING_ID, MY_PARTICIPANT_ID)).thenReturn(false);
+        when(participantRepository.countParticipantsYetToVote(MEETING_ID, ParticipantState.NEW_RESTRICTED)).thenReturn(1L);
+
+        // when
+        voteService.createPlaceVote(USER_ID, MEETING_ID, placeVoteRequest(101L));
+
+        // then
+        verify(meeting, never()).confirmPlace(any());
+        verify(notificationService, never()).sendNotification(any(), any(), any(), any());
     }
 
     @Test
@@ -449,8 +465,7 @@ class VoteServiceTest {
         lenient().when(participantRepository.findAllByMeetingIdAndLeftAtIsNullOrderByJoinedAtAsc(MEETING_ID))
                 .thenReturn(List.of());
         when(placeVoteRepository.existsByMeetingIdAndParticipantId(MEETING_ID, MY_PARTICIPANT_ID)).thenReturn(false);
-        when(placeVoteRepository.countDistinctVoters(MEETING_ID)).thenReturn(2L);
-        when(participantRepository.countByMeetingIdAndLeftAtIsNullAndStateNot(MEETING_ID, ParticipantState.NEW_RESTRICTED)).thenReturn(2L);
+        when(participantRepository.countParticipantsYetToVote(MEETING_ID, ParticipantState.NEW_RESTRICTED)).thenReturn(0L);
 
         // 투표 집계: 101L=2표 (1위), 102L=1표
         // (확정 시점의 rankCandidates는 "조회하는 나"가 없는 배치성 호출이라 viewer 참여자 id는 구현 세부사항 -> any() 매칭)
@@ -488,8 +503,7 @@ class VoteServiceTest {
                 .thenReturn(List.of(p1, p2));
 
         when(placeVoteRepository.existsByMeetingIdAndParticipantId(MEETING_ID, MY_PARTICIPANT_ID)).thenReturn(false);
-        when(placeVoteRepository.countDistinctVoters(MEETING_ID)).thenReturn(2L);
-        when(participantRepository.countByMeetingIdAndLeftAtIsNullAndStateNot(MEETING_ID, ParticipantState.NEW_RESTRICTED)).thenReturn(2L);
+        when(participantRepository.countParticipantsYetToVote(MEETING_ID, ParticipantState.NEW_RESTRICTED)).thenReturn(0L);
 
         when(placeVoteRepository.aggregateByPlace(eq(MEETING_ID), any())).thenReturn(List.of(
                 new PlaceVoteSummary(101L, 2L, 1L),
