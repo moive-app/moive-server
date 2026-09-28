@@ -113,6 +113,33 @@ class PlaceVoteMeetingConfirmTest {
         assertThat(meeting.getScheduledTime()).isEqualTo(TOP_TIME);
     }
 
+    @Test
+    void 모임을_나간_참여자의_투표는_모임_확정_시_장소_1위_계산에서_제외된다() {
+        // given: A, B, C 모두 조건 입력(일정 투표) 완료, 추천 장소 2개 (득표가 같으면 id가 작은 첫 번째 장소가 앞섬)
+        Long meetingId = votingMeetingWithoutSchedule(3);
+        List<Long> placeIds = recommendedPlaces(meetingId, 2);
+        Long firstPlaceId = placeIds.get(0);
+        Long secondPlaceId = placeIds.get(1);
+        for (long userId = 1; userId <= 3; userId++) {
+            dateVoteRepository.save(DateVote.create(meetingId, participantIdOf(meetingId, userId), TOP_DATE, TOP_TIME));
+        }
+
+        // A는 두 번째 장소에 투표한 뒤 모임을 나감
+        voteService.createPlaceVote(1L, meetingId, new PlaceVoteRequest(List.of(secondPlaceId)));
+        Participant leaving = participantRepository.findByMeetingIdAndUserIdAndLeftAtIsNull(meetingId, 1L).orElseThrow();
+        leaving.leave();
+        participantRepository.save(leaving);
+
+        // when: B는 첫 번째 장소, C는 두 번째 장소에 투표 (C가 마지막 투표자)
+        voteService.createPlaceVote(2L, meetingId, new PlaceVoteRequest(List.of(firstPlaceId)));
+        voteService.createPlaceVote(3L, meetingId, new PlaceVoteRequest(List.of(secondPlaceId)));
+
+        // then: 나간 A의 표를 제외하면 1:1 동점 → 첫 번째 장소로 확정 (A의 표를 포함하면 두 번째 장소가 2표로 확정됨)
+        Meeting meeting = meetingRepository.findById(meetingId).orElseThrow();
+        assertThat(meeting.getStatus()).isEqualTo(MeetingStatus.CONFIRMED);
+        assertThat(meeting.getConfirmedPlaceId()).isEqualTo(firstPlaceId);
+    }
+
     private Long votingMeetingWithoutSchedule(int count) {
         Meeting meeting = Meeting.create(1L, "테스트 모임", null, null, "test-invite-code");
         for (int i = 1; i < count; i++) {
