@@ -267,7 +267,7 @@ class VoteServiceTest {
     void 이미_장소가_확정된_모임이면_PLACE_VOTE_CLOSED() {
         // given
         Meeting meeting = meetingWithStatus(MeetingStatus.CONFIRMED);
-        when(meetingRepository.findById(MEETING_ID)).thenReturn(Optional.of(meeting));
+        when(meetingRepository.findByIdForUpdate(MEETING_ID)).thenReturn(Optional.of(meeting));
 
         // when & then
         assertErrorCode(
@@ -282,7 +282,7 @@ class VoteServiceTest {
     void 조건_입력_중인_모임이면_PLACE_VOTE_NOT_STARTED() {
         // given
         Meeting meeting = meetingWithStatus(MeetingStatus.CONDITION_INPUT);
-        when(meetingRepository.findById(MEETING_ID)).thenReturn(Optional.of(meeting));
+        when(meetingRepository.findByIdForUpdate(MEETING_ID)).thenReturn(Optional.of(meeting));
 
         // when & then
         assertErrorCode(
@@ -297,7 +297,7 @@ class VoteServiceTest {
     void 장소_추천이_실행되지_않았다면_PLACE_VOTE_NOT_STARTED() {
         // given
         Meeting meeting = meetingWithStatus(MeetingStatus.VOTING);
-        when(meetingRepository.findById(MEETING_ID)).thenReturn(Optional.of(meeting));
+        when(meetingRepository.findByIdForUpdate(MEETING_ID)).thenReturn(Optional.of(meeting));
         when(recommendationRunRepository.findTopByMeetingIdAndStatusOrderByCreatedAtDesc(MEETING_ID, RecommendationStatus.COMPLETED))
                 .thenReturn(Optional.empty());
 
@@ -912,7 +912,7 @@ class VoteServiceTest {
     }
 
     private void stubMeetingAndRecommendation(Meeting meeting, Long... validRecommendedPlaceIds) {
-        when(meetingRepository.findById(MEETING_ID)).thenReturn(Optional.of(meeting));
+        when(meetingRepository.findByIdForUpdate(MEETING_ID)).thenReturn(Optional.of(meeting));
 
         RecommendationRun run = mock(RecommendationRun.class);
         lenient().when(run.getId()).thenReturn(RECOMMENDATION_RUN_ID);

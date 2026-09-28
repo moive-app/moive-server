@@ -162,7 +162,7 @@ public class VoteService {
     @Transactional
     public void createPlaceVote(Long userId, Long meetingId, PlaceVoteRequest request) {
         // 모임 조회
-        Meeting meeting = meetingRepository.findById(meetingId)
+        Meeting meeting = meetingRepository.findByIdForUpdate(meetingId)
                 .orElseThrow(() -> new CustomException(MEETING_NOT_FOUND));
 
         // 모임 진행 상황 검증
