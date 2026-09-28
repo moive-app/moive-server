@@ -5,6 +5,7 @@ import com.moive.MoiveBE.domain.meeting.entity.MeetingStatus;
 import com.moive.MoiveBE.domain.meeting.entity.Participant;
 import com.moive.MoiveBE.domain.meeting.repository.MeetingRepository;
 import com.moive.MoiveBE.domain.meeting.repository.ParticipantRepository;
+import com.moive.MoiveBE.domain.vote.service.VoteService;
 import com.moive.MoiveBE.global.exception.CustomErrorCode;
 import com.moive.MoiveBE.global.exception.CustomException;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +22,7 @@ public class MeetingLeaveService {
 
     private final MeetingRepository meetingRepository;
     private final ParticipantRepository participantRepository;
+    private final VoteService voteService;
 
     public void leaveMeeting(Long meetingId) {
         Long currentUserId = getCurrentUserId();
@@ -60,6 +62,9 @@ public class MeetingLeaveService {
         myParticipant.leave();
         meeting.decrementParticipantCnt();
         if (myParticipant.isConditionCompleted()) meeting.decrementSubmittedCnt();
+
+        // 장소 투표 단계에서 아직 투표하지 않은 참여자가 나가며 남은 참여자가 모두 투표를 마친 상태가 되는 경우 모임 확정
+        voteService.confirmMeetingIfAllVoted(meeting);
     }
 
     private Long getCurrentUserId() {

@@ -6,6 +6,7 @@ import com.moive.MoiveBE.domain.meeting.entity.Participant;
 import com.moive.MoiveBE.domain.meeting.entity.ParticipantState;
 import com.moive.MoiveBE.domain.meeting.repository.MeetingRepository;
 import com.moive.MoiveBE.domain.meeting.repository.ParticipantRepository;
+import com.moive.MoiveBE.domain.vote.service.VoteService;
 import com.moive.MoiveBE.global.exception.CustomErrorCode;
 import com.moive.MoiveBE.global.exception.CustomException;
 import org.junit.jupiter.api.AfterEach;
@@ -30,6 +31,7 @@ class MeetingLeaveServiceTest {
 
     @Mock private MeetingRepository meetingRepository;
     @Mock private ParticipantRepository participantRepository;
+    @Mock private VoteService voteService;
 
     private MeetingLeaveService meetingLeaveService;
     private static final Long CURRENT_USER_ID = 1L;
@@ -37,7 +39,7 @@ class MeetingLeaveServiceTest {
 
     @BeforeEach
     void setUp() {
-        meetingLeaveService = new MeetingLeaveService(meetingRepository, participantRepository);
+        meetingLeaveService = new MeetingLeaveService(meetingRepository, participantRepository, voteService);
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken(
                         CURRENT_USER_ID, null, List.of(new SimpleGrantedAuthority("ROLE_USER"))

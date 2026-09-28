@@ -210,8 +210,30 @@ public class VoteService {
         participant.completeVote();
 
         // 마지막 투표자인 경우 => 모임 일정 및 장소 확정
-        // - 투표 가능 참여자(모임을 나가지 않음 + 신규 참여(NEW_RESTRICTED) 제외) 중 미투표자가 없으면 마지막 투표로 판단
-        if (participantRepository.countParticipantsYetToVote(meetingId, ParticipantState.NEW_RESTRICTED) == 0) {
+        confirmMeetingIfAllVoted(meeting);
+    }
+
+    /**
+     * 투표 가능 참여자가 모두 장소 투표를 마친 경우 => 모임 확정 (일정, 장소)
+     * - 장소 투표(마지막 투표자), 모임 나가기(마지막 미투표자가 나간 경우)에서 공통으로 사용
+     * - 장소 투표 단계(VOTING + 장소 추천 완료)에서만 판단
+     * - 투표 가능 참여자(모임 나가지 않음 + 신규 참여(NEW_RESTRICTED) 제외) 중 미투표자가 없으면 확정
+     *   (투표 가능 참여자가 모두 나가 신규 참여자만 남은 경우도 확정 → 유효한 표가 없으면 장소는 null)
+     */
+    @Transactional
+    public void confirmMeetingIfAllVoted(Meeting meeting) {
+        if (meeting.getStatus() != MeetingStatus.VOTING) {
+            return;
+        }
+
+        boolean isRecommendationCompleted = recommendationRunRepository
+                .findTopByMeetingIdAndStatusOrderByCreatedAtDesc(meeting.getId(), RecommendationStatus.COMPLETED)
+                .isPresent();
+        if (!isRecommendationCompleted) {
+            return;
+        }
+
+        if (participantRepository.countParticipantsYetToVote(meeting.getId(), ParticipantState.NEW_RESTRICTED) == 0) {
             confirmMeeting(meeting);
         }
     }
