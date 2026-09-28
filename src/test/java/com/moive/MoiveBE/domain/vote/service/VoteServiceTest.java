@@ -33,6 +33,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -54,6 +55,7 @@ import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -223,7 +225,7 @@ class VoteServiceTest {
     }
 
     @Test
-    void 일정_미확정이고_후보가_있으면_1위_일정으로_모임_일정이_확정된다() {
+    void 일정_미확정이어도_일정_투표_현황_조회는_집계만_하고_모임_일정을_확정하지_않는다() {
         // given: scheduledDate/scheduledTime 모두 null
         Meeting meeting = mock(Meeting.class);
         stubMeetingAndParticipant(meeting, MY_PARTICIPANT_ID);
@@ -236,10 +238,12 @@ class VoteServiceTest {
                 ));
 
         // when
-        voteService.getMeetingScheduleVoteResult(USER_ID, MEETING_ID);
+        DateVoteResultResponse response = voteService.getMeetingScheduleVoteResult(USER_ID, MEETING_ID);
 
-        // then: 1위(9/15 18:00)로 모임 일정이 확정됨
-        verify(meeting).confirmSchedule(LocalDate.of(2026, 9, 15), LocalTime.of(18, 0));
+        // then: 집계 결과 반환, 일정 확정은 진행x
+        assertThat(response.candidates()).extracting(DateVoteResultResponse.Candidate::meetingDate)
+                .containsExactly(LocalDate.of(2026, 9, 15), LocalDate.of(2026, 9, 12));
+        verify(meeting, never()).confirmSchedule(any(), any());
     }
 
     @Test
@@ -484,6 +488,62 @@ class VoteServiceTest {
 
         // then: 1위(101L)로 모임이 확정됨
         verify(meeting).confirmPlace(101L);
+    }
+
+    @Test
+    void 마지막_투표자가_투표하면_투표_집계_결과_기반으로_모임_일정과_장소가_함께_확정된다() {
+        // given: 일정 미정 모임(scheduledDate/scheduledTime null), 마지막 투표 상황
+        Meeting meeting = meetingWithStatus(MeetingStatus.VOTING);
+        stubMeetingAndRecommendation(meeting, 101L, 102L);
+        stubParticipant();
+        when(placeVoteRepository.existsByMeetingIdAndParticipantId(MEETING_ID, MY_PARTICIPANT_ID)).thenReturn(false);
+        when(participantRepository.countParticipantsYetToVote(MEETING_ID, ParticipantState.NEW_RESTRICTED)).thenReturn(0L);
+
+        // 일정 집계: 유효 참여자 기준 1위 10/3 18:00
+        Participant active = mock(Participant.class);
+        when(active.getId()).thenReturn(500L);
+        when(participantRepository.findAllByMeetingIdAndLeftAtIsNull(MEETING_ID)).thenReturn(List.of(active));
+        LocalDate topDate = LocalDate.of(2026, 10, 3);
+        LocalTime topTime = LocalTime.of(18, 0);
+        when(dateVoteRepository.aggregateTopDates(eq(MEETING_ID), any(), eq(List.of(500L)), any()))
+                .thenReturn(List.of(new DateVoteSummary(topDate, topTime, 3L, 0L)));
+
+        // 장소 집계: 101L 1위
+        when(placeVoteRepository.aggregateByPlace(eq(MEETING_ID), any())).thenReturn(List.of(
+                new PlaceVoteSummary(101L, 2L, 1L)
+        ));
+        RecommendedPlace place101 = recommendedPlaceWithId(101L, "gp-101", 1);
+        when(recommendedPlaceRepository.findAllById(anyList())).thenReturn(List.of(place101));
+        lenient().when(googlePlacesClient.getPlaceLocation(any())).thenThrow(new CustomException(PLACE_INFO_LOOKUP_FAILED));
+
+        // when
+        voteService.createPlaceVote(USER_ID, MEETING_ID, placeVoteRequest(101L));
+
+        // then
+        InOrder inOrder = inOrder(meeting);
+        inOrder.verify(meeting).confirmSchedule(topDate, topTime);
+        inOrder.verify(meeting).confirmPlace(101L);
+    }
+
+    @Test
+    void 모임_생성_시_일정이_확정된_모임은_마지막_투표로_확정될_때_일정_집계를_하지_않는다() {
+        // given: 일정이 이미 있는 모임, 마지막 투표 상황
+        Meeting meeting = meetingWithStatus(MeetingStatus.VOTING);
+        when(meeting.getScheduledDate()).thenReturn(LocalDate.of(2026, 10, 3));
+        when(meeting.getScheduledTime()).thenReturn(LocalTime.of(18, 0));
+        stubMeetingAndRecommendation(meeting, 101L);
+        stubParticipant();
+        when(placeVoteRepository.existsByMeetingIdAndParticipantId(MEETING_ID, MY_PARTICIPANT_ID)).thenReturn(false);
+        when(participantRepository.countParticipantsYetToVote(MEETING_ID, ParticipantState.NEW_RESTRICTED)).thenReturn(0L);
+        when(placeVoteRepository.aggregateByPlace(eq(MEETING_ID), any())).thenReturn(List.of());
+
+        // when
+        voteService.createPlaceVote(USER_ID, MEETING_ID, placeVoteRequest(101L));
+
+        // then: 일정은 그대로 두고 장소만 확정
+        verifyNoInteractions(dateVoteRepository);
+        verify(meeting, never()).confirmSchedule(any(), any());
+        verify(meeting).confirmPlace(null);
     }
 
     @Test

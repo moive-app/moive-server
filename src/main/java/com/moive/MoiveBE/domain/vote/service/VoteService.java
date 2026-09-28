@@ -71,9 +71,7 @@ public class VoteService {
 
     /**
      * 일정 투표 현황 조회
-     * - 모임 생성 시 일정을 확정하지 않은 경우, 일정 투표 기반으로 모임 일정 확정
      */
-    @Transactional
     public DateVoteResultResponse getMeetingScheduleVoteResult(Long userId, Long meetingId) {
         // 모임 조회
         Meeting meeting = meetingRepository.findById(meetingId)
@@ -112,9 +110,6 @@ public class VoteService {
         // - 날짜별 집계
         List<DateVoteSummary> topDates = dateVoteRepository
                 .aggregateTopDates(meetingId, participant.getId(), validParticipantIds, PageRequest.of(0, TOP_N));
-
-        // - 집계 결과 1위 일정을 모임 일정으로 확정
-        confirmScheduleWithTopDate(meeting, topDates);
 
         List<DateVoteResultResponse.Candidate> candidates = topDates.stream()
                 .map(this::toCandidate)
@@ -214,15 +209,19 @@ public class VoteService {
         placeVoteRepository.saveAll(placeVotes);
         participant.completeVote();
 
-        // 마지막 투표자인 경우 => 득표 집계 결과 1위 장소를 모임 장소로 확정
+        // 마지막 투표자인 경우 => 모임 일정 및 장소 확정
         // - 투표 가능 참여자(모임을 나가지 않음 + 신규 참여(NEW_RESTRICTED) 제외) 중 미투표자가 없으면 마지막 투표로 판단
         if (participantRepository.countParticipantsYetToVote(meetingId, ParticipantState.NEW_RESTRICTED) == 0) {
-            confirmMeetingPlace(meeting);
+            confirmMeeting(meeting);
         }
     }
 
-    // 모임 장소 확정
-    private void confirmMeetingPlace(Meeting meeting) {
+    // 모임 확정: 일정(미확정인 경우) 및 장소 확정 -> MeetingStatus.CONFIRMED로 전환
+    private void confirmMeeting(Meeting meeting) {
+        // 일정 확정
+        confirmScheduleIfNotConfirmed(meeting);
+
+        // 장소 확정
         List<CandidateDetail> ranked = rankCandidates(meeting.getId(), NO_VIEWER_PARTICIPANT_ID);
         Long confirmedPlaceId = ranked.isEmpty() ? null : ranked.get(0).recommendedPlaceId();
         meeting.confirmPlace(confirmedPlaceId);
@@ -275,8 +274,7 @@ public class VoteService {
                 continue;
             }
 
-            confirmScheduleIfNotConfirmed(meeting);
-            confirmMeetingPlace(meeting);
+            confirmMeeting(meeting);
         }
     }
 
