@@ -21,6 +21,7 @@ import org.springframework.context.ApplicationEventPublisher;
 
 import java.security.SecureRandom;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.Optional;
@@ -283,16 +284,15 @@ public class MeetingService {
     /**
      * 모임 일정이 지난 확정된 모임을 종료 처리 (CONFIRMED -> COMPLETED)
      * - 날짜 단위로 판단 (scheduledDate < 오늘)
-     * - 매일 MeetingLifecycleScheduler에서 호출됨
+     * - 매일 MeetingLifecycleScheduler에서 호출됨 (서버 시작 시에도 1회 호출)
      */
-    public void completeElapsedMeetings() {
-        List<Meeting> elapsedMeetings = meetingRepository
-                .findAllByStatusAndScheduledDateBefore(MeetingStatus.CONFIRMED, LocalDate.now());
+    public int completeElapsedMeetings() {
+        LocalDate today = LocalDate.now();
+        int completedCnt = meetingRepository.updateStatusByStatusAndScheduledDateBefore(
+                MeetingStatus.CONFIRMED, MeetingStatus.COMPLETED, today, LocalDateTime.now());
 
-        for (Meeting meeting : elapsedMeetings) {
-            meeting.complete();
-            log.info("[모임 종료 처리] 모임 일정 경과로 자동 종료 (meetingId={})", meeting.getId());
-        }
+        log.info("[모임 종료 배치] 완료 - 종료 {}건 (기준: 모임 일정이 {} 이전인 확정 모임)", completedCnt, today);
+        return completedCnt;
     }
 
     private Long getCurrentUserId() {
