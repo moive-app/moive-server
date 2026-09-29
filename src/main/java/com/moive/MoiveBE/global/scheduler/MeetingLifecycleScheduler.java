@@ -1,7 +1,7 @@
 package com.moive.MoiveBE.global.scheduler;
 
 import com.moive.MoiveBE.domain.meeting.service.MeetingService;
-import com.moive.MoiveBE.domain.vote.service.VoteService;
+import com.moive.MoiveBE.domain.vote.service.PlaceVoteCloseService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -17,7 +17,7 @@ import java.time.LocalDateTime;
 @Slf4j
 public class MeetingLifecycleScheduler {
 
-    private final VoteService voteService;
+    private final PlaceVoteCloseService placeVoteCloseService;
     private final MeetingService meetingService;
 
     @Scheduled(cron = "${meeting.daily-batch-cron}")
@@ -27,7 +27,7 @@ public class MeetingLifecycleScheduler {
         log.info("[모임/투표 배치] 시작 - 시작 시각: {}", startDateTime);
 
         try {
-            voteService.finalizeExpiredPlaceVotes();
+            placeVoteCloseService.finalizeExpiredPlaceVotes();
             meetingService.completeElapsedMeetings();
         } catch (Exception e) {
             log.error("[모임/투표 배치] 실행 중 오류 발생", e);

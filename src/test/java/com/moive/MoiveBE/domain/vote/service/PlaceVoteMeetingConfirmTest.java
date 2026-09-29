@@ -32,6 +32,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 /**
  * [장소 투표 생성 API] 모임 확정(일정,장소) 테스트
@@ -138,6 +140,49 @@ class PlaceVoteMeetingConfirmTest {
         Meeting meeting = meetingRepository.findById(meetingId).orElseThrow();
         assertThat(meeting.getStatus()).isEqualTo(MeetingStatus.CONFIRMED);
         assertThat(meeting.getConfirmedPlaceId()).isEqualTo(firstPlaceId);
+    }
+
+    @Test
+    void 마감_처리_시_일부만_투표했어도_일정과_현재까지의_득표_1위_장소로_모임이_확정된다() {
+        // given: A&B 일정 투표 완료, 장소 투표는 A만 완료 (마감 기한 경과 가정)
+        Long meetingId = votingMeetingWithoutSchedule(2);
+        List<Long> placeIds = recommendedPlaces(meetingId, 2);
+        Long votedPlaceId = placeIds.get(1);
+        dateVoteRepository.save(DateVote.create(meetingId, participantIdOf(meetingId, 1L), TOP_DATE, TOP_TIME));
+        dateVoteRepository.save(DateVote.create(meetingId, participantIdOf(meetingId, 2L), TOP_DATE, TOP_TIME));
+        voteService.createPlaceVote(1L, meetingId, new PlaceVoteRequest(List.of(votedPlaceId)));
+
+        // when: 마감 배치가 이 모임을 처리
+        boolean confirmed = voteService.finalizeExpiredPlaceVote(meetingId);
+
+        // then
+        Meeting meeting = meetingRepository.findById(meetingId).orElseThrow();
+        assertThat(confirmed).isTrue();
+        assertThat(meeting.getStatus()).isEqualTo(MeetingStatus.CONFIRMED);
+        assertThat(meeting.getConfirmedPlaceId()).isEqualTo(votedPlaceId);
+        assertThat(meeting.getScheduledDate()).isEqualTo(TOP_DATE);
+        assertThat(meeting.getScheduledTime()).isEqualTo(TOP_TIME);
+    }
+
+    @Test
+    void 마감_배치가_대상을_고른_뒤_마지막_투표로_확정된_모임은_다시_확정하지_않는다() {
+        // given: 배치가 VOTING 모임을 대상으로 고른 뒤, 처리하기 전에 마지막 투표로 모임이 확정됨
+        Long meetingId = votingMeetingWithoutSchedule(2);
+        List<Long> placeIds = recommendedPlaces(meetingId, 2);
+        dateVoteRepository.save(DateVote.create(meetingId, participantIdOf(meetingId, 1L), TOP_DATE, TOP_TIME));
+        dateVoteRepository.save(DateVote.create(meetingId, participantIdOf(meetingId, 2L), TOP_DATE, TOP_TIME));
+        voteService.createPlaceVote(1L, meetingId, new PlaceVoteRequest(List.of(placeIds.get(0))));
+        voteService.createPlaceVote(2L, meetingId, new PlaceVoteRequest(List.of(placeIds.get(0))));
+        clearInvocations(notificationService);
+
+        // when: 배치가 해당 모임 처리
+        boolean confirmed = voteService.finalizeExpiredPlaceVote(meetingId);
+
+        // then: 락을 잡은 뒤 최신 상태(CONFIRMED)를 보고 건너뜀 → 확정 결과 유지, 확정 알림 중복 발송 x
+        Meeting meeting = meetingRepository.findById(meetingId).orElseThrow();
+        assertThat(confirmed).isFalse();
+        assertThat(meeting.getConfirmedPlaceId()).isEqualTo(placeIds.get(0));
+        verifyNoInteractions(notificationService);
     }
 
     private Long votingMeetingWithoutSchedule(int count) {

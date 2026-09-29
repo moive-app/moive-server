@@ -28,12 +28,11 @@ import com.moive.MoiveBE.domain.vote.repository.PlaceVoteRepository;
 import com.moive.MoiveBE.global.exception.CustomException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
@@ -65,9 +64,6 @@ public class VoteService {
     private final GooglePlacesClient googlePlacesClient;
     private final AreaDistanceService areaDistanceService;
     private final NotificationService notificationService;
-
-    @Value("${place-vote.deadline-days}")
-    private int placeVoteDeadlineDays;
 
     /**
      * 일정 투표 현황 조회
@@ -247,7 +243,9 @@ public class VoteService {
         List<CandidateDetail> ranked = rankCandidates(meeting.getId(), NO_VIEWER_PARTICIPANT_ID);
         Long confirmedPlaceId = ranked.isEmpty() ? null : ranked.get(0).recommendedPlaceId();
         meeting.confirmPlace(confirmedPlaceId);
-        log.info("[장소 투표] 마지막 투표자 완료 => 장소 확정 (meetingId={}, confirmedPlaceId={})", meeting.getConfirmedPlaceId(), confirmedPlaceId);
+
+        log.info("[모임 확정] meetingId={}, scheduledDate={}, scheduledTime={}, confirmedPlaceId={}",
+                meeting.getId(), meeting.getScheduledDate(), meeting.getScheduledTime(), confirmedPlaceId);
 
         // NOTI-004: 장소 확정 알림 (전체 참여자) + 참여자 상태 CONFIRMED 업데이트
         // 아무도 투표하지 않아 confirmedPlaceId가 없는 경우, 장소 확정 알림은 생략
@@ -263,41 +261,24 @@ public class VoteService {
     }
 
     /**
-     * 장소 투표 마감 기한이 지났는데도 전원이 투표를 마치지 못한 모임 처리
-     * - Case A) 1명 이상 투표했다면 그때까지의 집계 결과로 장소 확정 o + 모임 상태 CONFIRMED로 전환
-     * - Case B) 아무도 투표하지 않았다면 장소 확정 x + 모임 상태 CONFIRMED로 전환
-     * - 매일 MeetingLifecycleScheduler에서 호출됨
+     * 장소 투표 마감 처리
+     * - 장소 투표 마감 배치(PlaceVoteCloseService)에서 모임별로 호출
+     *   - Case A) 1명 이상 투표했다면 집계 1위 장소로 확정
+     *   - Case B) 아무도 투표하지 않았다면 장소 없이(null) 확정
      */
-    @Transactional
-    public void finalizeExpiredPlaceVotes() {
-        List<Meeting> votingMeetings = meetingRepository.findAllByStatus(MeetingStatus.VOTING);
-        if(votingMeetings.isEmpty()) {
-            return;
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public boolean finalizeExpiredPlaceVote(Long meetingId) {
+        Meeting meeting = meetingRepository.findByIdForUpdate(meetingId)
+                .orElseThrow(() -> new CustomException(MEETING_NOT_FOUND));
+
+        // 타겟 선정 후 락을 잡기 전까지 마지막 투표 및 모임 나가기로 확정(CONFIRMED)/종료(COMPLETED) 처리된 게 있는지 재확인
+        if (meeting.getStatus() != MeetingStatus.VOTING) {
+            log.info("[장소 투표 마감 배치] 투표 진행 중(VOTING)이 아닌 모임 건너뜀 (meetingId={}, status={})", meetingId, meeting.getStatus());
+            return false;
         }
 
-        // 모임별 장소 추천이 완료된 시각을 장소 투표 시작 시점으로 지정
-        List<Long> meetingIds = votingMeetings.stream().map(Meeting::getId).toList();
-        Map<Long, LocalDateTime> placeVoteStartedAtByMeetingId = recommendationRunRepository
-                .findAllByMeetingIdInAndStatus(meetingIds, RecommendationStatus.COMPLETED)
-                .stream()
-                .collect(Collectors.toMap(
-                        RecommendationRun::getMeetingId,
-                        RecommendationRun::getUpdatedAt,
-                        (earlier, later) -> earlier.isAfter(later) ? earlier : later
-                ));
-
-        LocalDateTime deadline = LocalDateTime.now().minusDays(placeVoteDeadlineDays);
-
-        for (Meeting meeting : votingMeetings) {
-            LocalDateTime placeVoteStartedAt = placeVoteStartedAtByMeetingId.get(meeting.getId());
-
-            // 장소 투표 단계가 아니거나 마감 기한이 지나지 않았으면 스킵
-            if(placeVoteStartedAt == null || placeVoteStartedAt.isAfter(deadline)) {
-                continue;
-            }
-
-            confirmMeeting(meeting);
-        }
+        confirmMeeting(meeting);
+        return true;
     }
 
     // 일정 미확정 모임의 일정 확정
