@@ -49,7 +49,7 @@ public class VWorldLegalDongParser {
                         getText(dongElement, "ld_emd_code_nm");
 
                 String signguCode =
-                        getText(dongElement, "src_signgu_code");
+                        code.substring(0, 5);
 
                 Coordinate center =
                         calculateCenter(dongElement);
