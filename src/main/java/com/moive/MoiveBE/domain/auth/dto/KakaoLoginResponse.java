@@ -11,6 +11,12 @@ public record KakaoLoginResponse(
         boolean registered,
 
         @Schema(
+                description = "MOIVE 사용자 ID. 신규 회원인 경우 null",
+                example = "1"
+        )
+        Long userId,
+
+        @Schema(
                 description = "카카오 닉네임",
                 example = "한재경"
         )
