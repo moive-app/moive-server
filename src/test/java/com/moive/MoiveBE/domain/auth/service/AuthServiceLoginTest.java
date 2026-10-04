@@ -74,6 +74,7 @@ class AuthServiceLoginTest {
 
         // then
         assertThat(result.registered()).isFalse();
+        assertThat(result.userId()).isNull();
         assertThat(result.nickname()).isEqualTo("테스트유저");
         assertThat(result.profileImageUrl())
                 .isEqualTo("https://example.com/profile.jpg");
@@ -114,6 +115,7 @@ class AuthServiceLoginTest {
 
         // then
         assertThat(result.registered()).isTrue();
+        assertThat(result.userId()).isEqualTo(1L);
         assertThat(result.email()).isEqualTo("test@kakao.com");
 
         assertThat(result.token()).isNotNull();
