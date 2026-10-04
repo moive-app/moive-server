@@ -66,6 +66,7 @@ public class AuthService {
         if (existingUser.isEmpty()) {
             return new KakaoLoginResponse(
                     false,
+                    null,
                     kakaoUser.properties().nickname(),
                     kakaoUser.properties().profileImage(),
                     kakaoUser.kakaoAccount().email(),
@@ -91,6 +92,7 @@ public class AuthService {
         // 7. 기존 회원 정보와 서비스 토큰 반환
         return new KakaoLoginResponse(
                 true,
+                user.getId(),
                 kakaoUser.properties().nickname(),
                 kakaoUser.properties().profileImage(),
                 kakaoUser.kakaoAccount().email(),

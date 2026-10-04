@@ -35,8 +35,8 @@ class VWorldLegalDongClientIntegrationTest {
 
         AreaCenter center =
                 new AreaCenter(
-                        37.5599985,
-                        127.6927097
+                        37.3661738,
+                        127.1080975
                 );
 
         String bbox =
@@ -44,6 +44,8 @@ class VWorldLegalDongClientIntegrationTest {
 
         String response =
                 vWorldLegalDongClient.getLegalDongs(bbox);
+
+        System.out.println(response);
 
         var legalDongs =
                 parser.parse(response);
@@ -81,6 +83,34 @@ class VWorldLegalDongClientIntegrationTest {
                         .properties()
                         .full_nm()
         );
+
+        assertThat(response).isNotNull();
+    }
+
+    @Test
+    void 문제_발생_좌표에서_법정동_후보를_조회한다() {
+
+        AreaCenter center =
+                new AreaCenter(
+                        37.3661738,
+                        127.1080975
+                );
+
+        var candidates =
+                legalDongCandidateService.generate(center);
+
+        candidates.forEach(System.out::println);
+
+        assertThat(candidates).isNotEmpty();
+    }
+
+    @Test
+    void 문제_시군구_코드를_직접_조회한다() {
+
+        VWorldSigunguResponse response =
+                vWorldLegalDongClient.getSigungu("41130");
+
+        System.out.println(response);
 
         assertThat(response).isNotNull();
     }
