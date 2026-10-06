@@ -6,6 +6,8 @@ import com.moive.MoiveBE.domain.recommendation.dto.AreaCenter;
 import com.moive.MoiveBE.domain.recommendation.dto.VWorldLegalDong;
 import com.moive.MoiveBE.domain.recommendation.dto.VWorldSigunguResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import lombok.extern.slf4j.XSlf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.Comparator;
@@ -14,6 +16,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class LegalDongCandidateService {
@@ -82,6 +85,11 @@ public class LegalDongCandidateService {
     }
 
     private String getFullSigunguName(String signguCode) {
+
+        log.info(
+                "[VWorld] 시군구 조회 - signguCode={}",
+                signguCode
+        );
 
         VWorldSigunguResponse response =
                 vWorldLegalDongClient.getSigungu(signguCode);
