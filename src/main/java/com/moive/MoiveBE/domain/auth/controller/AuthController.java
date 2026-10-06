@@ -44,7 +44,7 @@ public class AuthController {
     )
     @SecurityRequirements
     @PostMapping("/signup")
-    public BaseResponse<TokenResponse> signup(
+    public BaseResponse<SignupResponse> signup(
             @Valid @RequestBody SignupRequest request
     ) {
         return BaseResponse.success(
