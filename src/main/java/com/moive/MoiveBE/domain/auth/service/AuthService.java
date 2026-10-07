@@ -13,6 +13,7 @@ import com.moive.MoiveBE.domain.user.entity.UserAgreement;
 import com.moive.MoiveBE.domain.user.repository.UserAgreementRepository;
 import com.moive.MoiveBE.domain.auth.dto.TokenResponse;
 import com.moive.MoiveBE.domain.auth.dto.ReissueRequest;
+import com.moive.MoiveBE.domain.auth.dto.SignupResponse;
 import com.moive.MoiveBE.domain.auth.dto.LogoutRequest;
 import com.moive.MoiveBE.global.jwt.JwtTokenProvider;
 
@@ -179,7 +180,7 @@ public class AuthService {
     }
 
     @Transactional
-    public TokenResponse signup(SignupRequest request) {
+    public SignupResponse signup(SignupRequest request) {
 
         // 1. Kakao Access Token으로 사용자 정보 다시 조회
         KakaoUserInfoResponse kakaoUser =
@@ -253,7 +254,8 @@ public class AuthService {
         );
 
         // 10. 서비스 토큰 반환
-        return new TokenResponse(
+        return new SignupResponse(
+                savedUser.getId(),
                 accessToken,
                 refreshToken
         );
