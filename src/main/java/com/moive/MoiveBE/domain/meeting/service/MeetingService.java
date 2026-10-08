@@ -175,7 +175,7 @@ public class MeetingService {
     public SubmitPreferenceResponse submitPreference(Long meetingId, SubmitPreferenceRequest request) {
         Long userId = getCurrentUserId();
 
-        Meeting meeting = meetingRepository.findById(meetingId)
+        Meeting meeting = meetingRepository.findByIdForUpdate(meetingId)
                 .orElseThrow(() -> new CustomException(CustomErrorCode.MEETING_NOT_FOUND));
 
         if (meeting.getStatus() != MeetingStatus.CONDITION_INPUT) {
