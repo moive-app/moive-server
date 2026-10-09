@@ -262,15 +262,7 @@ public class MeetingService {
         }
 
         // 전원 완료 시 모임 상태 전환 및 추천 트리거
-        boolean triggered = false;
-        if (isFirstSubmit && meeting.getSubmittedCnt() >= meeting.getParticipantCnt()) {
-            meeting.transitionToVoting();
-            triggered = true;
-            eventPublisher.publishEvent(
-                    new AreaRecommendationRequestedEvent(meetingId)
-            );
-
-        }
+        boolean triggered = isFirstSubmit && startVotingIfAllSubmitted(meeting);
 
         return SubmitPreferenceResponse.of(
                 meetingId,
@@ -279,6 +271,19 @@ public class MeetingService {
                 meeting.getStatus(),
                 triggered
         );
+    }
+
+    public boolean startVotingIfAllSubmitted(Meeting meeting) {
+        if (meeting.getStatus() != MeetingStatus.CONDITION_INPUT
+                || meeting.getSubmittedCnt() < meeting.getParticipantCnt()) {
+            return false;
+        }
+
+        meeting.transitionToVoting();
+        eventPublisher.publishEvent(
+                new AreaRecommendationRequestedEvent(meeting.getId())
+        );
+        return true;
     }
 
     /**

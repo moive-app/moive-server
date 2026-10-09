@@ -152,8 +152,8 @@ class MeetingServicePreferenceTest {
         when(preferenceRepository.save(any())).thenReturn(savedPref);
         when(activityRepository.findByName(any())).thenReturn(Optional.of(activity));
         when(meeting.getSubmittedCnt()).thenReturn(2);
-        // 첫 호출(상태 체크)=CONDITION_INPUT, 이후 호출(응답 생성)=VOTING
-        when(meeting.getStatus()).thenReturn(MeetingStatus.CONDITION_INPUT, MeetingStatus.VOTING);
+        // 조건 입력 가능 여부 확인, 장소 투표 시작 여부 확인=CONDITION_INPUT, 이후 호출(응답 생성)=VOTING
+        when(meeting.getStatus()).thenReturn(MeetingStatus.CONDITION_INPUT, MeetingStatus.CONDITION_INPUT, MeetingStatus.VOTING);
 
         // when
         SubmitPreferenceResponse response = meetingService.submitPreference(10L, validRequest(true));

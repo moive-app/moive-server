@@ -22,6 +22,7 @@ public class MeetingLeaveService {
 
     private final MeetingRepository meetingRepository;
     private final ParticipantRepository participantRepository;
+    private final MeetingService meetingService;
     private final VoteService voteService;
 
     public void leaveMeeting(Long meetingId) {
@@ -63,7 +64,12 @@ public class MeetingLeaveService {
         meeting.decrementParticipantCnt();
         if (myParticipant.isConditionCompleted()) meeting.decrementSubmittedCnt();
 
-        // 장소 투표 단계에서 아직 투표하지 않은 참여자가 나가며 남은 참여자가 모두 투표를 마친 상태가 되는 경우 모임 확정
+        // 조건 입력 단계에서 아직 조건을 제출하지 않은 참여자가 나가며 남은 참여자가 모두 제출을 마친 상태가 되는 경우
+        // => 모임 상태 전환 & 추천 트리거
+        meetingService.startVotingIfAllSubmitted(meeting);
+
+        // 장소 투표 단계에서 아직 투표하지 않은 참여자가 나가며 남은 참여자가 모두 투표를 마친 상태가 되는 경우
+        // => 모임 확정
         voteService.confirmMeetingIfAllVoted(meeting);
     }
 

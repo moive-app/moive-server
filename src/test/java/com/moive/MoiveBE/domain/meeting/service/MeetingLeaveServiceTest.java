@@ -31,6 +31,7 @@ class MeetingLeaveServiceTest {
 
     @Mock private MeetingRepository meetingRepository;
     @Mock private ParticipantRepository participantRepository;
+    @Mock private MeetingService meetingService;
     @Mock private VoteService voteService;
 
     private MeetingLeaveService meetingLeaveService;
@@ -39,7 +40,7 @@ class MeetingLeaveServiceTest {
 
     @BeforeEach
     void setUp() {
-        meetingLeaveService = new MeetingLeaveService(meetingRepository, participantRepository, voteService);
+        meetingLeaveService = new MeetingLeaveService(meetingRepository, participantRepository, meetingService, voteService);
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken(
                         CURRENT_USER_ID, null, List.of(new SimpleGrantedAuthority("ROLE_USER"))
