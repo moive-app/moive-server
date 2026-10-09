@@ -1,0 +1,217 @@
+package com.moive.MoiveBE.domain.vote.service;
+
+import com.moive.MoiveBE.domain.meeting.entity.DateVote;
+import com.moive.MoiveBE.domain.meeting.entity.Meeting;
+import com.moive.MoiveBE.domain.meeting.entity.MeetingStatus;
+import com.moive.MoiveBE.domain.meeting.entity.Participant;
+import com.moive.MoiveBE.domain.meeting.entity.ParticipantState;
+import com.moive.MoiveBE.domain.meeting.repository.DateVoteRepository;
+import com.moive.MoiveBE.domain.meeting.repository.MeetingRepository;
+import com.moive.MoiveBE.domain.meeting.repository.ParticipantRepository;
+import com.moive.MoiveBE.domain.notification.service.NotificationService;
+import com.moive.MoiveBE.domain.recommendation.client.GooglePlacesClient;
+import com.moive.MoiveBE.domain.recommendation.entity.RecommendationRun;
+import com.moive.MoiveBE.domain.recommendation.entity.RecommendedArea;
+import com.moive.MoiveBE.domain.recommendation.entity.RecommendedPlace;
+import com.moive.MoiveBE.domain.recommendation.repository.RecommendationRunRepository;
+import com.moive.MoiveBE.domain.recommendation.repository.RecommendedAreaRepository;
+import com.moive.MoiveBE.domain.recommendation.repository.RecommendedPlaceRepository;
+import com.moive.MoiveBE.domain.vote.dto.PlaceVoteRequest;
+import com.moive.MoiveBE.domain.vote.repository.PlaceVoteRepository;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.util.ArrayList;
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.verifyNoInteractions;
+
+/**
+ * [장소 투표 생성 API] 모임 확정(일정,장소) 테스트
+ * - 모임 생성 시 일정 미정인 모임에서 마지막 장소 투표로 모임이 확정될 때, 일정(일정 투표 집계 1위)과 장소(장소 투표 득표 1위)가 함께 확정되는지 검증
+ */
+@SpringBootTest
+@ActiveProfiles("test")
+@TestPropertySource(properties = {
+        "spring.datasource.url=jdbc:h2:mem:vote-concurrency;MODE=PostgreSQL;DB_CLOSE_DELAY=-1",
+        "spring.datasource.driver-class-name=org.h2.Driver",
+        "spring.datasource.username=sa",
+        "spring.datasource.password=",
+        "spring.datasource.hikari.maximum-pool-size=20",
+        "spring.jpa.database-platform=org.hibernate.dialect.H2Dialect",
+        "spring.jpa.hibernate.ddl-auto=create-drop",
+        "spring.jpa.show-sql=false",
+        "spring.sql.init.mode=never"
+})
+class PlaceVoteMeetingConfirmTest {
+
+    private static final LocalDate TOP_DATE = LocalDate.of(2026, 10, 3);
+    private static final LocalTime TOP_TIME = LocalTime.of(18, 0);
+
+    @Autowired private VoteService voteService;
+    @Autowired private MeetingRepository meetingRepository;
+    @Autowired private ParticipantRepository participantRepository;
+    @Autowired private DateVoteRepository dateVoteRepository;
+    @Autowired private PlaceVoteRepository placeVoteRepository;
+    @Autowired private RecommendationRunRepository recommendationRunRepository;
+    @Autowired private RecommendedAreaRepository recommendedAreaRepository;
+    @Autowired private RecommendedPlaceRepository recommendedPlaceRepository;
+
+    @MockitoBean private GooglePlacesClient googlePlacesClient;
+    @MockitoBean private NotificationService notificationService;
+
+    @AfterEach
+    void tearDown() {
+        placeVoteRepository.deleteAllInBatch();
+        dateVoteRepository.deleteAllInBatch();
+        recommendedPlaceRepository.deleteAllInBatch();
+        recommendedAreaRepository.deleteAllInBatch();
+        recommendationRunRepository.deleteAllInBatch();
+        participantRepository.deleteAllInBatch();
+        meetingRepository.deleteAllInBatch();
+    }
+
+    @Test
+    void 마지막으로_장소_투표하면_모임_일정과_장소가_함께_확정된다() {
+        // given: 일정 미정 모임, 조건 입력(일정 투표) 완료
+        Long meetingId = votingMeetingWithoutSchedule(2);
+
+        List<Long> placeIds = recommendedPlaces(meetingId, 2);
+        Long topPlaceId = placeIds.get(0);
+        Long otherPlaceId = placeIds.get(1);
+
+        LocalDate otherDate = TOP_DATE.plusDays(1);
+
+        dateVoteRepository.save(DateVote.create(meetingId, participantIdOf(meetingId, 1L), TOP_DATE, LocalTime.of(12, 0)));
+        dateVoteRepository.save(DateVote.create(meetingId, participantIdOf(meetingId, 2L), TOP_DATE, TOP_TIME));
+        dateVoteRepository.save(DateVote.create(meetingId, participantIdOf(meetingId, 2L), otherDate, TOP_TIME));
+
+        // when: A는 두 장소 모두, B는 첫 번째 장소에 투표 (B가 마지막 투표자)
+        voteService.createPlaceVote(1L, meetingId, new PlaceVoteRequest(List.of(topPlaceId, otherPlaceId)));
+        Meeting afterFirstVote = meetingRepository.findById(meetingId).orElseThrow();
+        voteService.createPlaceVote(2L, meetingId, new PlaceVoteRequest(List.of(topPlaceId)));
+
+        // then: 첫 투표 후에는 아직 미확정 (일정, 장소 모두 비어 있음)
+        assertThat(afterFirstVote.getStatus()).isEqualTo(MeetingStatus.VOTING);
+        assertThat(afterFirstVote.getScheduledDate()).isNull();
+        assertThat(afterFirstVote.getConfirmedPlaceId()).isNull();
+
+        // 마지막 투표로 모임 확정
+        // - 장소: 득표 1위(topPlaceId: 2표, otherPlaceId: 1표)
+        // - 일정: 집계 1위 날짜(TOP_DATE: 2명) + 그 날짜의 가장 늦은 시간(TOP_TIME)
+        Meeting meeting = meetingRepository.findById(meetingId).orElseThrow();
+        assertThat(meeting.getStatus()).isEqualTo(MeetingStatus.CONFIRMED);
+        assertThat(meeting.getConfirmedPlaceId()).isEqualTo(topPlaceId);
+        assertThat(meeting.getScheduledDate()).isEqualTo(TOP_DATE);
+        assertThat(meeting.getScheduledTime()).isEqualTo(TOP_TIME);
+    }
+
+    @Test
+    void 모임을_나간_참여자의_투표는_모임_확정_시_장소_1위_계산에서_제외된다() {
+        // given: A, B, C 모두 조건 입력(일정 투표) 완료, 추천 장소 2개 (득표가 같으면 id가 작은 첫 번째 장소가 앞섬)
+        Long meetingId = votingMeetingWithoutSchedule(3);
+        List<Long> placeIds = recommendedPlaces(meetingId, 2);
+        Long firstPlaceId = placeIds.get(0);
+        Long secondPlaceId = placeIds.get(1);
+        for (long userId = 1; userId <= 3; userId++) {
+            dateVoteRepository.save(DateVote.create(meetingId, participantIdOf(meetingId, userId), TOP_DATE, TOP_TIME));
+        }
+
+        // A는 두 번째 장소에 투표한 뒤 모임을 나감
+        voteService.createPlaceVote(1L, meetingId, new PlaceVoteRequest(List.of(secondPlaceId)));
+        Participant leaving = participantRepository.findByMeetingIdAndUserIdAndLeftAtIsNull(meetingId, 1L).orElseThrow();
+        leaving.leave();
+        participantRepository.save(leaving);
+
+        // when: B는 첫 번째 장소, C는 두 번째 장소에 투표 (C가 마지막 투표자)
+        voteService.createPlaceVote(2L, meetingId, new PlaceVoteRequest(List.of(firstPlaceId)));
+        voteService.createPlaceVote(3L, meetingId, new PlaceVoteRequest(List.of(secondPlaceId)));
+
+        // then: 나간 A의 표를 제외하면 1:1 동점 → 첫 번째 장소로 확정 (A의 표를 포함하면 두 번째 장소가 2표로 확정됨)
+        Meeting meeting = meetingRepository.findById(meetingId).orElseThrow();
+        assertThat(meeting.getStatus()).isEqualTo(MeetingStatus.CONFIRMED);
+        assertThat(meeting.getConfirmedPlaceId()).isEqualTo(firstPlaceId);
+    }
+
+    @Test
+    void 마감_처리_시_일부만_투표했어도_일정과_현재까지의_득표_1위_장소로_모임이_확정된다() {
+        // given: A&B 일정 투표 완료, 장소 투표는 A만 완료 (마감 기한 경과 가정)
+        Long meetingId = votingMeetingWithoutSchedule(2);
+        List<Long> placeIds = recommendedPlaces(meetingId, 2);
+        Long votedPlaceId = placeIds.get(1);
+        dateVoteRepository.save(DateVote.create(meetingId, participantIdOf(meetingId, 1L), TOP_DATE, TOP_TIME));
+        dateVoteRepository.save(DateVote.create(meetingId, participantIdOf(meetingId, 2L), TOP_DATE, TOP_TIME));
+        voteService.createPlaceVote(1L, meetingId, new PlaceVoteRequest(List.of(votedPlaceId)));
+
+        // when: 마감 배치가 이 모임을 처리
+        boolean confirmed = voteService.finalizeExpiredPlaceVote(meetingId);
+
+        // then
+        Meeting meeting = meetingRepository.findById(meetingId).orElseThrow();
+        assertThat(confirmed).isTrue();
+        assertThat(meeting.getStatus()).isEqualTo(MeetingStatus.CONFIRMED);
+        assertThat(meeting.getConfirmedPlaceId()).isEqualTo(votedPlaceId);
+        assertThat(meeting.getScheduledDate()).isEqualTo(TOP_DATE);
+        assertThat(meeting.getScheduledTime()).isEqualTo(TOP_TIME);
+    }
+
+    @Test
+    void 마감_배치가_대상을_고른_뒤_마지막_투표로_확정된_모임은_다시_확정하지_않는다() {
+        // given: 배치가 VOTING 모임을 대상으로 고른 뒤, 처리하기 전에 마지막 투표로 모임이 확정됨
+        Long meetingId = votingMeetingWithoutSchedule(2);
+        List<Long> placeIds = recommendedPlaces(meetingId, 2);
+        dateVoteRepository.save(DateVote.create(meetingId, participantIdOf(meetingId, 1L), TOP_DATE, TOP_TIME));
+        dateVoteRepository.save(DateVote.create(meetingId, participantIdOf(meetingId, 2L), TOP_DATE, TOP_TIME));
+        voteService.createPlaceVote(1L, meetingId, new PlaceVoteRequest(List.of(placeIds.get(0))));
+        voteService.createPlaceVote(2L, meetingId, new PlaceVoteRequest(List.of(placeIds.get(0))));
+        clearInvocations(notificationService);
+
+        // when: 배치가 해당 모임 처리
+        boolean confirmed = voteService.finalizeExpiredPlaceVote(meetingId);
+
+        // then: 락을 잡은 뒤 최신 상태(CONFIRMED)를 보고 건너뜀 → 확정 결과 유지, 확정 알림 중복 발송 x
+        Meeting meeting = meetingRepository.findById(meetingId).orElseThrow();
+        assertThat(confirmed).isFalse();
+        assertThat(meeting.getConfirmedPlaceId()).isEqualTo(placeIds.get(0));
+        verifyNoInteractions(notificationService);
+    }
+
+    private Long votingMeetingWithoutSchedule(int count) {
+        Meeting meeting = Meeting.create(1L, "테스트 모임", null, null, "test-invite-code");
+        for (int i = 1; i < count; i++) {
+            meeting.incrementParticipantCnt();
+        }
+        meeting.transitionToVoting();
+        Long meetingId = meetingRepository.save(meeting).getId();
+        for (long userId = 1; userId <= count; userId++) {
+            participantRepository.save(Participant.create(meetingId, userId, ParticipantState.COND_DONE));
+        }
+        return meetingId;
+    }
+
+    private List<Long> recommendedPlaces(Long meetingId, int count) {
+        RecommendationRun run = RecommendationRun.create(meetingId);
+        run.complete();
+        Long runId = recommendationRunRepository.save(run).getId();
+        Long areaId = recommendedAreaRepository.save(RecommendedArea.create(runId, "합정역")).getId();
+        List<Long> placeIds = new ArrayList<>();
+        for (int i = 1; i <= count; i++) {
+            placeIds.add(recommendedPlaceRepository.save(
+                    RecommendedPlace.create(areaId, "google-place-" + i, "카페", 3)).getId());
+        }
+        return placeIds;
+    }
+
+    private Long participantIdOf(Long meetingId, Long userId) {
+        return participantRepository.findByMeetingIdAndUserIdAndLeftAtIsNull(meetingId, userId).orElseThrow().getId();
+    }
+}

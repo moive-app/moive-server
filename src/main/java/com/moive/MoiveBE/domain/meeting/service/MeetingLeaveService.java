@@ -5,6 +5,7 @@ import com.moive.MoiveBE.domain.meeting.entity.MeetingStatus;
 import com.moive.MoiveBE.domain.meeting.entity.Participant;
 import com.moive.MoiveBE.domain.meeting.repository.MeetingRepository;
 import com.moive.MoiveBE.domain.meeting.repository.ParticipantRepository;
+import com.moive.MoiveBE.domain.vote.service.VoteService;
 import com.moive.MoiveBE.global.exception.CustomErrorCode;
 import com.moive.MoiveBE.global.exception.CustomException;
 import lombok.RequiredArgsConstructor;
@@ -21,11 +22,13 @@ public class MeetingLeaveService {
 
     private final MeetingRepository meetingRepository;
     private final ParticipantRepository participantRepository;
+    private final MeetingService meetingService;
+    private final VoteService voteService;
 
     public void leaveMeeting(Long meetingId) {
         Long currentUserId = getCurrentUserId();
 
-        Meeting meeting = meetingRepository.findById(meetingId)
+        Meeting meeting = meetingRepository.findByIdForUpdate(meetingId)
                 .orElseThrow(() -> new CustomException(CustomErrorCode.MEETING_NOT_FOUND));
 
         if (meeting.getStatus() == MeetingStatus.COMPLETED) {
@@ -60,6 +63,14 @@ public class MeetingLeaveService {
         myParticipant.leave();
         meeting.decrementParticipantCnt();
         if (myParticipant.isConditionCompleted()) meeting.decrementSubmittedCnt();
+
+        // 조건 입력 단계에서 아직 조건을 제출하지 않은 참여자가 나가며 남은 참여자가 모두 제출을 마친 상태가 되는 경우
+        // => 모임 상태 전환 & 추천 트리거
+        meetingService.startVotingIfAllSubmitted(meeting);
+
+        // 장소 투표 단계에서 아직 투표하지 않은 참여자가 나가며 남은 참여자가 모두 투표를 마친 상태가 되는 경우
+        // => 모임 확정
+        voteService.confirmMeetingIfAllVoted(meeting);
     }
 
     private Long getCurrentUserId() {

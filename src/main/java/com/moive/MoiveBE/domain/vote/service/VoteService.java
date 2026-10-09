@@ -28,12 +28,11 @@ import com.moive.MoiveBE.domain.vote.repository.PlaceVoteRepository;
 import com.moive.MoiveBE.global.exception.CustomException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
@@ -66,14 +65,9 @@ public class VoteService {
     private final AreaDistanceService areaDistanceService;
     private final NotificationService notificationService;
 
-    @Value("${place-vote.deadline-days}")
-    private int placeVoteDeadlineDays;
-
     /**
      * 일정 투표 현황 조회
-     * - 모임 생성 시 일정을 확정하지 않은 경우, 일정 투표 기반으로 모임 일정 확정
      */
-    @Transactional
     public DateVoteResultResponse getMeetingScheduleVoteResult(Long userId, Long meetingId) {
         // 모임 조회
         Meeting meeting = meetingRepository.findById(meetingId)
@@ -112,9 +106,6 @@ public class VoteService {
         // - 날짜별 집계
         List<DateVoteSummary> topDates = dateVoteRepository
                 .aggregateTopDates(meetingId, participant.getId(), validParticipantIds, PageRequest.of(0, TOP_N));
-
-        // - 집계 결과 1위 일정을 모임 일정으로 확정
-        confirmScheduleWithTopDate(meeting, topDates);
 
         List<DateVoteResultResponse.Candidate> candidates = topDates.stream()
                 .map(this::toCandidate)
@@ -162,7 +153,7 @@ public class VoteService {
     @Transactional
     public void createPlaceVote(Long userId, Long meetingId, PlaceVoteRequest request) {
         // 모임 조회
-        Meeting meeting = meetingRepository.findById(meetingId)
+        Meeting meeting = meetingRepository.findByIdForUpdate(meetingId)
                 .orElseThrow(() -> new CustomException(MEETING_NOT_FOUND));
 
         // 모임 진행 상황 검증
@@ -214,22 +205,47 @@ public class VoteService {
         placeVoteRepository.saveAll(placeVotes);
         participant.completeVote();
 
-        // 마지막 투표자인 경우 => 득표 집계 결과 1위 장소를 모임 장소로 확정
-        // NEW_RESTRICTED(투표 불가 신규 참여자) 제외한 투표 가능 인원과 비교
-        long voterCnt = placeVoteRepository.countDistinctVoters(meetingId);
-        long eligibleCnt = participantRepository.countByMeetingIdAndLeftAtIsNullAndStateNot(
-                meetingId, ParticipantState.NEW_RESTRICTED);
-        if (voterCnt == eligibleCnt) {
-            confirmMeetingPlace(meeting);
+        // 마지막 투표자인 경우 => 모임 일정 및 장소 확정
+        confirmMeetingIfAllVoted(meeting);
+    }
+
+    /**
+     * 투표 가능 참여자가 모두 장소 투표를 마친 경우 => 모임 확정 (일정, 장소)
+     * - 장소 투표(마지막 투표자), 모임 나가기(마지막 미투표자가 나간 경우)에서 공통으로 사용
+     * - 장소 투표 단계(VOTING + 장소 추천 완료)에서만 판단
+     * - 투표 가능 참여자(모임 나가지 않음 + 신규 참여(NEW_RESTRICTED) 제외) 중 미투표자가 없으면 확정
+     *   (투표 가능 참여자가 모두 나가 신규 참여자만 남은 경우도 확정 → 유효한 표가 없으면 장소는 null)
+     */
+    @Transactional
+    public void confirmMeetingIfAllVoted(Meeting meeting) {
+        if (meeting.getStatus() != MeetingStatus.VOTING) {
+            return;
+        }
+
+        boolean isRecommendationCompleted = recommendationRunRepository
+                .findTopByMeetingIdAndStatusOrderByCreatedAtDesc(meeting.getId(), RecommendationStatus.COMPLETED)
+                .isPresent();
+        if (!isRecommendationCompleted) {
+            return;
+        }
+
+        if (participantRepository.countParticipantsYetToVote(meeting.getId(), ParticipantState.NEW_RESTRICTED) == 0) {
+            confirmMeeting(meeting);
         }
     }
 
-    // 모임 장소 확정
-    private void confirmMeetingPlace(Meeting meeting) {
+    // 모임 확정: 일정(미확정인 경우) 및 장소 확정 -> MeetingStatus.CONFIRMED로 전환
+    private void confirmMeeting(Meeting meeting) {
+        // 일정 확정
+        confirmScheduleIfNotConfirmed(meeting);
+
+        // 장소 확정
         List<CandidateDetail> ranked = rankCandidates(meeting.getId(), NO_VIEWER_PARTICIPANT_ID);
         Long confirmedPlaceId = ranked.isEmpty() ? null : ranked.get(0).recommendedPlaceId();
         meeting.confirmPlace(confirmedPlaceId);
-        log.info("[장소 투표] 마지막 투표자 완료 => 장소 확정 (meetingId={}, confirmedPlaceId={})", meeting.getConfirmedPlaceId(), confirmedPlaceId);
+
+        log.info("[모임 확정] meetingId={}, scheduledDate={}, scheduledTime={}, confirmedPlaceId={}",
+                meeting.getId(), meeting.getScheduledDate(), meeting.getScheduledTime(), confirmedPlaceId);
 
         // NOTI-004: 장소 확정 알림 (전체 참여자) + 참여자 상태 CONFIRMED 업데이트
         // 아무도 투표하지 않아 confirmedPlaceId가 없는 경우, 장소 확정 알림은 생략
@@ -245,42 +261,24 @@ public class VoteService {
     }
 
     /**
-     * 장소 투표 마감 기한이 지났는데도 전원이 투표를 마치지 못한 모임 처리
-     * - Case A) 1명 이상 투표했다면 그때까지의 집계 결과로 장소 확정 o + 모임 상태 CONFIRMED로 전환
-     * - Case B) 아무도 투표하지 않았다면 장소 확정 x + 모임 상태 CONFIRMED로 전환
-     * - 매일 MeetingLifecycleScheduler에서 호출됨
+     * 장소 투표 마감 처리
+     * - 장소 투표 마감 배치(PlaceVoteCloseService)에서 모임별로 호출
+     *   - Case A) 1명 이상 투표했다면 집계 1위 장소로 확정
+     *   - Case B) 아무도 투표하지 않았다면 장소 없이(null) 확정
      */
-    @Transactional
-    public void finalizeExpiredPlaceVotes() {
-        List<Meeting> votingMeetings = meetingRepository.findAllByStatus(MeetingStatus.VOTING);
-        if(votingMeetings.isEmpty()) {
-            return;
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public boolean finalizeExpiredPlaceVote(Long meetingId) {
+        Meeting meeting = meetingRepository.findByIdForUpdate(meetingId)
+                .orElseThrow(() -> new CustomException(MEETING_NOT_FOUND));
+
+        // 타겟 선정 후 락을 잡기 전까지 마지막 투표 및 모임 나가기로 확정(CONFIRMED)/종료(COMPLETED) 처리된 게 있는지 재확인
+        if (meeting.getStatus() != MeetingStatus.VOTING) {
+            log.info("[장소 투표 마감 배치] 투표 진행 중(VOTING)이 아닌 모임 건너뜀 (meetingId={}, status={})", meetingId, meeting.getStatus());
+            return false;
         }
 
-        // 모임별 장소 추천이 완료된 시각을 장소 투표 시작 시점으로 지정
-        List<Long> meetingIds = votingMeetings.stream().map(Meeting::getId).toList();
-        Map<Long, LocalDateTime> placeVoteStartedAtByMeetingId = recommendationRunRepository
-                .findAllByMeetingIdInAndStatus(meetingIds, RecommendationStatus.COMPLETED)
-                .stream()
-                .collect(Collectors.toMap(
-                        RecommendationRun::getMeetingId,
-                        RecommendationRun::getUpdatedAt,
-                        (earlier, later) -> earlier.isAfter(later) ? earlier : later
-                ));
-
-        LocalDateTime deadline = LocalDateTime.now().minusDays(placeVoteDeadlineDays);
-
-        for (Meeting meeting : votingMeetings) {
-            LocalDateTime placeVoteStartedAt = placeVoteStartedAtByMeetingId.get(meeting.getId());
-
-            // 장소 투표 단계가 아니거나 마감 기한이 지나지 않았으면 스킵
-            if(placeVoteStartedAt == null || placeVoteStartedAt.isAfter(deadline)) {
-                continue;
-            }
-
-            confirmScheduleIfNotConfirmed(meeting);
-            confirmMeetingPlace(meeting);
-        }
+        confirmMeeting(meeting);
+        return true;
     }
 
     // 일정 미확정 모임의 일정 확정

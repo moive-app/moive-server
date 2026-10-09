@@ -6,6 +6,7 @@ import com.moive.MoiveBE.domain.meeting.entity.Participant;
 import com.moive.MoiveBE.domain.meeting.entity.ParticipantState;
 import com.moive.MoiveBE.domain.meeting.repository.MeetingRepository;
 import com.moive.MoiveBE.domain.meeting.repository.ParticipantRepository;
+import com.moive.MoiveBE.domain.vote.service.VoteService;
 import com.moive.MoiveBE.global.exception.CustomErrorCode;
 import com.moive.MoiveBE.global.exception.CustomException;
 import org.junit.jupiter.api.AfterEach;
@@ -30,6 +31,8 @@ class MeetingLeaveServiceTest {
 
     @Mock private MeetingRepository meetingRepository;
     @Mock private ParticipantRepository participantRepository;
+    @Mock private MeetingService meetingService;
+    @Mock private VoteService voteService;
 
     private MeetingLeaveService meetingLeaveService;
     private static final Long CURRENT_USER_ID = 1L;
@@ -37,7 +40,7 @@ class MeetingLeaveServiceTest {
 
     @BeforeEach
     void setUp() {
-        meetingLeaveService = new MeetingLeaveService(meetingRepository, participantRepository);
+        meetingLeaveService = new MeetingLeaveService(meetingRepository, participantRepository, meetingService, voteService);
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken(
                         CURRENT_USER_ID, null, List.of(new SimpleGrantedAuthority("ROLE_USER"))
@@ -57,7 +60,7 @@ class MeetingLeaveServiceTest {
         Participant me = mockParticipant(CURRENT_USER_ID, ParticipantState.COND_PENDING, false);
         Participant other = mockParticipant(2L, ParticipantState.COND_PENDING, false);
 
-        when(meetingRepository.findById(MEETING_ID)).thenReturn(Optional.of(meeting));
+        when(meetingRepository.findByIdForUpdate(MEETING_ID)).thenReturn(Optional.of(meeting));
         when(participantRepository.findByMeetingIdAndUserIdAndLeftAtIsNull(MEETING_ID, CURRENT_USER_ID))
                 .thenReturn(Optional.of(me));
         when(participantRepository.findAllByMeetingIdAndLeftAtIsNullOrderByJoinedAtAsc(MEETING_ID))
@@ -77,7 +80,7 @@ class MeetingLeaveServiceTest {
         Participant me = mockParticipant(CURRENT_USER_ID, ParticipantState.COND_DONE, true);
         Participant other = mockParticipant(2L, ParticipantState.COND_PENDING, false);
 
-        when(meetingRepository.findById(MEETING_ID)).thenReturn(Optional.of(meeting));
+        when(meetingRepository.findByIdForUpdate(MEETING_ID)).thenReturn(Optional.of(meeting));
         when(participantRepository.findByMeetingIdAndUserIdAndLeftAtIsNull(MEETING_ID, CURRENT_USER_ID))
                 .thenReturn(Optional.of(me));
         when(participantRepository.findAllByMeetingIdAndLeftAtIsNullOrderByJoinedAtAsc(MEETING_ID))
@@ -94,7 +97,7 @@ class MeetingLeaveServiceTest {
         Participant me = mockParticipant(CURRENT_USER_ID, ParticipantState.COND_PENDING, false);
         Participant next = mockParticipant(2L, ParticipantState.COND_PENDING, false);
 
-        when(meetingRepository.findById(MEETING_ID)).thenReturn(Optional.of(meeting));
+        when(meetingRepository.findByIdForUpdate(MEETING_ID)).thenReturn(Optional.of(meeting));
         when(participantRepository.findByMeetingIdAndUserIdAndLeftAtIsNull(MEETING_ID, CURRENT_USER_ID))
                 .thenReturn(Optional.of(me));
         when(participantRepository.findAllByMeetingIdAndLeftAtIsNullOrderByJoinedAtAsc(MEETING_ID))
@@ -110,7 +113,7 @@ class MeetingLeaveServiceTest {
         Meeting meeting = mockMeeting(MEETING_ID, MeetingStatus.CONDITION_INPUT, CURRENT_USER_ID);
         Participant me = mockParticipant(CURRENT_USER_ID, ParticipantState.COND_PENDING, false);
 
-        when(meetingRepository.findById(MEETING_ID)).thenReturn(Optional.of(meeting));
+        when(meetingRepository.findByIdForUpdate(MEETING_ID)).thenReturn(Optional.of(meeting));
         when(participantRepository.findByMeetingIdAndUserIdAndLeftAtIsNull(MEETING_ID, CURRENT_USER_ID))
                 .thenReturn(Optional.of(me));
         when(participantRepository.findAllByMeetingIdAndLeftAtIsNullOrderByJoinedAtAsc(MEETING_ID))
@@ -125,7 +128,7 @@ class MeetingLeaveServiceTest {
 
     @Test
     void 존재하지_않는_모임이면_MEETING_NOT_FOUND_예외가_발생한다() {
-        when(meetingRepository.findById(MEETING_ID)).thenReturn(Optional.empty());
+        when(meetingRepository.findByIdForUpdate(MEETING_ID)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> meetingLeaveService.leaveMeeting(MEETING_ID))
                 .isInstanceOf(CustomException.class)
@@ -136,7 +139,7 @@ class MeetingLeaveServiceTest {
     @Test
     void COMPLETED_모임에서_나가려하면_CANNOT_LEAVE_COMPLETED_MEETING_예외가_발생한다() {
         Meeting meeting = mockMeeting(MEETING_ID, MeetingStatus.COMPLETED, CURRENT_USER_ID);
-        when(meetingRepository.findById(MEETING_ID)).thenReturn(Optional.of(meeting));
+        when(meetingRepository.findByIdForUpdate(MEETING_ID)).thenReturn(Optional.of(meeting));
 
         assertThatThrownBy(() -> meetingLeaveService.leaveMeeting(MEETING_ID))
                 .isInstanceOf(CustomException.class)
@@ -149,7 +152,7 @@ class MeetingLeaveServiceTest {
     @Test
     void 모임_참여자가_아니면_NOT_A_PARTICIPANT_예외가_발생한다() {
         Meeting meeting = mockMeeting(MEETING_ID, MeetingStatus.CONDITION_INPUT, 99L);
-        when(meetingRepository.findById(MEETING_ID)).thenReturn(Optional.of(meeting));
+        when(meetingRepository.findByIdForUpdate(MEETING_ID)).thenReturn(Optional.of(meeting));
         when(participantRepository.findByMeetingIdAndUserIdAndLeftAtIsNull(MEETING_ID, CURRENT_USER_ID))
                 .thenReturn(Optional.empty());
 

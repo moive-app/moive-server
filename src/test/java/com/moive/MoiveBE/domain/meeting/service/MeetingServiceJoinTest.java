@@ -74,7 +74,7 @@ class MeetingServiceJoinTest {
         // given
         Meeting meeting = mockMeeting(1L, MeetingStatus.CONDITION_INPUT, 3);
 
-        when(meetingRepository.findByInviteCode("ABC123XY")).thenReturn(Optional.of(meeting));
+        when(meetingRepository.findByInviteCodeForUpdate("ABC123XY")).thenReturn(Optional.of(meeting));
         when(participantRepository.findByMeetingIdAndUserIdAndLeftAtIsNull(1L, 2L))
                 .thenReturn(Optional.empty());
 
@@ -99,7 +99,7 @@ class MeetingServiceJoinTest {
         // given
         Meeting meeting = mockMeeting(1L, MeetingStatus.VOTING, 5);
 
-        when(meetingRepository.findByInviteCode("CODE1234")).thenReturn(Optional.of(meeting));
+        when(meetingRepository.findByInviteCodeForUpdate("CODE1234")).thenReturn(Optional.of(meeting));
         when(participantRepository.findByMeetingIdAndUserIdAndLeftAtIsNull(1L, 2L))
                 .thenReturn(Optional.empty());
 
@@ -124,7 +124,7 @@ class MeetingServiceJoinTest {
         when(existing.getId()).thenReturn(3L);
         when(existing.getState()).thenReturn(ParticipantState.COND_PENDING);
 
-        when(meetingRepository.findByInviteCode("ABC123XY")).thenReturn(Optional.of(meeting));
+        when(meetingRepository.findByInviteCodeForUpdate("ABC123XY")).thenReturn(Optional.of(meeting));
         when(participantRepository.findByMeetingIdAndUserIdAndLeftAtIsNull(1L, 2L))
                 .thenReturn(Optional.of(existing));
 
@@ -141,7 +141,7 @@ class MeetingServiceJoinTest {
 
     @Test
     void 유효하지_않은_초대코드면_INVALID_INVITE_CODE_예외가_발생한다() {
-        when(meetingRepository.findByInviteCode("WRONGCOD")).thenReturn(Optional.empty());
+        when(meetingRepository.findByInviteCodeForUpdate("WRONGCOD")).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> meetingService.joinMeeting("WRONGCOD"))
                 .isInstanceOf(CustomException.class)
@@ -153,7 +153,7 @@ class MeetingServiceJoinTest {
     void 정원이_가득_찬_모임이면_MEETING_FULL_예외가_발생한다() {
         Meeting meeting = mockMeeting(1L, MeetingStatus.CONDITION_INPUT, 10);
 
-        when(meetingRepository.findByInviteCode("FULLCODE")).thenReturn(Optional.of(meeting));
+        when(meetingRepository.findByInviteCodeForUpdate("FULLCODE")).thenReturn(Optional.of(meeting));
         when(participantRepository.findByMeetingIdAndUserIdAndLeftAtIsNull(1L, 2L))
                 .thenReturn(Optional.empty());
 
@@ -169,7 +169,7 @@ class MeetingServiceJoinTest {
     void 완료된_모임이면_MEETING_COMPLETED_예외가_발생한다() {
         Meeting meeting = mockMeeting(1L, MeetingStatus.COMPLETED, 5);
 
-        when(meetingRepository.findByInviteCode("DONEXXXX")).thenReturn(Optional.of(meeting));
+        when(meetingRepository.findByInviteCodeForUpdate("DONEXXXX")).thenReturn(Optional.of(meeting));
 
         assertThatThrownBy(() -> meetingService.joinMeeting("DONEXXXX"))
                 .isInstanceOf(CustomException.class)
