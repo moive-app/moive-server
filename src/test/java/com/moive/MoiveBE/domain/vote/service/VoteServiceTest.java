@@ -29,19 +29,17 @@ import com.moive.MoiveBE.domain.vote.repository.PlaceVoteRepository;
 import com.moive.MoiveBE.global.exception.CustomErrorCode;
 import com.moive.MoiveBE.global.exception.CustomException;
 import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Pageable;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.Arrays;
 import java.util.List;
@@ -54,6 +52,7 @@ import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -82,11 +81,6 @@ class VoteServiceTest {
     @Mock private NotificationService notificationService;
 
     @InjectMocks private VoteService voteService;
-
-    @BeforeEach
-    void setUp() {
-        ReflectionTestUtils.setField(voteService, "placeVoteDeadlineDays", 3);
-    }
 
     /**
      * [일정 투표 현황 조회] 테스트
@@ -223,7 +217,7 @@ class VoteServiceTest {
     }
 
     @Test
-    void 일정_미확정이고_후보가_있으면_1위_일정으로_모임_일정이_확정된다() {
+    void 일정_미확정이어도_일정_투표_현황_조회는_집계만_하고_모임_일정을_확정하지_않는다() {
         // given: scheduledDate/scheduledTime 모두 null
         Meeting meeting = mock(Meeting.class);
         stubMeetingAndParticipant(meeting, MY_PARTICIPANT_ID);
@@ -236,10 +230,12 @@ class VoteServiceTest {
                 ));
 
         // when
-        voteService.getMeetingScheduleVoteResult(USER_ID, MEETING_ID);
+        DateVoteResultResponse response = voteService.getMeetingScheduleVoteResult(USER_ID, MEETING_ID);
 
-        // then: 1위(9/15 18:00)로 모임 일정이 확정됨
-        verify(meeting).confirmSchedule(LocalDate.of(2026, 9, 15), LocalTime.of(18, 0));
+        // then: 집계 결과 반환, 일정 확정은 진행x
+        assertThat(response.candidates()).extracting(DateVoteResultResponse.Candidate::meetingDate)
+                .containsExactly(LocalDate.of(2026, 9, 15), LocalDate.of(2026, 9, 12));
+        verify(meeting, never()).confirmSchedule(any(), any());
     }
 
     @Test
@@ -267,7 +263,7 @@ class VoteServiceTest {
     void 이미_장소가_확정된_모임이면_PLACE_VOTE_CLOSED() {
         // given
         Meeting meeting = meetingWithStatus(MeetingStatus.CONFIRMED);
-        when(meetingRepository.findById(MEETING_ID)).thenReturn(Optional.of(meeting));
+        when(meetingRepository.findByIdForUpdate(MEETING_ID)).thenReturn(Optional.of(meeting));
 
         // when & then
         assertErrorCode(
@@ -282,7 +278,7 @@ class VoteServiceTest {
     void 조건_입력_중인_모임이면_PLACE_VOTE_NOT_STARTED() {
         // given
         Meeting meeting = meetingWithStatus(MeetingStatus.CONDITION_INPUT);
-        when(meetingRepository.findById(MEETING_ID)).thenReturn(Optional.of(meeting));
+        when(meetingRepository.findByIdForUpdate(MEETING_ID)).thenReturn(Optional.of(meeting));
 
         // when & then
         assertErrorCode(
@@ -297,7 +293,7 @@ class VoteServiceTest {
     void 장소_추천이_실행되지_않았다면_PLACE_VOTE_NOT_STARTED() {
         // given
         Meeting meeting = meetingWithStatus(MeetingStatus.VOTING);
-        when(meetingRepository.findById(MEETING_ID)).thenReturn(Optional.of(meeting));
+        when(meetingRepository.findByIdForUpdate(MEETING_ID)).thenReturn(Optional.of(meeting));
         when(recommendationRunRepository.findTopByMeetingIdAndStatusOrderByCreatedAtDesc(MEETING_ID, RecommendationStatus.COMPLETED))
                 .thenReturn(Optional.empty());
 
@@ -399,7 +395,7 @@ class VoteServiceTest {
         stubMeetingAndRecommendation(meeting, 101L, 102L, 103L);
         stubParticipant();
         when(placeVoteRepository.existsByMeetingIdAndParticipantId(MEETING_ID, MY_PARTICIPANT_ID)).thenReturn(false);
-        when(placeVoteRepository.countDistinctVoters(MEETING_ID)).thenReturn(2L);
+        when(participantRepository.countParticipantsYetToVote(MEETING_ID, ParticipantState.NEW_RESTRICTED)).thenReturn(3L);
 
         // when: 101L 중복 선택
         voteService.createPlaceVote(USER_ID, MEETING_ID, placeVoteRequest(101L, 102L, 101L));
@@ -429,14 +425,30 @@ class VoteServiceTest {
                 .thenReturn(Optional.of(participant));
 
         when(placeVoteRepository.existsByMeetingIdAndParticipantId(MEETING_ID, MY_PARTICIPANT_ID)).thenReturn(false);
-        when(placeVoteRepository.countDistinctVoters(MEETING_ID)).thenReturn(2L);
-        when(participantRepository.countByMeetingIdAndLeftAtIsNullAndStateNot(MEETING_ID, ParticipantState.NEW_RESTRICTED)).thenReturn(5L);
+        when(participantRepository.countParticipantsYetToVote(MEETING_ID, ParticipantState.NEW_RESTRICTED)).thenReturn(3L);
 
         // when
         voteService.createPlaceVote(USER_ID, MEETING_ID, placeVoteRequest(101L));
 
         // then
         verify(participant).completeVote();
+    }
+
+    @Test
+    void 투표_가능_참여자_중_미투표자가_남아있으면_모임이_확정되지_않는다() {
+        // given
+        Meeting meeting = meetingWithStatus(MeetingStatus.VOTING);
+        stubMeetingAndRecommendation(meeting, 101L, 102L);
+        stubParticipant();
+        when(placeVoteRepository.existsByMeetingIdAndParticipantId(MEETING_ID, MY_PARTICIPANT_ID)).thenReturn(false);
+        when(participantRepository.countParticipantsYetToVote(MEETING_ID, ParticipantState.NEW_RESTRICTED)).thenReturn(1L);
+
+        // when
+        voteService.createPlaceVote(USER_ID, MEETING_ID, placeVoteRequest(101L));
+
+        // then
+        verify(meeting, never()).confirmPlace(any());
+        verify(notificationService, never()).sendNotification(any(), any(), any(), any());
     }
 
     @Test
@@ -449,8 +461,7 @@ class VoteServiceTest {
         lenient().when(participantRepository.findAllByMeetingIdAndLeftAtIsNullOrderByJoinedAtAsc(MEETING_ID))
                 .thenReturn(List.of());
         when(placeVoteRepository.existsByMeetingIdAndParticipantId(MEETING_ID, MY_PARTICIPANT_ID)).thenReturn(false);
-        when(placeVoteRepository.countDistinctVoters(MEETING_ID)).thenReturn(2L);
-        when(participantRepository.countByMeetingIdAndLeftAtIsNullAndStateNot(MEETING_ID, ParticipantState.NEW_RESTRICTED)).thenReturn(2L);
+        when(participantRepository.countParticipantsYetToVote(MEETING_ID, ParticipantState.NEW_RESTRICTED)).thenReturn(0L);
 
         // 투표 집계: 101L=2표 (1위), 102L=1표
         // (확정 시점의 rankCandidates는 "조회하는 나"가 없는 배치성 호출이라 viewer 참여자 id는 구현 세부사항 -> any() 매칭)
@@ -472,6 +483,62 @@ class VoteServiceTest {
     }
 
     @Test
+    void 마지막_투표자가_투표하면_투표_집계_결과_기반으로_모임_일정과_장소가_함께_확정된다() {
+        // given: 일정 미정 모임(scheduledDate/scheduledTime null), 마지막 투표 상황
+        Meeting meeting = meetingWithStatus(MeetingStatus.VOTING);
+        stubMeetingAndRecommendation(meeting, 101L, 102L);
+        stubParticipant();
+        when(placeVoteRepository.existsByMeetingIdAndParticipantId(MEETING_ID, MY_PARTICIPANT_ID)).thenReturn(false);
+        when(participantRepository.countParticipantsYetToVote(MEETING_ID, ParticipantState.NEW_RESTRICTED)).thenReturn(0L);
+
+        // 일정 집계: 유효 참여자 기준 1위 10/3 18:00
+        Participant active = mock(Participant.class);
+        when(active.getId()).thenReturn(500L);
+        when(participantRepository.findAllByMeetingIdAndLeftAtIsNull(MEETING_ID)).thenReturn(List.of(active));
+        LocalDate topDate = LocalDate.of(2026, 10, 3);
+        LocalTime topTime = LocalTime.of(18, 0);
+        when(dateVoteRepository.aggregateTopDates(eq(MEETING_ID), any(), eq(List.of(500L)), any()))
+                .thenReturn(List.of(new DateVoteSummary(topDate, topTime, 3L, 0L)));
+
+        // 장소 집계: 101L 1위
+        when(placeVoteRepository.aggregateByPlace(eq(MEETING_ID), any())).thenReturn(List.of(
+                new PlaceVoteSummary(101L, 2L, 1L)
+        ));
+        RecommendedPlace place101 = recommendedPlaceWithId(101L, "gp-101", 1);
+        when(recommendedPlaceRepository.findAllById(anyList())).thenReturn(List.of(place101));
+        lenient().when(googlePlacesClient.getPlaceLocation(any())).thenThrow(new CustomException(PLACE_INFO_LOOKUP_FAILED));
+
+        // when
+        voteService.createPlaceVote(USER_ID, MEETING_ID, placeVoteRequest(101L));
+
+        // then
+        InOrder inOrder = inOrder(meeting);
+        inOrder.verify(meeting).confirmSchedule(topDate, topTime);
+        inOrder.verify(meeting).confirmPlace(101L);
+    }
+
+    @Test
+    void 모임_생성_시_일정이_확정된_모임은_마지막_투표로_확정될_때_일정_집계를_하지_않는다() {
+        // given: 일정이 이미 있는 모임, 마지막 투표 상황
+        Meeting meeting = meetingWithStatus(MeetingStatus.VOTING);
+        when(meeting.getScheduledDate()).thenReturn(LocalDate.of(2026, 10, 3));
+        when(meeting.getScheduledTime()).thenReturn(LocalTime.of(18, 0));
+        stubMeetingAndRecommendation(meeting, 101L);
+        stubParticipant();
+        when(placeVoteRepository.existsByMeetingIdAndParticipantId(MEETING_ID, MY_PARTICIPANT_ID)).thenReturn(false);
+        when(participantRepository.countParticipantsYetToVote(MEETING_ID, ParticipantState.NEW_RESTRICTED)).thenReturn(0L);
+        when(placeVoteRepository.aggregateByPlace(eq(MEETING_ID), any())).thenReturn(List.of());
+
+        // when
+        voteService.createPlaceVote(USER_ID, MEETING_ID, placeVoteRequest(101L));
+
+        // then: 일정은 그대로 두고 장소만 확정
+        verifyNoInteractions(dateVoteRepository);
+        verify(meeting, never()).confirmSchedule(any(), any());
+        verify(meeting).confirmPlace(null);
+    }
+
+    @Test
     void 마지막_투표자가_투표하면_전체_참여자에게_MEETING_CONFIRMED_알림이_발송된다() {
         // given: 참여자 2명 모임, 마지막 투표 상황
         Meeting meeting = meetingWithStatus(MeetingStatus.VOTING);
@@ -488,8 +555,7 @@ class VoteServiceTest {
                 .thenReturn(List.of(p1, p2));
 
         when(placeVoteRepository.existsByMeetingIdAndParticipantId(MEETING_ID, MY_PARTICIPANT_ID)).thenReturn(false);
-        when(placeVoteRepository.countDistinctVoters(MEETING_ID)).thenReturn(2L);
-        when(participantRepository.countByMeetingIdAndLeftAtIsNullAndStateNot(MEETING_ID, ParticipantState.NEW_RESTRICTED)).thenReturn(2L);
+        when(participantRepository.countParticipantsYetToVote(MEETING_ID, ParticipantState.NEW_RESTRICTED)).thenReturn(0L);
 
         when(placeVoteRepository.aggregateByPlace(eq(MEETING_ID), any())).thenReturn(List.of(
                 new PlaceVoteSummary(101L, 2L, 1L),
@@ -511,67 +577,15 @@ class VoteServiceTest {
     }
 
     /**
-     * [장소 투표 마감 배치] 테스트
+     * [장소 투표 마감 처리 (모임 1건)] 테스트
+     * - 대상 모임 선정 및 모임별 격리는 PlaceVoteCloseServiceTest에서 검증
      */
 
     @Test
-    void VOTING_상태인_모임이_없으면_아무것도_하지_않는다() {
+    void 마감_처리_시_1명이라도_투표했으면_그때까지의_집계_1위로_확정한다() {
         // given
-        when(meetingRepository.findAllByStatus(MeetingStatus.VOTING)).thenReturn(List.of());
-
-        // when
-        voteService.finalizeExpiredPlaceVotes();
-
-        // then
-        verifyNoInteractions(recommendationRunRepository, placeVoteRepository);
-    }
-
-    @Test
-    void 장소_투표가_아직_시작되지_않은_모임은_대상에서_제외한다() {
-        // given: VOTING 상태지만 완료된 추천 실행이 아직 없음(추천 생성 전)
-        Meeting meeting = mock(Meeting.class);
-        lenient().when(meeting.getId()).thenReturn(MEETING_ID);
-        when(meetingRepository.findAllByStatus(MeetingStatus.VOTING)).thenReturn(List.of(meeting));
-        when(recommendationRunRepository.findAllByMeetingIdInAndStatus(List.of(MEETING_ID), RecommendationStatus.COMPLETED))
-                .thenReturn(List.of());
-
-        // when
-        voteService.finalizeExpiredPlaceVotes();
-
-        // then
-        verify(meeting, never()).confirmPlace(any());
-        verifyNoInteractions(placeVoteRepository);
-    }
-
-    @Test
-    void 마감_기한이_지나지_않았으면_대상에서_제외한다() {
-        // given
-        Meeting meeting = mock(Meeting.class);
-        lenient().when(meeting.getId()).thenReturn(MEETING_ID);
-        when(meetingRepository.findAllByStatus(MeetingStatus.VOTING)).thenReturn(List.of(meeting));
-
-        RecommendationRun freshRun = completedRunAt(MEETING_ID, LocalDateTime.now().minusDays(1));
-        when(recommendationRunRepository.findAllByMeetingIdInAndStatus(List.of(MEETING_ID), RecommendationStatus.COMPLETED))
-                .thenReturn(List.of(freshRun));
-
-        // when
-        voteService.finalizeExpiredPlaceVotes();
-
-        // then
-        verify(meeting, never()).confirmPlace(any());
-        verifyNoInteractions(placeVoteRepository);
-    }
-
-    @Test
-    void 마감_기한이_지났고_1명이라도_투표했으면_그때까지의_집계_1위로_확정한다() {
-        // given
-        Meeting meeting = mock(Meeting.class);
-        lenient().when(meeting.getId()).thenReturn(MEETING_ID);
-        when(meetingRepository.findAllByStatus(MeetingStatus.VOTING)).thenReturn(List.of(meeting));
-        RecommendationRun expiredRun = completedRunAt(MEETING_ID, LocalDateTime.now().minusDays(4));
-        when(recommendationRunRepository.findAllByMeetingIdInAndStatus(List.of(MEETING_ID), RecommendationStatus.COMPLETED))
-                .thenReturn(List.of(expiredRun));
-
+        Meeting meeting = meetingWithStatus(MeetingStatus.VOTING);
+        when(meetingRepository.findByIdForUpdate(MEETING_ID)).thenReturn(Optional.of(meeting));
         when(placeVoteRepository.aggregateByPlace(eq(MEETING_ID), any())).thenReturn(List.of(
                 new PlaceVoteSummary(101L, 3L, 0L),
                 new PlaceVoteSummary(102L, 1L, 0L)
@@ -583,41 +597,34 @@ class VoteServiceTest {
         lenient().when(googlePlacesClient.getPlaceLocation(any())).thenThrow(new CustomException(PLACE_INFO_LOOKUP_FAILED));
 
         // when
-        voteService.finalizeExpiredPlaceVotes();
+        boolean confirmed = voteService.finalizeExpiredPlaceVote(MEETING_ID);
 
         // then
+        assertThat(confirmed).isTrue();
         verify(meeting).confirmPlace(101L);
     }
 
     @Test
-    void 마감_기한이_지났고_아무도_투표하지_않았으면_장소_없이_상태만_확정한다() {
+    void 마감_처리_시_아무도_투표하지_않았으면_장소_없이_상태만_확정한다() {
         // given
-        Meeting meeting = mock(Meeting.class);
-        lenient().when(meeting.getId()).thenReturn(MEETING_ID);
-        when(meetingRepository.findAllByStatus(MeetingStatus.VOTING)).thenReturn(List.of(meeting));
-
-        RecommendationRun expiredRun = completedRunAt(MEETING_ID, LocalDateTime.now().minusDays(10));
-        when(recommendationRunRepository.findAllByMeetingIdInAndStatus(List.of(MEETING_ID), RecommendationStatus.COMPLETED))
-                .thenReturn(List.of(expiredRun));
+        Meeting meeting = meetingWithStatus(MeetingStatus.VOTING);
+        when(meetingRepository.findByIdForUpdate(MEETING_ID)).thenReturn(Optional.of(meeting));
         when(placeVoteRepository.aggregateByPlace(eq(MEETING_ID), any())).thenReturn(List.of());
 
         // when
-        voteService.finalizeExpiredPlaceVotes();
+        boolean confirmed = voteService.finalizeExpiredPlaceVote(MEETING_ID);
 
         // then: 장소 확정 없이(null) 상태만 확정, 장소 상세 조회 진행 x
+        assertThat(confirmed).isTrue();
         verify(meeting).confirmPlace(null);
         verifyNoInteractions(recommendedPlaceRepository, googlePlacesClient);
     }
 
     @Test
-    void 마감_기한이_지났고_아무도_투표하지_않은_경우_일정이_미확정이면_일정_투표_집계_1위로_일정을_확정한다() {
+    void 마감_처리_시_일정이_미확정이면_일정_투표_집계_1위로_일정도_함께_확정한다() {
         // given: 일정 미확정 모임 + 전원 장소 투표 x
-        Meeting meeting = mock(Meeting.class);
-        lenient().when(meeting.getId()).thenReturn(MEETING_ID);
-        when(meetingRepository.findAllByStatus(MeetingStatus.VOTING)).thenReturn(List.of(meeting));
-        RecommendationRun expiredRun = completedRunAt(MEETING_ID, LocalDateTime.now().minusDays(10));
-        when(recommendationRunRepository.findAllByMeetingIdInAndStatus(List.of(MEETING_ID), RecommendationStatus.COMPLETED))
-                .thenReturn(List.of(expiredRun));
+        Meeting meeting = meetingWithStatus(MeetingStatus.VOTING);
+        when(meetingRepository.findByIdForUpdate(MEETING_ID)).thenReturn(Optional.of(meeting));
         when(placeVoteRepository.aggregateByPlace(eq(MEETING_ID), any())).thenReturn(List.of());
 
         Long activeParticipantId = 500L;
@@ -631,7 +638,7 @@ class VoteServiceTest {
                 .thenReturn(List.of(new DateVoteSummary(topDate, topTime, 3L, 0L)));
 
         // when
-        voteService.finalizeExpiredPlaceVotes();
+        voteService.finalizeExpiredPlaceVote(MEETING_ID);
 
         // then: 일정은 일정 투표 집계 1위로 확정, 장소는 미정인 채로 모임 상태만 확정
         verify(meeting).confirmSchedule(topDate, topTime);
@@ -639,20 +646,16 @@ class VoteServiceTest {
     }
 
     @Test
-    void 마감_배치_시_이미_일정이_확정된_모임은_일정_투표_집계를_하지_않는다() {
-        // given: 모임 생성 시 일정을 확정한 모임 (또는 이미 일정 투표 현황 조회로 확정된 모임)
-        Meeting meeting = mock(Meeting.class);
-        lenient().when(meeting.getId()).thenReturn(MEETING_ID);
+    void 마감_처리_시_이미_일정이_확정된_모임은_일정_투표_집계를_하지_않는다() {
+        // given: 모임 생성 시 일정을 확정한 모임
+        Meeting meeting = meetingWithStatus(MeetingStatus.VOTING);
         when(meeting.getScheduledDate()).thenReturn(LocalDate.of(2026, 10, 3));
         when(meeting.getScheduledTime()).thenReturn(LocalTime.of(18, 0));
-        when(meetingRepository.findAllByStatus(MeetingStatus.VOTING)).thenReturn(List.of(meeting));
-        RecommendationRun expiredRun = completedRunAt(MEETING_ID, LocalDateTime.now().minusDays(10));
-        when(recommendationRunRepository.findAllByMeetingIdInAndStatus(List.of(MEETING_ID), RecommendationStatus.COMPLETED))
-                .thenReturn(List.of(expiredRun));
+        when(meetingRepository.findByIdForUpdate(MEETING_ID)).thenReturn(Optional.of(meeting));
         when(placeVoteRepository.aggregateByPlace(eq(MEETING_ID), any())).thenReturn(List.of());
 
         // when
-        voteService.finalizeExpiredPlaceVotes();
+        voteService.finalizeExpiredPlaceVote(MEETING_ID);
 
         // then
         verifyNoInteractions(dateVoteRepository);
@@ -661,42 +664,32 @@ class VoteServiceTest {
     }
 
     @Test
-    void 여러_모임을_한번에_처리하며_각각_기한_경과_여부에_따라_다르게_처리한다() {
-        // given: A=아직 기한 안 지남(스킵), B=기한 지나고 투표 있음(확정), C=기한 지나고 투표 없음(장소 없이 확정)
-        Long meetingA = 21L, meetingB = 22L, meetingC = 23L;
-        Meeting a = mock(Meeting.class);
-        Meeting b = mock(Meeting.class);
-        Meeting c = mock(Meeting.class);
-
-        lenient().when(a.getId()).thenReturn(meetingA);
-        lenient().when(b.getId()).thenReturn(meetingB);
-        lenient().when(c.getId()).thenReturn(meetingC);
-        when(meetingRepository.findAllByStatus(MeetingStatus.VOTING)).thenReturn(List.of(a, b, c));
-
-        RecommendationRun runA = completedRunAt(meetingA, LocalDateTime.now().minusDays(1));
-        RecommendationRun runB = completedRunAt(meetingB, LocalDateTime.now().minusDays(5));
-        RecommendationRun runC = completedRunAt(meetingC, LocalDateTime.now().minusDays(5));
-
-        when(recommendationRunRepository.findAllByMeetingIdInAndStatus(List.of(meetingA, meetingB, meetingC), RecommendationStatus.COMPLETED))
-                .thenReturn(List.of(runA, runB, runC));
-
-        when(placeVoteRepository.aggregateByPlace(eq(meetingB), any())).thenReturn(List.of(
-                new PlaceVoteSummary(201L, 1L, 0L)
-        ));
-        when(placeVoteRepository.aggregateByPlace(eq(meetingC), any())).thenReturn(List.of());
-
-        RecommendedPlace place201 = recommendedPlaceWithId(201L, "gp-201", 1);
-        when(recommendedPlaceRepository.findAllById(anyList())).thenReturn(List.of(place201));
-        when(participantRepository.findAllByMeetingIdAndLeftAtIsNull(meetingB)).thenReturn(List.of());
-        when(participantPreferenceRepository.findAllByParticipantIdIn(anyList())).thenReturn(List.of());
+    void 마감_처리_시_대상_조회_이후_이미_확정된_모임은_다시_확정하지_않는다() {
+        // given: 배치가 대상을 고른 뒤, 락을 잡기 전에 마지막 투표(또는 모임 나가기)로 확정 처리된 모임
+        Meeting meeting = meetingWithStatus(MeetingStatus.CONFIRMED);
+        when(meetingRepository.findByIdForUpdate(MEETING_ID)).thenReturn(Optional.of(meeting));
 
         // when
-        voteService.finalizeExpiredPlaceVotes();
+        boolean confirmed = voteService.finalizeExpiredPlaceVote(MEETING_ID);
 
-        // then
-        verify(a, never()).confirmPlace(any());
-        verify(b).confirmPlace(201L);
-        verify(c).confirmPlace(null);
+        // then: 확정, 알림 건너뜀
+        assertThat(confirmed).isFalse();
+        verify(meeting, never()).confirmPlace(any());
+        verifyNoInteractions(placeVoteRepository, dateVoteRepository, notificationService);
+    }
+
+    @Test
+    void 마감_처리_시_대상_조회_이후_종료된_모임은_확정하지_않는다() {
+        // given: 배치가 대상을 고른 뒤, 마지막 참여자가 나가 종료 처리된 모임
+        Meeting meeting = meetingWithStatus(MeetingStatus.COMPLETED);
+        when(meetingRepository.findByIdForUpdate(MEETING_ID)).thenReturn(Optional.of(meeting));
+
+        // when
+        boolean confirmed = voteService.finalizeExpiredPlaceVote(MEETING_ID);
+
+        // then: 종료된 모임을 CONFIRMED로 변경하지 않음
+        assertThat(confirmed).isFalse();
+        verify(meeting, never()).confirmPlace(any());
     }
 
     /**
@@ -912,7 +905,7 @@ class VoteServiceTest {
     }
 
     private void stubMeetingAndRecommendation(Meeting meeting, Long... validRecommendedPlaceIds) {
-        when(meetingRepository.findById(MEETING_ID)).thenReturn(Optional.of(meeting));
+        when(meetingRepository.findByIdForUpdate(MEETING_ID)).thenReturn(Optional.of(meeting));
 
         RecommendationRun run = mock(RecommendationRun.class);
         lenient().when(run.getId()).thenReturn(RECOMMENDATION_RUN_ID);
@@ -932,13 +925,6 @@ class VoteServiceTest {
     private void stubMeetingAndAccess(Meeting meeting) {
         when(meetingRepository.findById(MEETING_ID)).thenReturn(Optional.of(meeting));
         stubParticipant();
-    }
-
-    private RecommendationRun completedRunAt(Long meetingId, LocalDateTime updatedAt) {
-        RecommendationRun run = mock(RecommendationRun.class);
-        lenient().when(run.getMeetingId()).thenReturn(meetingId);
-        lenient().when(run.getUpdatedAt()).thenReturn(updatedAt);
-        return run;
     }
 
     private void stubRecommendedPlaces(

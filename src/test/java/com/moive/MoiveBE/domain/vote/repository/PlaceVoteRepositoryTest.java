@@ -1,5 +1,7 @@
 package com.moive.MoiveBE.domain.vote.repository;
 
+import com.moive.MoiveBE.domain.meeting.entity.Participant;
+import com.moive.MoiveBE.domain.meeting.entity.ParticipantState;
 import com.moive.MoiveBE.domain.recommendation.entity.RecommendedArea;
 import com.moive.MoiveBE.domain.recommendation.entity.RecommendedPlace;
 import com.moive.MoiveBE.domain.vote.dto.PlaceVoteSummary;
@@ -33,10 +35,10 @@ class PlaceVoteRepositoryTest {
     private static final Long MEETING_ID = 1L;
     private static final Long OTHER_MEETING_ID = 99L;
 
-    // 참여자 ID
-    private static final Long A = 10L;
-    private static final Long B = 20L;
-    private static final Long C = 30L;
+    // 참여자
+    private Long A;
+    private Long B;
+    private Long C;
 
     private static final Long RECOMMENDATION_RUN_ID = 1000L;
 
@@ -46,7 +48,11 @@ class PlaceVoteRepositoryTest {
     private Long PLACE_3;
 
     @BeforeEach
-    void setUpRecommendedPlaces() {
+    void setUp() {
+        A = participant(MEETING_ID, 1L);
+        B = participant(MEETING_ID, 2L);
+        C = participant(MEETING_ID, 3L);
+
         Long areaId = area(RECOMMENDATION_RUN_ID, "합정역");
         PLACE_1 = place(areaId, "google-place-1", "카페", 3);
         PLACE_2 = place(areaId, "google-place-2", "레스토랑", 2);
@@ -119,6 +125,16 @@ class PlaceVoteRepositoryTest {
         vote(OTHER_MEETING_ID, C, PLACE_2);
 
         assertThat(placeVoteRepository.countDistinctVoters(MEETING_ID)).isEqualTo(1);
+    }
+
+    @Test
+    void 모임을_나간_참여자의_투표는_투표자_수에서_제외한다() {
+        vote(MEETING_ID, A, PLACE_1);
+        vote(MEETING_ID, B, PLACE_1);
+        vote(MEETING_ID, C, PLACE_2);
+        leave(B);
+
+        assertThat(placeVoteRepository.countDistinctVoters(MEETING_ID)).isEqualTo(2);
     }
 
     /**
@@ -235,9 +251,59 @@ class PlaceVoteRepositoryTest {
         assertThat(result).extracting(PlaceVoteSummary::recommendedPlaceId).containsExactly(duplicatedPlace1);
     }
 
+    @Test
+    void 모임을_나간_참여자의_투표는_장소별_득표수에서_제외한다() {
+        vote(MEETING_ID, A, PLACE_1);
+        vote(MEETING_ID, B, PLACE_1);
+        vote(MEETING_ID, C, PLACE_2);
+        leave(B);
+
+        List<PlaceVoteSummary> result = placeVoteRepository.aggregateByPlace(MEETING_ID, A);
+
+        assertThat(result).extracting(PlaceVoteSummary::recommendedPlaceId, PlaceVoteSummary::voterCnt)
+                .containsExactlyInAnyOrder(
+                        tuple(PLACE_1, 1L),
+                        tuple(PLACE_2, 1L)
+                );
+    }
+
+    @Test
+    void 모임을_나간_참여자만_투표한_장소는_집계_결과에_나타나지_않는다() {
+        vote(MEETING_ID, A, PLACE_1);
+        vote(MEETING_ID, B, PLACE_2);
+        leave(B);
+
+        List<PlaceVoteSummary> result = placeVoteRepository.aggregateByPlace(MEETING_ID, A);
+
+        assertThat(result).extracting(PlaceVoteSummary::recommendedPlaceId).containsExactly(PLACE_1);
+    }
+
+    @Test
+    void 병합된_장소의_대표_id는_남은_참여자가_투표한_추천_장소_중_가장_작은_id다() {
+        // PLACE_1(더 작은 id)에는 나간 참여자만 투표, duplicatedPlace1에는 남은 참여자가 투표
+        Long duplicatedPlace1 = duplicatedPlace("google-place-1");
+        vote(MEETING_ID, B, PLACE_1);
+        vote(MEETING_ID, A, duplicatedPlace1);
+        leave(B);
+
+        List<PlaceVoteSummary> result = placeVoteRepository.aggregateByPlace(MEETING_ID, A);
+
+        assertThat(result).extracting(PlaceVoteSummary::recommendedPlaceId, PlaceVoteSummary::voterCnt)
+                .containsExactly(tuple(duplicatedPlace1, 1L));
+    }
+
     /**
      * helpers
      */
+
+    private Long participant(Long meetingId, Long userId) {
+        return em.persistAndFlush(Participant.create(meetingId, userId, ParticipantState.COND_DONE)).getId();
+    }
+
+    private void leave(Long participantId) {
+        em.find(Participant.class, participantId).leave();
+        em.flush();
+    }
 
     private Long area(Long recommendationRunId, String areaName) {
         return em.persistAndFlush(RecommendedArea.create(recommendationRunId, areaName)).getId();

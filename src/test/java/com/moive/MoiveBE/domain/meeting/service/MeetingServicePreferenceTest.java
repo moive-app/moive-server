@@ -115,7 +115,7 @@ class MeetingServicePreferenceTest {
         when(savedPref.getId()).thenReturn(100L);
         when(activity.getId()).thenReturn(1L);
 
-        when(meetingRepository.findById(10L)).thenReturn(Optional.of(meeting));
+        when(meetingRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(meeting));
         when(participantRepository.findByMeetingIdAndUserIdAndLeftAtIsNull(10L, 1L))
                 .thenReturn(Optional.of(participant));
         when(preferenceRepository.findByParticipantId(3L)).thenReturn(Optional.empty());
@@ -145,15 +145,15 @@ class MeetingServicePreferenceTest {
         when(savedPref.getId()).thenReturn(100L);
         when(activity.getId()).thenReturn(1L);
 
-        when(meetingRepository.findById(10L)).thenReturn(Optional.of(meeting));
+        when(meetingRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(meeting));
         when(participantRepository.findByMeetingIdAndUserIdAndLeftAtIsNull(10L, 1L))
                 .thenReturn(Optional.of(participant));
         when(preferenceRepository.findByParticipantId(3L)).thenReturn(Optional.empty());
         when(preferenceRepository.save(any())).thenReturn(savedPref);
         when(activityRepository.findByName(any())).thenReturn(Optional.of(activity));
         when(meeting.getSubmittedCnt()).thenReturn(2);
-        // 첫 호출(상태 체크)=CONDITION_INPUT, 이후 호출(응답 생성)=VOTING
-        when(meeting.getStatus()).thenReturn(MeetingStatus.CONDITION_INPUT, MeetingStatus.VOTING);
+        // 조건 입력 가능 여부 확인, 장소 투표 시작 여부 확인=CONDITION_INPUT, 이후 호출(응답 생성)=VOTING
+        when(meeting.getStatus()).thenReturn(MeetingStatus.CONDITION_INPUT, MeetingStatus.CONDITION_INPUT, MeetingStatus.VOTING);
 
         // when
         SubmitPreferenceResponse response = meetingService.submitPreference(10L, validRequest(true));
@@ -178,7 +178,7 @@ class MeetingServicePreferenceTest {
         when(savedPref.getId()).thenReturn(100L);
         when(activity.getId()).thenReturn(1L);
 
-        when(meetingRepository.findById(10L)).thenReturn(Optional.of(meeting));
+        when(meetingRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(meeting));
         when(participantRepository.findByMeetingIdAndUserIdAndLeftAtIsNull(10L, 1L))
                 .thenReturn(Optional.of(participant));
         when(preferenceRepository.findByParticipantId(3L)).thenReturn(Optional.empty());
@@ -204,7 +204,7 @@ class MeetingServicePreferenceTest {
         when(existingPref.getId()).thenReturn(100L);
         when(activity.getId()).thenReturn(1L);
 
-        when(meetingRepository.findById(10L)).thenReturn(Optional.of(meeting));
+        when(meetingRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(meeting));
         when(participantRepository.findByMeetingIdAndUserIdAndLeftAtIsNull(10L, 1L))
                 .thenReturn(Optional.of(participant));
         when(preferenceRepository.findByParticipantId(3L)).thenReturn(Optional.of(existingPref));
@@ -224,7 +224,7 @@ class MeetingServicePreferenceTest {
 
     @Test
     void 모임이_없으면_MEETING_NOT_FOUND() {
-        when(meetingRepository.findById(10L)).thenReturn(Optional.empty());
+        when(meetingRepository.findByIdForUpdate(10L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> meetingService.submitPreference(10L, validRequest(true)))
                 .isInstanceOf(CustomException.class)
@@ -235,7 +235,7 @@ class MeetingServicePreferenceTest {
     @Test
     void 모임_상태가_CONDITION_INPUT이_아니면_MEETING_STATUS_INVALID() {
         Meeting meeting = mockMeeting(MeetingStatus.VOTING, false, 2, 1);
-        when(meetingRepository.findById(10L)).thenReturn(Optional.of(meeting));
+        when(meetingRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(meeting));
 
         assertThatThrownBy(() -> meetingService.submitPreference(10L, validRequest(true)))
                 .isInstanceOf(CustomException.class)
@@ -246,7 +246,7 @@ class MeetingServicePreferenceTest {
     @Test
     void 모임_참여자가_아니면_NOT_A_PARTICIPANT() {
         Meeting meeting = mockMeeting(MeetingStatus.CONDITION_INPUT, false, 2, 0);
-        when(meetingRepository.findById(10L)).thenReturn(Optional.of(meeting));
+        when(meetingRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(meeting));
         when(participantRepository.findByMeetingIdAndUserIdAndLeftAtIsNull(10L, 1L))
                 .thenReturn(Optional.empty());
 
@@ -260,7 +260,7 @@ class MeetingServicePreferenceTest {
     void 출발지가_없으면_DEPARTURE_MISSING() {
         Meeting meeting = mockMeeting(MeetingStatus.CONDITION_INPUT, false, 2, 0);
         Participant participant = mockParticipant(false);
-        when(meetingRepository.findById(10L)).thenReturn(Optional.of(meeting));
+        when(meetingRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(meeting));
         when(participantRepository.findByMeetingIdAndUserIdAndLeftAtIsNull(10L, 1L))
                 .thenReturn(Optional.of(participant));
 
@@ -280,7 +280,7 @@ class MeetingServicePreferenceTest {
     void 유효하지_않은_이동시간이면_MAX_TRAVEL_MINUTES_INVALID() {
         Meeting meeting = mockMeeting(MeetingStatus.CONDITION_INPUT, false, 2, 0);
         Participant participant = mockParticipant(false);
-        when(meetingRepository.findById(10L)).thenReturn(Optional.of(meeting));
+        when(meetingRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(meeting));
         when(participantRepository.findByMeetingIdAndUserIdAndLeftAtIsNull(10L, 1L))
                 .thenReturn(Optional.of(participant));
 
@@ -303,7 +303,7 @@ class MeetingServicePreferenceTest {
     void 취향이_없으면_ACTIVITY_TYPES_EMPTY() {
         Meeting meeting = mockMeeting(MeetingStatus.CONDITION_INPUT, false, 2, 0);
         Participant participant = mockParticipant(false);
-        when(meetingRepository.findById(10L)).thenReturn(Optional.of(meeting));
+        when(meetingRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(meeting));
         when(participantRepository.findByMeetingIdAndUserIdAndLeftAtIsNull(10L, 1L))
                 .thenReturn(Optional.of(participant));
 
@@ -326,7 +326,7 @@ class MeetingServicePreferenceTest {
     void hasSchedule_false인데_일정이_없으면_AVAILABLE_SCHEDULES_EMPTY() {
         Meeting meeting = mockMeeting(MeetingStatus.CONDITION_INPUT, false, 2, 0);
         Participant participant = mockParticipant(false);
-        when(meetingRepository.findById(10L)).thenReturn(Optional.of(meeting));
+        when(meetingRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(meeting));
         when(participantRepository.findByMeetingIdAndUserIdAndLeftAtIsNull(10L, 1L))
                 .thenReturn(Optional.of(participant));
 
