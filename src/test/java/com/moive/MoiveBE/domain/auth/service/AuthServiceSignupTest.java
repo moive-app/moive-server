@@ -2,6 +2,7 @@ package com.moive.MoiveBE.domain.auth.service;
 
 import com.moive.MoiveBE.domain.auth.dto.KakaoUserInfoResponse;
 import com.moive.MoiveBE.domain.auth.dto.SignupRequest;
+import com.moive.MoiveBE.domain.auth.dto.SignupResponse;
 import com.moive.MoiveBE.domain.auth.dto.TokenResponse;
 import com.moive.MoiveBE.domain.user.entity.AgreementType;
 import com.moive.MoiveBE.domain.user.entity.User;
@@ -102,7 +103,7 @@ class AuthServiceSignupTest {
                 .thenReturn("refresh-token");
 
         // when
-        TokenResponse result =
+        SignupResponse result =
                 authService.signup(request);
 
         // then
@@ -137,6 +138,9 @@ class AuthServiceSignupTest {
                 agreementCaptor.getValue();
 
         assertThat(agreements).hasSize(3);
+
+        assertThat(result.userId())
+                .isEqualTo(1L);
 
         assertThat(result.accessToken())
                 .isEqualTo("access-token");
